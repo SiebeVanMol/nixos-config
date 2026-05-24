@@ -130,10 +130,18 @@
       hl.bind(mod .. " + N", hl.dsp.window.float({ action = "toggle" }))
       -- hl.bind(mod .. " + V", hl.dsp.layout(togglesplit))
 
+      hl.bind(mod .. " + F",         hl.dsp.window.fullscreen({ "maximized", toggle }))
+      hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen({ "fullscreen", toggle }))
+
       hl.bind(mod .. " + left",  hl.dsp.focus({ direction = "left" }))
       hl.bind(mod .. " + right", hl.dsp.focus({ direction = "right" }))
       hl.bind(mod .. " + up",    hl.dsp.focus({ direction = "up" }))
       hl.bind(mod .. " + down",  hl.dsp.focus({ direction = "down" }))
+
+      hl.bind(mod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }))
+      hl.bind(mod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }))
+      hl.bind(mod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))
+      hl.bind(mod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down" }))
 
       for i = 1, 9 do
         hl.bind(mod .. " + " .. i, hl.dsp.focus({ workspace = i }))
