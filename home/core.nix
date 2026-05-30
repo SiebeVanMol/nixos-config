@@ -13,7 +13,6 @@
     ./hyprland.nix
     ./rofi
     ./waybar
-    ./quickshell
     ./wallust
   ];
 

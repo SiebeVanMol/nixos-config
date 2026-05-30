@@ -25,9 +25,7 @@
       # Compilers
       gcc
       gnumake
-      gdb
       valgrind
-      zig
       rustup
       # Cargo
       cargo-tarpaulin
@@ -35,7 +33,6 @@
       cargo-all-features
       # code tools
       man-pages
-      hyperfine
       norminette
       lmstudio
       opencode
@@ -47,16 +44,10 @@
     # Games #
     #########
       # Launcher
-      heroic
       xivlauncher
       prismlauncher
-      protonup-qt
       # Modding
       openmw
-      (limo.override { withUnrar = true; })
-      # Emulation
-      cemu
-      rpcs3
 
     ################
     # Productivity #
@@ -76,6 +67,10 @@
       ncspot
       # Jellyfin
       jellyfin-desktop
+
+      jetbrains.clion
+      jetbrains.pycharm
+      jetbrains.rust-rover
   ];
 
   home.sessionVariables = {

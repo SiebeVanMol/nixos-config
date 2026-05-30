@@ -8,8 +8,6 @@
     ../../system/app/steam.nix
     ../../system/app/gamemode.nix
     ../../system/app/jellyfin.nix
-    # ../../system/app/plex.nix
-    ../../system/app/kanata.nix
 
     ../../system/hardware/kernel.nix
     ../../system/hardware/time.nix
