@@ -82,7 +82,7 @@
           darkreader
           sponsorblock
           proton-pass
-          proton-vpn
+          # proton-vpn
         ];
       }; 
 

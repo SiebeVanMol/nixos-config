@@ -25,9 +25,13 @@
       # Compilers
       gcc
       gnumake
+      cmake
       valgrind
       rustup
+      python3
+      mypy
       # Cargo
+      cargo-expand
       cargo-tarpaulin
       cargo-flamegraph
       cargo-all-features
@@ -85,6 +89,7 @@
     mpvConfig = {
       target-colorspace-hint = "yes";
       vo = "dmabuf-wayland";
+      vf = "format=bgr0";
     };
   };
   

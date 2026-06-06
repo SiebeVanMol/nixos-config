@@ -4,6 +4,14 @@
   ...
 }: {
 
+  # AMD OpenCL for tone mapping
+  hardware.graphics.extraPackages = with pkgs; [
+    libva
+    libva-vdpau-driver
+    libvdpau-va-gl
+    rocmPackages.clr.icd
+  ];
+  
   services.jellyfin = {
     enable = true;
     openFirewall = true;
@@ -33,6 +41,10 @@
       openFirewall = true;
     };
     seerr = {
+      enable = true;
+      openFirewall = true;
+    };
+    readarr = {
       enable = true;
       openFirewall = true;
     };

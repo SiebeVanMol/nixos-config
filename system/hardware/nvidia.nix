@@ -16,12 +16,12 @@
       nvidiaSettings = false;
     };
   };
-  environment = {
-    variables.ENABLE_HDR_WSI=1;
-    systemPackages = [pkgs.vulkan-hdr-layer-kwin6];
+  environment.variables = {
+    LIBVA_DRIVER_NAME = "nvidia";
+    VDPAU_DRIVER = "nvidia";
   };
 
-  # Nvidia requires udev and systemd because ofcourse their driver is buggy.
+  # NVIDIA requires udev and systemd because of course their driver is buggy.
   services.udev.extraRules = ''
     SUBSYSTEM=="i2c-dev", ACTION=="add",\
       ATTR{name}=="NVIDIA i2c adapter*",\

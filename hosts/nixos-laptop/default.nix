@@ -7,7 +7,6 @@
 
     ../../system/app/steam.nix
     ../../system/app/gamemode.nix
-    ../../system/app/jellyfin.nix
     ../../system/app/kanata.nix
 
     ../../system/hardware/bluetooth.nix
@@ -23,7 +22,7 @@
     ../../system/security/firewall.nix
     ../../system/security/tailscale.nix
     ../../system/security/automount.nix
-    # ../../system/security/proton-vpn.nix
+    ../../system/security/proton-vpn.nix
   ];
 
   # Bootloader.

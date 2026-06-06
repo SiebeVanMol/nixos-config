@@ -25,16 +25,9 @@
             tab  w l y p b z f o u ' [ ] \
             caps c r s t g m n e i a ; ret
             lsft q j v d k x h / , . rsft
-            @ctl _ _ _ _ _ @ctl
-          )
-          (deflayer control
-            _ _ _ _ _ _ _ _ _ _ _ _ _ _
-            _ C-q C-w C-e C-r C-t C-y C-u C-i C-o C-p _ _ _
-            _ C-a C-s C-d C-f C-g C-h C-j C-k C-l _ _ _
-            _ C-z C-x C-c C-v C-b C-n C-m _ _ _ _
             _ _ _ _ _ _ _
           )
-          (deflayer command
+                    (deflayer command
             _ _ _ _ _ _ _ _ _ _ _ _ _ _
             _ _ _ _ _ _ _ _ up _ _ _ _ _
             _ _ _ _ _ _ _ left down right _ _ _
@@ -42,8 +35,6 @@
             _ _ _ _ _ _ _
           )
           (defalias
-            ctl (layer-while-held control)
-          
             grl (tap-hold 200 200 grv (layer-toggle layers))
            
             qwr (layer-switch qwerty)
