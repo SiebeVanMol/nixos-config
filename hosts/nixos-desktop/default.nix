@@ -32,12 +32,11 @@
   # External monitor brightness control for hypridle.
   boot.extraModulePackages = [config.boot.kernelPackages.ddcci-driver];
   boot.kernelModules = ["i2c-dev" "ddcci_backlight"];
+  boot.kernelParams = [ "panic=10" ];
 
   # Enable networking
   networking.networkmanager.enable = true;
   networking.hostName = "nixos-desktop";
-
-  networking.extraHosts = "0.0.0.0 modules-cdn.eac-prod.on.epicgames.com";
 
   # Set your time zone.
   time.timeZone = "Europe/Brussels";
