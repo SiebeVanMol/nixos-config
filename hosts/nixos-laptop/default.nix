@@ -15,6 +15,7 @@
     ../../system/hardware/kernel.nix
     ../../system/hardware/time.nix
     
+    ../../system/hardware/amd.nix
     ../../system/hardware/mesa.nix
     ../../system/hardware/nvidia.nix
     ../../system/hardware/zsa.nix

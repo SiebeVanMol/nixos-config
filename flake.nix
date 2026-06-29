@@ -15,9 +15,10 @@
       url = "github:0xc000022070/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    vpn-confinement.url = "github:Maroka-chan/VPN-Confinement";
   };
 
-  outputs = inputs@{ nixpkgs, home-manager, nur, ... }:
+  outputs = inputs@{ nixpkgs, home-manager, nur, vpn-confinement, ... }:
     let
       buildSystem = { user, host }:
         let
@@ -31,6 +32,7 @@
               # Host device configurations
               ./hosts/${host}
 
+              vpn-confinement.nixosModules.default
               # General home manager config and user changes
               home-manager.nixosModules.home-manager
               {
@@ -39,6 +41,7 @@
                 home-manager.extraSpecialArgs = inputs // specialArgs;
                 home-manager.users.${username} = import ./users/${username}/home.nix;
 
+                
                 nixpkgs.overlays = [
                   nur.overlays.default
                 ];

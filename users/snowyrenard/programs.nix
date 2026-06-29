@@ -50,6 +50,7 @@
       # Launcher
       xivlauncher
       prismlauncher
+      heroic
       # Modding
       openmw
 
@@ -89,7 +90,6 @@
     mpvConfig = {
       target-colorspace-hint = "yes";
       vo = "dmabuf-wayland";
-      vf = "format=bgr0";
     };
   };
   
@@ -101,6 +101,8 @@
       settings = {
         theme_background = false;
         update_ms = 100;
+        check_temp = true;
+        show_cpu_freq = true;
       };
     };
 

@@ -14,6 +14,7 @@
     ../../system/hardware/time.nix
     ../../system/hardware/dualsense.nix
     
+    ../../system/hardware/amd.nix
     ../../system/hardware/mesa.nix
     ../../system/hardware/zsa.nix
 

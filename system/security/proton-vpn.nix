@@ -1,6 +1,4 @@
-{ pkgs,
-  ...
-}: {
-    networking.firewall.checkReversePath = false;
+{ pkgs, ... }:
+{
     environment.systemPackages = with pkgs; [wireguard-tools proton-vpn];
-  }
+}

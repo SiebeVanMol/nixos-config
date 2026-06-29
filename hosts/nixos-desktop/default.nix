@@ -12,6 +12,7 @@
     ../../system/hardware/kernel.nix
     ../../system/hardware/time.nix
     
+    ../../system/hardware/amd.nix
     ../../system/hardware/mesa.nix
     ../../system/hardware/lvm.nix
     ../../system/hardware/bluetooth.nix

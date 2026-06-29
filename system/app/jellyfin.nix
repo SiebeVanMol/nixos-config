@@ -1,9 +1,8 @@
 {
   pkgs,
-  lib,
+  username,
   ...
 }: {
-
   # AMD OpenCL for tone mapping
   hardware.graphics.extraPackages = with pkgs; [
     libva
@@ -28,31 +27,54 @@
     bazarr = {
       enable = true;
       group = "users";
-      openFirewall = true;
     };
     sonarr = {
       enable = true;
       group = "users";
-      openFirewall = true;
     };
     radarr = {
       enable = true;
       group = "users";
-      openFirewall = true;
     };
     seerr = {
       enable = true;
       openFirewall = true;
     };
-    readarr = {
-      enable = true;
-      openFirewall = true;
-    };
     prowlarr.enable = true;
   };
-  # Fix file permissions
-  systemd.services = builtins.listToAttrs (map (name: {
-  inherit name;
-  value.serviceConfig.UMask = lib.mkForce "0002";
-  }) [ "radarr" "sonarr" "bazarr" ]);
+
+  # VPN namespace for torrenting
+  vpnNamespaces.wg0 = {
+    enable = true;
+    wireguardConfigFile = "/home/${username}/proton-vpn.conf";
+    portMappings = [
+      {
+        from = 9091;
+        to = 9091;
+      }
+    ];
+  };
+
+  # Attach the transmission systemd service to the VPN namespace
+  systemd.services.transmission.vpnConfinement = {
+    enable = true;
+    vpnNamespace = "wg0";
+  };
+
+  # Torrenting
+  services.transmission = {
+    enable = true;
+    group = "users";
+    package = pkgs.transmission_4;
+    settings = {
+      download-dir = "/Vault/Downloads";
+      incomplete-dir = "/Vault/Downloads/.incomplete";
+      incomplete-dir-enabled = true;
+      umask = "002";
+      rpc-bind-address = "0.0.0.0";
+      rpc-whitelist-enabled = false;
+      seed_ratio_limit = 0;
+      seed_ratio_limited = true;
+    };
+  };
 }
