@@ -13,11 +13,8 @@
       # Monitoring
       yazi
       nvtopPackages.amd
-      # Web
-      curl
       # Extra
       tokei
-      tealdeer
 
     ###############
     # Programming #
@@ -39,20 +36,13 @@
       man-pages
       norminette
       lmstudio
-      opencode
-      rocmPackages.rocm-smi
-      # Git
-      jujutsu
 
     #########  
     # Games #
     #########
       # Launcher
       xivlauncher
-      prismlauncher
       heroic
-      # Modding
-      openmw
 
     ################
     # Productivity #
@@ -61,17 +51,12 @@
       vesktop
       # File sharing
       qbittorrent
-      # Proton
-      proton-pass
-      protonmail-desktop
 
     #########
     # Media #
     #########
       # Music
       ncspot
-      # Jellyfin
-      jellyfin-desktop
 
       jetbrains.clion
       jetbrains.pycharm

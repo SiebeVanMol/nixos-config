@@ -33,6 +33,7 @@
         output = "",
         mode = "highrr",
         scale = 1,
+        bitdepth = 10,
       })
 
       -------------------
