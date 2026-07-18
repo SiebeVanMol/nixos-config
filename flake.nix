@@ -7,18 +7,23 @@
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
     nur = {
       url = "github:nix-community/NUR";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    
     zen-browser = {
       url = "github:0xc000022070/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    
     vpn-confinement.url = "github:Maroka-chan/VPN-Confinement";
+
+    nix-minecraft.url = "github:Infinidoge/nix-minecraft";
   };
 
-  outputs = inputs@{ nixpkgs, home-manager, nur, vpn-confinement, ... }:
+  outputs = inputs@{ nixpkgs, home-manager, nur, vpn-confinement, nix-minecraft, ... }:
     let
       buildSystem = { user, host }:
         let
@@ -32,6 +37,7 @@
               # Host device configurations
               ./hosts/${host}
 
+              nix-minecraft.nixosModules.minecraft-servers
               vpn-confinement.nixosModules.default
               # General home manager config and user changes
               home-manager.nixosModules.home-manager
@@ -44,6 +50,7 @@
                 
                 nixpkgs.overlays = [
                   nur.overlays.default
+                  nix-minecraft.overlay
                 ];
               }
             ];

@@ -15,6 +15,7 @@
       nvtopPackages.amd
       # Extra
       tokei
+      tealdeer
 
     ###############
     # Programming #
@@ -27,6 +28,7 @@
       rustup
       python3
       mypy
+      python313Packages.flake8
       # Cargo
       cargo-expand
       cargo-tarpaulin
@@ -35,6 +37,7 @@
       # code tools
       man-pages
       norminette
+      opencode
       lmstudio
 
     #########  
@@ -43,12 +46,14 @@
       # Launcher
       xivlauncher
       heroic
+      prismlauncher
+      protonup-qt
 
     ################
     # Productivity #
     ################
       # Communication
-      vesktop
+      discord
       # File sharing
       qbittorrent
 

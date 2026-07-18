@@ -8,6 +8,7 @@
     ../../system/app/steam.nix
     ../../system/app/gamemode.nix
     ../../system/app/jellyfin.nix
+    ../../system/app/minecraft.nix
 
     ../../system/hardware/kernel.nix
     ../../system/hardware/time.nix
@@ -22,6 +23,7 @@
     ../../system/security/tailscale.nix
     ../../system/security/automount.nix
     ../../system/security/proton-vpn.nix
+    ../../system/security/ssh.nix
   ];
 
   # Bootloader.
