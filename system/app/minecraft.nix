@@ -18,7 +18,7 @@ in
     eula = true;
 
     servers.violet-town = {
-      enable = true;
+      # enable = true;
       openFirewall = true;
 
       package = pkgs.neoforgeServers.${serverVersion}.override {
