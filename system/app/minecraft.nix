@@ -34,6 +34,7 @@ in
         max-tick-time = 180000;
         simulation-distance = 5;
         view-distance = 8;
+        pause-when-empty-seconds=60;
       };
 
       symlinks = {
