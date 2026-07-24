@@ -32,7 +32,7 @@ window#waybar {
 }
 
 #workspaces button {
-  padding: 0px 5px; 
+  padding: 0px 5px;
   margin: 4px 3px;
   border-radius: 15px;
   border: 0px;
@@ -64,17 +64,17 @@ window#waybar {
   padding: 2px 10px 0px 10px;
   border-radius: 12px;
   color: @highlight;
-  font-size:16px;
+  font-size: 16px;
   font-weight: normal;
   opacity: 0.8;
 }
 
-window#waybar.empty #window{
+window#waybar.empty #window {
   background: transparent;
 }
 
 tooltip {
-  background-color: transparent;	
+  background-color: transparent;
 }
 
 tooltip label {
@@ -115,7 +115,7 @@ box.modules-right {
   opacity: 1.0;
 }
 
-#pulse-audio.muted {
+#pulseaudio.muted {
   background-color: @highlight;
 }
 
@@ -136,23 +136,23 @@ box.modules-right {
 }
 
 #backlight-slider slider {
-    min-height: 0px;
-    min-width: 0px;
-    opacity: 0;
-    background-image: none;
-    border: none;
-    box-shadow: none;
+  min-height: 0px;
+  min-width: 0px;
+  opacity: 0;
+  background-image: none;
+  border: none;
+  box-shadow: none;
 }
 #backlight-slider trough {
-    min-height: 10px;
-    min-width: 50px;
-    border-radius: 5px;
-    background-color: black;
+  min-height: 10px;
+  min-width: 50px;
+  border-radius: 5px;
+  background-color: black;
 }
 #backlight-slider highlight {
-    min-width: 0px;
-    border-radius: 5px;
-    background-color: @highlight;
+  min-width: 0px;
+  border-radius: 5px;
+  background-color: @highlight;
 }
 
 #battery {
@@ -177,13 +177,5 @@ box.modules-right {
   padding: 0px 10px 0px 10px;
   margin: 3px;
   opacity: 1.0;
-}      
-
-#custom-notification {
-  background-color: @highlight;
-  border-radius: 15px;
-  padding: 0px 10px 0px 10px;
-  margin: 3px;
-  opacity: 1.0;
-}      
+}
 

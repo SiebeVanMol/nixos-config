@@ -18,7 +18,7 @@
 
       colors-dark = {
         alpha = 0.75;
-      };      
+      };
     };
   };
 

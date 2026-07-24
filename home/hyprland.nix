@@ -49,7 +49,7 @@
       end)
 
       hl.config({
-        general ={
+        general = {
           gaps_in = 5,
           gaps_out = 10,
 
@@ -129,13 +129,13 @@
       hl.bind(mod .. " + T", hl.dsp.exec_cmd(terminal))
       hl.bind(mod .. " + Return", hl.dsp.exec_cmd(terminal))
 
-      local closeWindow = hl.bind(mod .. " + SHIFT + Q", hl.dsp.window.close())
+      hl.bind(mod .. " + SHIFT + Q", hl.dsp.window.close())
       hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
 
       hl.bind(mod .. " + N", hl.dsp.window.float({ action = "toggle" }))
 
-      hl.bind(mod .. " + F",         hl.dsp.window.fullscreen({ "maximized", toggle }))
-      hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen({ "fullscreen", toggle }))
+      hl.bind(mod .. " + F",         hl.dsp.window.fullscreen({ "maximized", true }))
+      hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen({ "fullscreen", true }))
 
       hl.bind(mod .. " + left",  hl.dsp.focus({ direction = "left" }))
       hl.bind(mod .. " + right", hl.dsp.focus({ direction = "right" }))
@@ -219,15 +219,14 @@
       };
       listener = [
         {
-            timeout = 90;#sec
+            timeout = 90; #sec
             # ddcci is for external monitor support.
             on-timeout = "${pkgs.brillo}/bin/brillo -el -O && ${pkgs.brillo}/bin/brillo -el -S 10%";         # set monitor backlight to minimum, avoid 0 on OLED monitor.
             on-resume = "${pkgs.brillo}/bin/brillo -el -I";                 # monitor backlight restore.
         }
-        
 
         {
-            timeout = 300;# 5min
+            timeout = 300; # 5min
             on-timeout = "hyprctl dispatch dpms off";                            # screen off when timeout has passed
             on-resume = "hyprctl dispatch dpms on && ${pkgs.brillo}/bin/brillo -el -I";          # screen on when activity is detected after timeout has fired.
         }

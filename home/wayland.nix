@@ -2,9 +2,8 @@
   pkgs,
   ...
 }: {
-  home.sessionVariables.NIXOS_OZONE_WL = "1";
-
   home.sessionVariables = {
+    NIXOS_OZONE_WL = "1";
     AWWW_TRANSITION = "none";
   };
   services.awww.enable = true;

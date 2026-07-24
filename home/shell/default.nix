@@ -7,6 +7,6 @@
     ./terminals.nix
   ];
 
-  # Allow home-manager to take controll over bash.
+  # Allow home-manager to take control over bash.
   programs.bash.enable = true;
 }
