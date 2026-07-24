@@ -68,7 +68,7 @@
         };
         alex-desktop = buildSystem {
           user = "alexander";
-          host = "alex-desktop";
+          host = "AlexDesktop";
         };
       };
     };

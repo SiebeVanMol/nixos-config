@@ -1,9 +1,10 @@
-# https://nixos.wiki/wiki/TPM
-{ username, ... }: {
-  security.tpm2 = {
-    enable = true;
-    pkcsll.enable = true;
-    tctiEnvironment.enable = true;
+{ config, lib, username, ... }: {
+  config = lib.mkIf config.device.hardware.tpm.enable {
+    security.tpm2 = {
+      enable = true;
+      pkcs11.enable = true;
+      tctiEnvironment.enable = true;
+    };
+    users.users.${username}.extraGroups = [ "tss" ];
   };
-  users.users.${username}.extraGroups = [ "tss" ];
 }

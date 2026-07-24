@@ -1,8 +1,8 @@
-# nixos.wiki/wiki/LVM
-{
-  boot.initrd.kernelModules = [
-    "dm-cache-default" # lvm cache
-  ];
-
-  services.lvm.boot.thin.enable = true; # Required for lvm caching to work.
+{ config, lib, ... }: {
+  config = lib.mkIf config.device.hardware.lvm.enable {
+    boot.initrd.kernelModules = [
+      "dm-cache-default"
+    ];
+    services.lvm.boot.thin.enable = true;
+  };
 }

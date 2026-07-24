@@ -1,6 +1,7 @@
-{ ... }:
-{
-  services.udev.extraRules = ''
-    ACTION=="add|change", ATTRS{name}=="*Wireless Controller Touchpad", ENV{LIBINPUT_IGNORE_DEVICE}="1"
-  '';
+{ config, lib, ... }: {
+  config = lib.mkIf config.device.hardware.dualsense.enable {
+    services.udev.extraRules = ''
+      ACTION=="add|change", ATTRS{name}=="*Wireless Controller Touchpad", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+    '';
+  };
 }

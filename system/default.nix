@@ -1,4 +1,9 @@
 { username, pkgs, lib, ... }: {
+  imports = [
+    ./options.nix
+    ./hardware
+  ];
+
   users.users.${username} = {
     isNormalUser = true;
     description = username;
