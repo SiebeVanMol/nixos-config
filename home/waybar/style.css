@@ -1,6 +1,6 @@
 @import '../../.cache/wallust/colors-waybar.css';
 
-@define-color highlight @color10;
+@define-color highlight @color1;
 @define-color background #FFFFFF;
 
 * {
