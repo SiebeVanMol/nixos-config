@@ -18,8 +18,6 @@
       local browser = os.getenv("BROWSER")
       local drun = "rofi -show drun"
 
-      --require("${config.xdg.cacheHome}/wallust/hypr-colors")
-
       hl.config({
         dwindle = {
           preserve_split = true,
@@ -42,11 +40,25 @@
       hl.env("XCURSOR_SIZE", 16)
       hl.env("HYPRCURSOR_SIZE", 16)
 
+      local ok = pcall(dofile, "${config.xdg.cacheHome}/wallust/hypr-colors")
+      if ok then
+        hl.config({
+          decoration = {
+            col = {
+              active_border = tonumber("0xff" .. color10),
+              inactive_border = 0xbbffffff,
+            },
+          },
+        })
+      end
+
+      pcall(dofile, os.getenv("HOME") .. "/Pictures/Backgrounds/background.lua")
+
       hl.on("hyprland.start", function()
         hl.exec_cmd("hyprctl setcursor Bibata-Modern-Classic 16")
         hl.exec_cmd("sleep 5s; swww_randomize ~/Pictures/Backgrounds/Art/ 309sec")
       end)
-    
+
       hl.config({
         general ={
           gaps_in = 5,
@@ -59,10 +71,7 @@
 
         decoration = {
           rounding = 10,
-          col = {
-            --active_border = rgb(color10),
-            --inactive_border = rgba(ffffffbb),
-          },
+          col = {},
 
           shadow = {
             enabled = true,
