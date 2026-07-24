@@ -1,8 +1,18 @@
 {
+  config,
+  lib,
   pkgs,
   username,
   ...
 }: {
+  # AMD OpenCL for tone mapping
+  hardware.graphics.extraPackages = lib.mkIf config.device.hardware.mesa.enable (with pkgs; [
+    libva
+    libva-vdpau-driver
+    libvdpau-va-gl
+    rocmPackages.clr.icd
+  ]);
+
   services.jellyfin = {
     enable = true;
     openFirewall = true;
