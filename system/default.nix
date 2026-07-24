@@ -27,10 +27,6 @@
   # Periodic SSD TRIM.
   services.fstrim.enable = true;
 
-  # Put /tmp on tmpfs with a 4G cap instead of the default 50% of RAM.
-  boot.tmp.useTmpfs = true;
-  boot.tmp.tmpfsSize = "4G";
-
   # Allow unfree packages.
   nixpkgs.config.allowUnfree = true;
 
