@@ -43,10 +43,10 @@
       local ok = pcall(dofile, "${config.xdg.cacheHome}/wallust/hypr-colors")
       if ok then
         hl.config({
-          decoration = {
+          general = {
             col = {
-              active_border = tonumber("0xff" .. color10),
-              inactive_border = 0xbbffffff,
+              active_border = { colors = {"rgb(" .. color10 .. ")", "rgb(" .. color12 .. ")"} },
+              inactive_border = "rgba(ffffffbb)",
             },
           },
         })
@@ -71,7 +71,6 @@
 
         decoration = {
           rounding = 10,
-          col = {},
 
           shadow = {
             enabled = true,
