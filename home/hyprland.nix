@@ -40,17 +40,20 @@
       hl.env("XCURSOR_SIZE", 16)
       hl.env("HYPRCURSOR_SIZE", 16)
 
-      local ok = pcall(dofile, "${config.xdg.cacheHome}/wallust/hypr-colors")
-      if ok then
-        hl.config({
-          general = {
-            col = {
-              active_border = { colors = {"rgb(" .. color10 .. ")", "rgb(" .. color12 .. ")"} },
-              inactive_border = "rgba(ffffffbb)",
-            },
-          },
-        })
+      pcall(dofile, "${config.xdg.cacheHome}/wallust/hypr-colors")
+      if color10 then
+        active_border = { colors = {"rgb(" .. color10 .. ")", "rgb(" .. (color12 or color10) .. ")"} }
+      else
+        active_border = { colors = {"rgba(33ccffee)", "rgba(00ff99ee)"} }
       end
+      hl.config({
+        general = {
+          col = {
+            active_border = active_border,
+            inactive_border = "rgba(ffffffbb)",
+          },
+        },
+      })
 
       pcall(dofile, os.getenv("HOME") .. "/Pictures/Backgrounds/background.lua")
 
