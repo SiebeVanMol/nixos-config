@@ -58,7 +58,7 @@
           layout = "dwindle",
 
           col = {
-            active_border = { colors = {"rgb(" .. (color10 or "33ccff") .. ")", "rgb(" .. (color12 or color10 or "00ff99") .. ")"} },
+            active_border = { colors = {"rgb(" .. (color1 or "ff3333") .. ")", "rgb(" .. (color5 or color1 or "ff00ff") .. ")"} },
             inactive_border = "rgba(ffffffbb)",
           },
         },

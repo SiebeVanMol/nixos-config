@@ -42,10 +42,10 @@
               (${awww}/bin/awww img $img),
             ] | par-each { $in }
             try {
-              let c10 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color10") | first | parse "color10 = \"{c}\"" | get c.0)
-              let c12 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color12") | first | parse "color12 = \"{c}\"" | get c.0)
-              let v1 = ("\"" + "rgb(" + $c10 + ")" + "\"")
-              let v2 = ("\"" + "rgb(" + $c12 + ")" + "\"")
+              let c1 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color1") | first | parse "color1 = \"{c}\"" | get c.0)
+              let c5 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color5") | first | parse "color5 = \"{c}\"" | get c.0)
+              let v1 = ("\"" + "rgb(" + $c1 + ")" + "\"")
+              let v2 = ("\"" + "rgb(" + $c5 + ")" + "\"")
               let cmd = ("hl.config({ general = { col = { active_border = { colors = {" + $v1 + ", " + $v2 + "} }, inactive_border = \"rgba(ffffffbb)\" } } })")
               hyprctl eval $cmd | ignore
             }
