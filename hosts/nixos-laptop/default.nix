@@ -1,3 +1,4 @@
+# Laptop machine configuration. NVIDIA GPU, keyboard remapping, power management (lid switch).
 { ... }: {
   imports = [
     ../../system/default.nix

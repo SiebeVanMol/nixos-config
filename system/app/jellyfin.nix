@@ -1,3 +1,5 @@
+# Media server stack: Jellyfin (media), Sonarr (TV), Radarr (movies), Bazarr (subtitles),
+# Prowlarr (indexers), Overseerr (requests), and Transmission (torrents) confined to a ProtonVPN namespace.
 {
   config,
   lib,

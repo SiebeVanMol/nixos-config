@@ -1,3 +1,5 @@
+# Wallust: dynamic colour palette generator from wallpaper (pywal-like).
+# Generates theme files for Hyprland borders, Waybar CSS, and Rofi theme.
 {
   config,
   ...

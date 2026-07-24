@@ -1,3 +1,4 @@
+# Helix editor with LSP servers (nixd, rust-analyzer, clangd, zls, markdown-oxide, harper, typos).
 {
   pkgs,
   ...

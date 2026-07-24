@@ -1,3 +1,4 @@
+# Waybar status bar: workspaces, window title, battery, audio, network, clock, and system tray.
 { pkgs, ... }:
 {
   programs.waybar = {

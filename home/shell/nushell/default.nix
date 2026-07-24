@@ -1,3 +1,4 @@
+# Nushell configuration: disable banner, set shorthand aliases, enable Carapace completions.
 {
   programs.nushell = {
     enable = true;

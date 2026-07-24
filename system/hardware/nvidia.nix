@@ -1,3 +1,4 @@
+# NVIDIA proprietary driver with modesetting, dynamic boost, VA-API, and DDC/CI brightness control.
 { config, lib, pkgs, ... }: {
   config = lib.mkIf config.device.hardware.nvidia.enable {
     services.xserver.videoDrivers = [ "nvidia" ];

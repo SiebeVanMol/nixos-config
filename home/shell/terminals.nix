@@ -1,3 +1,4 @@
+# Foot terminal configuration: client/server mode, Nushell as default shell, Fira Code font, 75% opacity.
 {
   home.sessionVariables = {
     TERM = "footclient";

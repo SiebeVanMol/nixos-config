@@ -1,3 +1,4 @@
+# Backlight control via Brillo and DDC/CI for external monitor brightness.
 { config, lib, username, ... }: {
   config = lib.mkIf config.device.hardware.backlight.enable {
     hardware.brillo.enable = true;

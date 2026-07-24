@@ -1,3 +1,4 @@
+# Zen Browser (Firefox fork): multi-container workspaces, extensions, custom search engines, bookmarks.
 {
   pkgs,
   username,

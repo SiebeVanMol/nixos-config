@@ -1,3 +1,4 @@
+# System fonts: Noto (CJK, emoji), Fira Code, Fira Code Nerd Font with subpixel rendering.
 { pkgs, ... }:
 
 {

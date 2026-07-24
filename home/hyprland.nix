@@ -1,3 +1,4 @@
+# User-level Hyprland configuration: keybindings, animations, hyprlock/hypridle, xdg-desktop-portal.
 {
   pkgs,
   config,

@@ -1,3 +1,4 @@
+# Latest Linux kernel, uinput module for input device emulation, low swappiness.
 { config, lib, pkgs, ... }: {
   config = lib.mkIf config.device.hardware.kernel.enable {
     boot = {

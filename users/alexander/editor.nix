@@ -1,3 +1,4 @@
+# KWrite (KDE) as default editor with Kate package.
 {
   pkgs,
   ...

@@ -1,3 +1,4 @@
+# Steam with Remote Play, LAN transfer, gamemode integration, and Proton GE.
 { pkgs, ... }:
 
 {

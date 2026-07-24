@@ -1,3 +1,4 @@
+# Snowy's installed programs: dev tools, games, media, productivity apps.
 { pkgs, ... }:
 {
   home.packages = with pkgs; [

@@ -1,3 +1,4 @@
+# ZSA keyboard (Moonlander/Voyager) support and the Keymapp configuration tool.
 { config, lib, pkgs, ... }: {
   config = lib.mkIf config.device.hardware.zsa.enable {
     hardware.keyboard.zsa.enable = true;

@@ -1,3 +1,4 @@
+# Kanata keyboard remapper: QWERTY, Canary-angle, layers, and command-mode layouts.
 { ... }: {
   hardware.uinput.enable = true;
 

@@ -1,3 +1,4 @@
+# Neoforge Minecraft server (violet-town) with Atmons modpack and custom gamerules datapack.
 { pkgs, lib, ... }:
 let
   mcVersion = "1.21.1";
@@ -12,6 +13,7 @@ let
     sha256 = "sha256-KpOoctVm2tTNKu/dUNHTfj+Xyh/1iC5fNnRA7t/3K1o=";
   };
 
+  # Datapack that disables mobGriefing on world load.
   gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
     {
       name = "pack.mcmeta";

@@ -1,3 +1,4 @@
+# Snowy's user home: MIME application defaults, Japanese input (fcitx5 + Mozc).
 { pkgs, ... }: {
   imports = [
     ../../home/core.nix

@@ -1,3 +1,6 @@
+# Base system configuration shared across all machines.
+# Creates the primary user, sets Nix/SSD/locale defaults, and pulls in the option-defined
+# hardware and security toggle modules.
 { username, pkgs, lib, ... }: {
   imports = [
     ./options.nix

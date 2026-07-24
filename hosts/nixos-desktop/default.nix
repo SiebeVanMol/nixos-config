@@ -1,3 +1,4 @@
+# Desktop machine configuration. Full workstation: Jellyfin media server, Minecraft server.
 { ... }: {
   imports = [
     ../../system/default.nix

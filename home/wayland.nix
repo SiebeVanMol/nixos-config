@@ -1,3 +1,4 @@
+# User-level Wayland configuration: wallpaper rotation script, cursor theme, GTK icon theme.
 {
   pkgs,
   ...

@@ -1,3 +1,4 @@
+# Alex's user home: Japanese input (fcitx5 + Mozc).
 { pkgs, ... }: {
   imports = [
     ../../home/core.nix

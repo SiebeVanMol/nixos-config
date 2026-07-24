@@ -1,3 +1,4 @@
+# Rofi application launcher with custom theme and config directory.
 {
   programs.rofi = {
     enable = true;

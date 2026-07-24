@@ -1,5 +1,9 @@
+# Flake entry point defining all NixOS system configurations and their inputs.
+# Provides three machines: nixos-desktop, nixos-laptop (user: snowyrenard), and alex-desktop (user: alexander).
 {
   description = "NixOS configuration";
+
+  # Remote flake dependencies pinned by flake.lock.
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -24,6 +28,7 @@
   };
 
   outputs = inputs@{ nixpkgs, home-manager, nur, vpn-confinement, nix-minecraft, ... }:
+    # Helper to build a system configuration for a given user + host pair.
     let
       buildSystem = { user, host }:
         let
@@ -34,12 +39,14 @@
             inherit specialArgs;
             system = "x86_64-linux";
             modules = [
-              # Host device configurations
+              # Machine-specific NixOS config + generated hardware config.
               ./hosts/${host}
 
+              # Third-party modules for Minecraft server and VPN network namespaces.
               nix-minecraft.nixosModules.minecraft-servers
               vpn-confinement.nixosModules.default
-              # General home manager config and user changes
+
+              # Home Manager: declarative per-user package and dotfile management.
               home-manager.nixosModules.home-manager
               {
                 home-manager.useGlobalPkgs = true;
@@ -47,7 +54,6 @@
                 home-manager.extraSpecialArgs = inputs // specialArgs;
                 home-manager.users.${username} = import ./users/${username}/home.nix;
 
-                
                 nixpkgs.overlays = [
                   nur.overlays.default
                   nix-minecraft.overlay

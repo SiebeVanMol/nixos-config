@@ -1,3 +1,4 @@
+# Alex's installed programs: monitoring, games, git, study tools.
 { pkgs, ... }:
 {
   home.packages = with pkgs; [

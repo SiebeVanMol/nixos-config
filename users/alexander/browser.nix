@@ -1,3 +1,4 @@
+# Firefox: multi-container, extensions, custom search engines, bookmarks.
 {
   pkgs,
   username,

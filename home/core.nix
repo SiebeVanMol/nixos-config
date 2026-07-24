@@ -1,3 +1,5 @@
+# Home Manager core module imported by every user.
+# Sets home directory, state version, and pulls in shared desktop (shell, WM, bar, launcher, theme).
 { username, ... }: {
   home = {
     inherit username;
@@ -9,7 +11,6 @@
   imports = [
     ./shell
 
-    # Window Manager
     ./hyprland.nix
     ./rofi
     ./waybar

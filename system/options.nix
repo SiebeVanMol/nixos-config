@@ -1,3 +1,5 @@
+# Custom NixOS option declarations that act as feature toggles.
+# Hosts enable subsets via device.hardware.<name>.enable and device.security.<name>.enable.
 { lib, ... }: {
   options.device.hardware = {
     amd = {
