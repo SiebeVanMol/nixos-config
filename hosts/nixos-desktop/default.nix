@@ -37,8 +37,6 @@
     efi.canTouchEfiVariables = true;
   };
 
-  boot.kernelParams = [ "panic=10" ];
-
   networking.networkmanager.enable = true;
   networking.hostName = "nixos-desktop";
 

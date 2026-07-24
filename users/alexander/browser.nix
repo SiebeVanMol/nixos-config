@@ -81,7 +81,7 @@
                 template = "https://jisho.org/search/{searchTerms}";
               }];
 
-              definedAlias = [ "@js" ];
+              definedAliases = [ "@js" ];
             };
 
             youtube = {
