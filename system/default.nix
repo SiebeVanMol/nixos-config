@@ -1,8 +1,31 @@
-{ username, pkgs, lib, ... }: {
+{ config, lib, username, pkgs, ... }:
+let
+  extractUuid = dev:
+    if lib.isString dev then
+      let parts = builtins.match "/dev/disk/by-uuid/(.+)" dev;
+      in if parts != null then builtins.head parts else null
+    else null;
+
+  fileSystemUuids = builtins.filter (x: x != null) (map (fs: extractUuid fs.device) (builtins.attrValues config.fileSystems));
+  swapUuids = builtins.filter (x: x != null) (map (swap: extractUuid swap.device) config.swapDevices);
+  configuredUuids = fileSystemUuids ++ swapUuids;
+
+  existingUuids = if builtins.pathExists "/dev/disk/by-uuid"
+    then builtins.attrNames (builtins.readDir "/dev/disk/by-uuid")
+    else [];
+
+  missingUuids = builtins.filter (uuid: !(builtins.elem uuid existingUuids)) configuredUuids;
+in {
   imports = [
     ./options.nix
     ./hardware
   ];
+
+  assertions = [{
+    assertion = builtins.length missingUuids == 0;
+    message = "Configured disk UUIDs not found on this system (check hardware-configuration.nix):\n"
+      + lib.concatStringsSep "\n" (map (uuid: "  - /dev/disk/by-uuid/${uuid}") missingUuids);
+  }];
 
   users.users.${username} = {
     isNormalUser = true;
