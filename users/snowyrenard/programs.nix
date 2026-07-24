@@ -71,8 +71,7 @@
   home.sessionVariables = {
     OBS_VKCAPTURE = 1;
     PROTON_FSR4_UPGRADE = 1;
-    # PROTON_ENABLE_WAYLAND = 1;
-    # PROTON_ENABLE_HDR = 1;
+
   };
 
   services.jellyfin-mpv-shim = {

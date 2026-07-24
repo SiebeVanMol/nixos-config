@@ -24,14 +24,8 @@
     nvidia = {
       enable = lib.mkEnableOption "NVIDIA driver + VA-API";
     };
-    printing = {
-      enable = lib.mkEnableOption "CUPS printing";
-    };
     time = {
       enable = lib.mkEnableOption "timesyncd";
-    };
-    tpm = {
-      enable = lib.mkEnableOption "TPM2 + pkcs11";
     };
     zsa = {
       enable = lib.mkEnableOption "ZSA keyboard + keymapp";

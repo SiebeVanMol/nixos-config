@@ -8,9 +8,7 @@
     ./lvm.nix
     ./mesa.nix
     ./nvidia.nix
-    ./printing.nix
     ./time.nix
-    ./tpm.nix
     ./zsa.nix
   ];
 }

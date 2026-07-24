@@ -82,7 +82,6 @@
           darkreader
           sponsorblock
           proton-pass
-          # proton-vpn
         ];
       }; 
 
@@ -119,7 +118,7 @@
             definedAliases = [ "@no" ];
           };
 
-          nix-wiki= {
+          nix-wiki = {
             name = "Nix Wiki";
             urls = [{
               template = "https://nixos.wiki/wiki/{searchTerms}";
@@ -148,7 +147,7 @@
               template = "https://jisho.org/search/{searchTerms}";
             }];
 
-            definedAlias = [ "@js" "jisho" ];
+            definedAliases = [ "@js" "jisho" ];
           };
 
           youtube = {

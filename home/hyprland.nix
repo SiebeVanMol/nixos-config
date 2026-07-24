@@ -133,7 +133,6 @@
       hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
 
       hl.bind(mod .. " + N", hl.dsp.window.float({ action = "toggle" }))
-      -- hl.bind(mod .. " + V", hl.dsp.layout(togglesplit))
 
       hl.bind(mod .. " + F",         hl.dsp.window.fullscreen({ "maximized", toggle }))
       hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen({ "fullscreen", toggle }))
@@ -226,17 +225,7 @@
             on-resume = "${pkgs.brillo}/bin/brillo -el -I";                 # monitor backlight restore.
         }
         
-        # { 
-        #     timeout = 90;#sec
-        #     on-timeout = "${pkgs.brightnessctl}/bin/brightnessctl -sd *:kbd_backlight set 0"; # turn off keyboard backlight.
-        #     on-resume = "${pkgs.brightnessctl}/bin/brightnessctl -rd *:kbd_backlight";        # turn on keyboard backlight.
-        # }
-        
-        # {
-        #     timeout = 60;# 1min
-        #     on-timeout = "loginctl lock-session";            # lock screen when timeout has passed
-        # }
-        
+
         {
             timeout = 300;# 5min
             on-timeout = "hyprctl dispatch dpms off";                            # screen off when timeout has passed
