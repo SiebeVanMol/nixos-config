@@ -2,6 +2,7 @@
   imports = [
     ./options.nix
     ./hardware
+    ./security
   ];
 
   users.users.${username} = {

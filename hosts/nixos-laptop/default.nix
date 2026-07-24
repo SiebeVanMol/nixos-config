@@ -9,21 +9,25 @@
     ../../system/app/gamemode.nix
     ../../system/app/kanata.nix
 
-    ../../system/security/firewall.nix
-    ../../system/security/tailscale.nix
-    ../../system/security/automount.nix
-    ../../system/security/proton-vpn.nix
   ];
 
-  device.hardware = {
-    amd.enable = true;
-    backlight.enable = true;
-    bluetooth.enable = true;
-    kernel.enable = true;
-    mesa.enable = true;
-    nvidia.enable = true;
-    time.enable = true;
-    zsa.enable = true;
+  device = {
+    hardware = {
+      amd.enable = true;
+      backlight.enable = true;
+      bluetooth.enable = true;
+      kernel.enable = true;
+      mesa.enable = true;
+      nvidia.enable = true;
+      time.enable = true;
+      zsa.enable = true;
+    };
+    security = {
+      firewall.enable = true;
+      tailscale.enable = true;
+      automount.enable = true;
+      proton-vpn.enable = true;
+    };
   };
 
   boot.loader = {

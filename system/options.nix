@@ -31,4 +31,22 @@
       enable = lib.mkEnableOption "ZSA keyboard + keymapp";
     };
   };
+
+  options.device.security = {
+    firewall = {
+      enable = lib.mkEnableOption "Firewall";
+    };
+    tailscale = {
+      enable = lib.mkEnableOption "Tailscale VPN";
+    };
+    automount = {
+      enable = lib.mkEnableOption "Automatic mounting (devmon, gvfs, udisks2)";
+    };
+    proton-vpn = {
+      enable = lib.mkEnableOption "ProtonVPN CLI tools";
+    };
+    ssh = {
+      enable = lib.mkEnableOption "OpenSSH server";
+    };
+  };
 }

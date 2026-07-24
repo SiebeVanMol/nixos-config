@@ -1,7 +1,7 @@
-{ ... }:
-
-{
-  services.devmon.enable = true;
-  services.gvfs.enable = true;
-  services.udisks2.enable = true;
+{ config, lib, ... }: {
+  config = lib.mkIf config.device.security.automount.enable {
+    services.devmon.enable = true;
+    services.gvfs.enable = true;
+    services.udisks2.enable = true;
+  };
 }

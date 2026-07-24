@@ -1,3 +1,5 @@
-{ ... }: {
-  networking.firewall.enable = true;
+{ config, lib, ... }: {
+  config = lib.mkIf config.device.security.firewall.enable {
+    networking.firewall.enable = true;
+  };
 }

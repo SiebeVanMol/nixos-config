@@ -10,22 +10,26 @@
     ../../system/app/jellyfin.nix
     ../../system/app/minecraft.nix
 
-    ../../system/security/firewall.nix
-    ../../system/security/tailscale.nix
-    ../../system/security/automount.nix
-    ../../system/security/proton-vpn.nix
-    ../../system/security/ssh.nix
   ];
 
-  device.hardware = {
-    amd.enable = true;
-    backlight.enable = true;
-    bluetooth.enable = true;
-    kernel.enable = true;
-    lvm.enable = true;
-    mesa.enable = true;
-    time.enable = true;
-    zsa.enable = true;
+  device = {
+    hardware = {
+      amd.enable = true;
+      backlight.enable = true;
+      bluetooth.enable = true;
+      kernel.enable = true;
+      lvm.enable = true;
+      mesa.enable = true;
+      time.enable = true;
+      zsa.enable = true;
+    };
+    security = {
+      firewall.enable = true;
+      tailscale.enable = true;
+      automount.enable = true;
+      proton-vpn.enable = true;
+      ssh.enable = true;
+    };
   };
 
   boot.loader = {
