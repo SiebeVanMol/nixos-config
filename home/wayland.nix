@@ -12,35 +12,40 @@
   home.packages = with pkgs; [
     (
       writers.writeNuBin "swww_randomize" /*nu*/''
-          # This script will randomly go through the files of a directory, setting it
-          # up as the wallpaper at regular intervals
+          # Pick a random wallpaper from `dir` every `time` interval.
+          # Skips the update whenever any window is fullscreen.
           def main [dir: path, time: duration] {
             loop {
               if (hyprctl clients -j | from json | get fullscreen | all {$in == 0}) {
                 let file = (select_file $dir)
-
-                update_colors ($file.name | get 0)
+                apply_theme ($file.name | get 0)
               }
-
               sleep $time
             }
           }
 
-          # Select a random file within a directory
+          # Pick a random image file from a directory tree.
           def select_file [dir: path] {
-            let input_dir = ($"($dir)/**/*" | into glob) # glob is required to format because magic?
-            let files = ls $input_dir | where type == file # Get all the eligible files
-            let index = random int ..($files | length) # Select a random number
-            $files | select $index # Return the actual file
+            let files = ls ($"($dir)/**/*" | into glob) | where type == file
+            let index = random int ..($files | length)
+            $files | select $index
           }
 
-          # Update the environment based upon the path to an image
-          def update_colors [img: path] {
+          # Generate wallust colours, set wallpaper, update Hyprland borders and reload Waybar.
+          def apply_theme [img: path] {
             [
               (${wallust}/bin/wallust run $img --quiet -s | ignore),
               (${imagemagick}/bin/magick $img -gravity center -extent 1.005:1 ~/.cache/rofi.bmp),
               (${awww}/bin/awww img $img),
             ] | par-each { $in }
+            set_hyprland_border_colors
+            pkill waybar -SIGUSR2 | ignore
+          }
+
+          # Read the current wallust accent colours and apply them as a
+          # two-stop gradient (color1 → color5) to Hyprland's active window
+          # border.  The inactive border is kept at a translucent white.
+          def set_hyprland_border_colors [] {
             try {
               let c1 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color1") | first | parse "color1 = \"{c}\"" | get c.0)
               let c5 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color5") | first | parse "color5 = \"{c}\"" | get c.0)
@@ -49,7 +54,6 @@
               let cmd = ("hl.config({ general = { col = { active_border = { colors = {" + $v1 + ", " + $v2 + "} }, inactive_border = \"rgba(ffffffbb)\" } } })")
               hyprctl eval $cmd | ignore
             }
-            pkill waybar -SIGUSR2 | ignore
           }
         ''
       )
