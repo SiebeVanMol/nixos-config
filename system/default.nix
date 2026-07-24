@@ -21,6 +21,12 @@
   };
   nix.settings.auto-optimise-store = true;
 
+  # Prevent editing boot parameters at boot.
+  boot.loader.systemd-boot.editor = false;
+
+  # Periodic SSD TRIM.
+  services.fstrim.enable = true;
+
   # Allow unfree packages.
   nixpkgs.config.allowUnfree = true;
 
