@@ -44,7 +44,7 @@
             try {
               let c10 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color10") | first | parse "color10 = \"{c}\"" | get c.0)
               let c12 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color12") | first | parse "color12 = \"{c}\"" | get c.0)
-              hyprctl keyword general:col.active_border $"rgb($c10) rgb($c12)" | ignore
+              hyprctl eval $"hl.config({ general = { col = { active_border = { colors = {\"rgb($c10)\", \"rgb($c12)\"} }, inactive_border = \"rgba(ffffffbb)\" } } })" | ignore
             }
             pkill waybar -SIGUSR2 | ignore
           }
