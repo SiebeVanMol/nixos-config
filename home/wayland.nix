@@ -37,10 +37,16 @@
           # Update the environment based upon the path to an image
           def update_colors [img: path] {
             [
-              (${wallust}/bin/wallust run $img --quiet -s | ignore; pkill waybar -SIGUSR2 | ignore),
+              (${wallust}/bin/wallust run $img --quiet -s | ignore),
               (${imagemagick}/bin/magick $img -gravity center -extent 1.005:1 ~/.cache/rofi.bmp),
               (${awww}/bin/awww img $img),
             ] | par-each { $in }
+            try {
+              let c10 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color10") | first | parse "color10 = \"{c}\"" | get c.0)
+              let c12 = (open ~/.cache/wallust/hypr-colors | lines | where ($it =~ "color12") | first | parse "color12 = \"{c}\"" | get c.0)
+              hyprctl keyword general:col.active_border $"rgb($c10) rgb($c12)" | ignore
+            }
+            pkill waybar -SIGUSR2 | ignore
           }
         ''
       )
