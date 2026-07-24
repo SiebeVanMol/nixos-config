@@ -1,4 +1,4 @@
-{
+{ ... }: {
   hardware.uinput.enable = true;
 
   services.kanata = {
@@ -27,7 +27,7 @@
             lsft q j v d k x h / , . rsft
             _ _ _ _ _ _ _
           )
-                    (deflayer command
+            (deflayer command
             _ _ _ _ _ _ _ _ _ _ _ _ _ _
             _ _ _ _ _ _ _ _ up _ _ _ _ _
             _ _ _ _ _ _ _ left down right _ _ _
@@ -36,7 +36,7 @@
           )
           (defalias
             grl (tap-hold 200 200 grv (layer-toggle layers))
-           
+
             qwr (layer-switch qwerty)
             cnr (layer-switch canary-angle)
           )

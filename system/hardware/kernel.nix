@@ -2,7 +2,7 @@
   config = lib.mkIf config.device.hardware.kernel.enable {
     boot = {
       kernelPackages = pkgs.linuxPackages_latest;
-      extraModulePackages = with config.boot.kernelPackages; [];
+      extraModulePackages = [];
       kernelModules = [ "uinput" ];
       consoleLogLevel = 0;
       kernel.sysctl = {

@@ -10,7 +10,7 @@
     libvdpau-va-gl
     rocmPackages.clr.icd
   ];
-  
+
   services.jellyfin = {
     enable = true;
     openFirewall = true;

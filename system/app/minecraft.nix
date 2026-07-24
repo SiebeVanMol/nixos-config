@@ -12,7 +12,7 @@ let
     sha256 = "sha256-KpOoctVm2tTNKu/dUNHTfj+Xyh/1iC5fNnRA7t/3K1o=";
   };
 
-    gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
+  gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
     {
       name = "pack.mcmeta";
       path = pkgs.writeText "pack.mcmeta" (builtins.toJSON {
@@ -43,7 +43,7 @@ in
     eula = true;
 
     dataDir = "/Vault/Minecraft";
-    
+
     servers.violet-town = {
       enable = true;
       openFirewall = true;
@@ -78,8 +78,9 @@ in
         "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
         "world/datapacks/gamerules" = gameRulesDatapack;
       };
-      
+
       jvmOpts = "-Xms4G -Xmx16G";
     };
   };
 }
+
