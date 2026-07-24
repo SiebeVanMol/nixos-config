@@ -6,7 +6,7 @@
   ...
 }: {
   # AMD OpenCL for tone mapping
-  hardware.graphics.extraPackages = lib.mkIf config.device.hardware.mesa.enable [
+  hardware.graphics.extraPackages = lib.mkIf config.device.hardware.amd.enable [
     pkgs.libva
     pkgs.libva-vdpau-driver
     pkgs.libvdpau-va-gl
