@@ -1,5 +1,5 @@
 # Neoforge Minecraft server (violet-town) with Atmons modpack and custom gamerules datapack.
-{ pkgs, lib, ... }:
+{ config, lib, pkgs, ... }:
 let
   mcVersion = "1.21.1";
   forgeVersion = "21.1.234";
@@ -39,49 +39,51 @@ let
   ];
 in
 {
-  users.users.minecraft.extraGroups = [ "users" ];
-  services.minecraft-servers = {
-    enable = true;
-    eula = true;
-
-    dataDir = "/Vault/Minecraft";
-
-    servers.violet-town = {
+  config = lib.mkIf config.device.app.minecraft.enable {
+    users.users.minecraft.extraGroups = [ "users" ];
+    services.minecraft-servers = {
       enable = true;
-      openFirewall = true;
+      eula = true;
 
-      package = pkgs.neoforgeServers.${serverVersion}.override {
-        jre_headless = pkgs.jdk21_headless;
-      };
+      dataDir = "/Vault/Minecraft";
 
-      serverProperties = {
-        difficulty = 3;
-        gamemode = "survival";
-        motd = "violet town";
-        allow-cheats = true;
-        allow-flight = true;
-        max-tick-time = 180000;
-        simulation-distance = 5;
-        view-distance = 8;
-        pause-when-empty-seconds = 60;
-        players-sleeping-percentage = 0;
-      };
+      servers.violet-town = {
+        enable = true;
+        openFirewall = true;
 
-      symlinks = {
-        "datapacks" = "${atmonsServerPack}/datapacks";
-        "user_jvm_args.txt" = "${atmonsServerPack}/user_jvm_args.txt";
-        "server-icon.png" = "${atmonsServerPack}/server-icon.png";
-      };
-      
-      files = {
-        "mods" = "${atmonsServerPack}/mods";
-        "config" = "${atmonsServerPack}/config";
-        "kubejs" = "${atmonsServerPack}/kubejs";
-        "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
-        "world/datapacks/gamerules" = gameRulesDatapack;
-      };
+        package = pkgs.neoforgeServers.${serverVersion}.override {
+          jre_headless = pkgs.jdk21_headless;
+        };
 
-      jvmOpts = "-Xms4G -Xmx16G";
+        serverProperties = {
+          difficulty = 3;
+          gamemode = "survival";
+          motd = "violet town";
+          allow-cheats = true;
+          allow-flight = true;
+          max-tick-time = 180000;
+          simulation-distance = 5;
+          view-distance = 8;
+          pause-when-empty-seconds = 60;
+          players-sleeping-percentage = 0;
+        };
+
+        symlinks = {
+          "datapacks" = "${atmonsServerPack}/datapacks";
+          "user_jvm_args.txt" = "${atmonsServerPack}/user_jvm_args.txt";
+          "server-icon.png" = "${atmonsServerPack}/server-icon.png";
+        };
+        
+        files = {
+          "mods" = "${atmonsServerPack}/mods";
+          "config" = "${atmonsServerPack}/config";
+          "kubejs" = "${atmonsServerPack}/kubejs";
+          "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
+          "world/datapacks/gamerules" = gameRulesDatapack;
+        };
+
+        jvmOpts = "-Xms4G -Xmx16G";
+      };
     };
   };
 }

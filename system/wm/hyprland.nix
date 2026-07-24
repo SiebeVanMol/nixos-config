@@ -1,14 +1,11 @@
 # System-level Hyprland compositor configuration.
-# Enables Hyprland with UWSM session management, pulls in Wayland display manager and PipeWire audio.
-{ ... }:
+# Enables Hyprland with UWSM session management.
+{ config, lib, ... }:
 
 {
-  imports = [
-    ./wayland.nix
-    ./pipewire.nix
-  ];
-
-  programs.hyprland.enable = true;
-  programs.hyprland.withUWSM = true;
-  services.displayManager.generic.environment.XDG_CURRENT_DESKTOP = "X-NIXOS-SYSTEMD-AWARE";
+  config = lib.mkIf config.device.wm.hyprland.enable {
+    programs.hyprland.enable = true;
+    programs.hyprland.withUWSM = true;
+    services.displayManager.generic.environment.XDG_CURRENT_DESKTOP = "X-NIXOS-SYSTEMD-AWARE";
+  };
 }

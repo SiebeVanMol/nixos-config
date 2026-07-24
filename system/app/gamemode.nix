@@ -1,4 +1,6 @@
 # Feral Gamemode: system optimisation daemon for gaming.
-{ ... }: {
-  programs.gamemode.enable = true;
+{ config, lib, ... }: {
+  config = lib.mkIf config.device.app.gamemode.enable {
+    programs.gamemode.enable = true;
+  };
 }

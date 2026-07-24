@@ -1,9 +1,5 @@
-{ ... }: {
-  imports = [
-    ./automount.nix
-    ./firewall.nix
-    ./proton-vpn.nix
-    ./ssh.nix
-    ./tailscale.nix
-  ];
+{ config, lib, ... }: let
+  importDir = import ../../lib/import-dir.nix { inherit lib; };
+in {
+  imports = importDir ./.;
 }

@@ -3,13 +3,6 @@
   imports = [
     ../../system/default.nix
     ./hardware-configuration.nix
-
-    ../../system/wm/hyprland.nix
-
-    ../../system/app/steam.nix
-    ../../system/app/gamemode.nix
-    ../../system/app/kanata.nix
-
   ];
 
   device = {
@@ -29,6 +22,12 @@
       automount.enable = true;
       proton-vpn.enable = true;
     };
+    app = {
+      steam.enable = true;
+      gamemode.enable = true;
+      kanata.enable = true;
+    };
+    wm.hyprland.enable = true;
   };
 
   boot.loader = {

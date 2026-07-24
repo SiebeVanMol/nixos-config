@@ -6,6 +6,8 @@
     ./options.nix
     ./hardware
     ./security
+    ./app
+    ./wm
   ];
 
   users.users.${username} = {

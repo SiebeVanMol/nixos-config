@@ -29,8 +29,32 @@
     time = {
       enable = lib.mkEnableOption "timesyncd";
     };
-    zsa = {
-      enable = lib.mkEnableOption "ZSA keyboard + keymapp";
+      zsa = {
+        enable = lib.mkEnableOption "ZSA keyboard + keymapp";
+      };
+    };
+
+  options.device.app = {
+    steam = {
+      enable = lib.mkEnableOption "Steam with Remote Play, Proton GE";
+    };
+    gamemode = {
+      enable = lib.mkEnableOption "Feral Gamemode";
+    };
+    kanata = {
+      enable = lib.mkEnableOption "Kanata keyboard remapper";
+    };
+    jellyfin = {
+      enable = lib.mkEnableOption "Jellyfin media server";
+    };
+    minecraft = {
+      enable = lib.mkEnableOption "Minecraft server";
+    };
+  };
+
+  options.device.wm = {
+    hyprland = {
+      enable = lib.mkEnableOption "Hyprland compositor";
     };
   };
 
