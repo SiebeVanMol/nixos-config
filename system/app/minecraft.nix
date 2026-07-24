@@ -11,14 +11,41 @@ let
     stripRoot = false;
     sha256 = "sha256-KpOoctVm2tTNKu/dUNHTfj+Xyh/1iC5fNnRA7t/3K1o=";
   };
+
+    gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
+    {
+      name = "pack.mcmeta";
+      path = pkgs.writeText "pack.mcmeta" (builtins.toJSON {
+        pack = {
+          pack_format = 48;
+          description = "Custom gamerules";
+        };
+      });
+    }
+    {
+      name = "data/gamerules/function/load.mcfunction";
+      path = pkgs.writeText "load.mcfunction" ''
+        gamerule mobGriefing false
+      '';
+    }
+    {
+      name = "data/minecraft/tags/function/load.json";
+      path = pkgs.writeText "load.json" (builtins.toJSON {
+        values = [ "gamerules:load" ];
+      });
+    }
+  ];
 in
 {
+  users.users.minecraft.extraGroups = [ "users" ];
   services.minecraft-servers = {
     enable = true;
     eula = true;
 
+    dataDir = "/Vault/Minecraft";
+    
     servers.violet-town = {
-      # enable = true;
+      enable = true;
       openFirewall = true;
 
       package = pkgs.neoforgeServers.${serverVersion}.override {
@@ -34,7 +61,8 @@ in
         max-tick-time = 180000;
         simulation-distance = 5;
         view-distance = 8;
-        pause-when-empty-seconds=60;
+        pause-when-empty-seconds = 60;
+        players-sleeping-percentage = 0;
       };
 
       symlinks = {
@@ -42,11 +70,15 @@ in
         "user_jvm_args.txt" = "${atmonsServerPack}/user_jvm_args.txt";
         "server-icon.png" = "${atmonsServerPack}/server-icon.png";
       };
+      
       files = {
         "mods" = "${atmonsServerPack}/mods";
         "config" = "${atmonsServerPack}/config";
         "kubejs" = "${atmonsServerPack}/kubejs";
+        "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
+        "world/datapacks/gamerules" = gameRulesDatapack;
       };
+      
       jvmOpts = "-Xms4G -Xmx16G";
     };
   };
