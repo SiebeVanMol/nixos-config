@@ -177,7 +177,7 @@ in
             serverLevelGeneration = true
 
             [levelGen]
-            threadPreset = "MINIMUM_IMPACT"
+            threadPreset = "MINIMAL_IMPACT"
           '';
         } // lib.mapAttrs' (name: drv: lib.nameValuePair "mods/${name}" drv) extraMods;
 
