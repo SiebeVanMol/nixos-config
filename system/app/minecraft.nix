@@ -69,16 +69,16 @@ in
         };
 
         symlinks = {
-          "datapacks" = "${atmonsServerPack}/datapacks";
-          "user_jvm_args.txt" = "${atmonsServerPack}/user_jvm_args.txt";
+          # "datapacks" = "${atmonsServerPack}/datapacks";
+          # "user_jvm_args.txt" = "${atmonsServerPack}/user_jvm_args.txt";
           "server-icon.png" = "${atmonsServerPack}/server-icon.png";
         };
         
         files = {
-          "mods" = "${modsWithoutBCC}";
-          "config" = "${atmonsServerPack}/config";
-          "kubejs" = "${atmonsServerPack}/kubejs";
-          "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
+          # "mods" = "${modsWithoutBCC}";
+          # "config" = "${atmonsServerPack}/config";
+          # "kubejs" = "${atmonsServerPack}/kubejs";
+          # "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
           "world/datapacks/gamerules" = gameRulesDatapack;
           "config/connectivity-server.toml" = pkgs.writeText "connectivity-server.toml" ''
             [timeouts]
@@ -87,7 +87,7 @@ in
           '';
         };
 
-        jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=60";
+        jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=120";
       };
     };
   };
