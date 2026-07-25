@@ -177,8 +177,7 @@ in
             serverLevelGeneration = true
 
             [levelGen]
-            workerThreads = 1
-            maxQueueSize = 500
+            threadPreset = "MINIMUM_IMPACT"
           '';
         } // lib.mapAttrs' (name: drv: lib.nameValuePair "mods/${name}" drv) extraMods;
 
