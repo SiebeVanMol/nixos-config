@@ -49,6 +49,9 @@ let
       done < /tmp/files.json
 
       [ -d pack-src/overrides ] && cp -r pack-src/overrides/. .
+
+      # Remove mods incompatible with Java 21
+      rm -f mods/c2me-opts-natives-math-*
     '';
 
     installPhase = ''
@@ -63,6 +66,12 @@ let
   };
 
   extraMods = {
+    # Lithostitched — library required by Tectonic, Terralith, and Regions Unexplored
+    "lithostitched-1.7.13-fabric-21.1.jar" = modrinth {
+      id = "XaDC71GB"; version = "JWtSqSeY";
+      filename = "lithostitched-1.7.13-fabric-21.1.jar";
+      hash = "sha256-IGwIZgS8/qWyhi6QBpRwNSy/S01wiLVc36jzRSvtwnA=";
+    };
     # Tectonic — world generation, large-scale terrain shaping (mountains, rivers, caves)
     "tectonic-3.0.26-fabric-21.1.jar" = modrinth {
       id = "lWDHr9jE"; version = "L87Phsbl";
