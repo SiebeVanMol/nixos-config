@@ -1,5 +1,11 @@
 { config, lib, pkgs, ... }:
 let
+  modrinth = { id, version, filename, hash }: pkgs.fetchurl {
+    url = "https://cdn.modrinth.com/data/${id}/versions/${version}/${filename}";
+    name = filename;
+    inherit hash;
+  };
+
   mrpack = pkgs.fetchurl {
     url = "https://cdn.modrinth.com/data/Jkb29YJU/versions/4SKGla61/COBBLEVERSE%201.7.42.mrpack";
     name = "cobbleverse-1.7.42.mrpack";
@@ -58,58 +64,69 @@ let
 
   extraMods = {
     # Tectonic — world generation, large-scale terrain shaping (mountains, rivers, caves)
-    "tectonic-3.0.26-fabric-21.1.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/lWDHr9jE/versions/L87Phsbl/tectonic-3.0.26-fabric-21.1.jar";
+    "tectonic-3.0.26-fabric-21.1.jar" = modrinth {
+      id = "lWDHr9jE"; version = "L87Phsbl";
+      filename = "tectonic-3.0.26-fabric-21.1.jar";
       hash = "sha256-ZlO+fLFXTllzzeCoysudednlWpm/c3iTfgxHl5txi2c=";
     };
     # Terralith — world generation, vanilla-style biome expansion (requires TerraBlender)
-    "Terralith_1.21.x_v2.6.2.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/8oi3bsk5/versions/eWDLFabb/Terralith_1.21.x_v2.6.2.jar";
+    "Terralith_1.21.x_v2.6.2.jar" = modrinth {
+      id = "8oi3bsk5"; version = "eWDLFabb";
+      filename = "Terralith_1.21.x_v2.6.2.jar";
       hash = "sha256-nNTUAv3g9SPltDCsj9R5zgWup6UP4MjCaQH192knIhQ=";
     };
     # Regions Unexplored — world generation, new biomes, blocks, and vegetation
-    "regions-unexplored-0.6.2-fabric-21.1.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/Tkikq67H/versions/SffwLsGY/regions-unexplored-0.6.2-fabric-21.1.jar";
+    "regions-unexplored-0.6.2-fabric-21.1.jar" = modrinth {
+      id = "Tkikq67H"; version = "SffwLsGY";
+      filename = "regions-unexplored-0.6.2-fabric-21.1.jar";
       hash = "sha256-wMLxqDy9wfJSJVgj4zIwrOnbb1/W2gEKc59G96bTpqc=";
     };
     # YUNG's Better Dungeons — exploration, better dungeon loot and layouts (requires YUNG's API)
-    "YungsBetterDungeons-1.21.1-Fabric-5.1.4.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/o1C1Dkj5/versions/fQ7EjDPE/YungsBetterDungeons-1.21.1-Fabric-5.1.4.jar";
+    "YungsBetterDungeons-1.21.1-Fabric-5.1.4.jar" = modrinth {
+      id = "o1C1Dkj5"; version = "fQ7EjDPE";
+      filename = "YungsBetterDungeons-1.21.1-Fabric-5.1.4.jar";
       hash = "sha256-af59k6+hgD12WN8/hhIT+CVfaNTpdtZt3OZvugjRILw=";
     };
     # YUNG's Better Mineshafts — exploration, overhauled mineshaft generation (requires YUNG's API)
-    "YungsBetterMineshafts-1.21.1-Fabric-5.1.1.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/HjmxVlSr/versions/4ybDuGhA/YungsBetterMineshafts-1.21.1-Fabric-5.1.1.jar";
+    "YungsBetterMineshafts-1.21.1-Fabric-5.1.1.jar" = modrinth {
+      id = "HjmxVlSr"; version = "4ybDuGhA";
+      filename = "YungsBetterMineshafts-1.21.1-Fabric-5.1.1.jar";
       hash = "sha256-J5SfW64K/v9FdxGltCSCvjAbdryLETbxEg+EhIm7X6Y=";
     };
     # YUNG's Better Strongholds — exploration, overhauled stronghold generation (requires YUNG's API)
-    "YungsBetterStrongholds-1.21.1-Fabric-5.1.3.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/kidLKymU/versions/uYZShp1p/YungsBetterStrongholds-1.21.1-Fabric-5.1.3.jar";
+    "YungsBetterStrongholds-1.21.1-Fabric-5.1.3.jar" = modrinth {
+      id = "kidLKymU"; version = "uYZShp1p";
+      filename = "YungsBetterStrongholds-1.21.1-Fabric-5.1.3.jar";
       hash = "sha256-HLQSyDqg6Cc9KaESLFeZ6xWkisyPC3cO/kUcUWZH9fg=";
     };
     # YUNG's Better Ocean Monuments — exploration, overhauled ocean monument generation (requires YUNG's API)
-    "YungsBetterOceanMonuments-1.21.1-Fabric-4.1.2.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/3dT9sgt4/versions/TGK6gpeO/YungsBetterOceanMonuments-1.21.1-Fabric-4.1.2.jar";
+    "YungsBetterOceanMonuments-1.21.1-Fabric-4.1.2.jar" = modrinth {
+      id = "3dT9sgt4"; version = "TGK6gpeO";
+      filename = "YungsBetterOceanMonuments-1.21.1-Fabric-4.1.2.jar";
       hash = "sha256-TPuyJr0dsXAyrH5zBulO0n8aji8+CftixHaI+KUnrew=";
     };
     # YUNG's Better Witch Huts — exploration, overhauled witch hut generation (requires YUNG's API)
-    "YungsBetterWitchHuts-1.21.1-Fabric-4.1.1.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/t5FRdP87/versions/bdpPtvTn/YungsBetterWitchHuts-1.21.1-Fabric-4.1.1.jar";
+    "YungsBetterWitchHuts-1.21.1-Fabric-4.1.1.jar" = modrinth {
+      id = "t5FRdP87"; version = "bdpPtvTn";
+      filename = "YungsBetterWitchHuts-1.21.1-Fabric-4.1.1.jar";
       hash = "sha256-lU/wBN4VFlLZvmngPRuEjW/RWg9fLfFcTOLnZEZ2hec=";
     };
     # YUNG's API — library, shared API required by all YUNG structure mods
-    "YungsApi-1.21.1-Fabric-5.1.6.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/Ua7DFN59/versions/9aZPNrZC/YungsApi-1.21.1-Fabric-5.1.6.jar";
+    "YungsApi-1.21.1-Fabric-5.1.6.jar" = modrinth {
+      id = "Ua7DFN59"; version = "9aZPNrZC";
+      filename = "YungsApi-1.21.1-Fabric-5.1.6.jar";
       hash = "sha256-NvuQOh688VEXRb4tqeUUTx0kZb/3pcF77/00c5ms0bo=";
     };
     # TerraBlender — library, biome/region API required by Terralith and Regions Unexplored
-    "TerraBlender-fabric-1.21.1-4.1.0.8.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/kkmrDlKT/versions/XNtIBXyQ/TerraBlender-fabric-1.21.1-4.1.0.8.jar";
+    "TerraBlender-fabric-1.21.1-4.1.0.8.jar" = modrinth {
+      id = "kkmrDlKT"; version = "XNtIBXyQ";
+      filename = "TerraBlender-fabric-1.21.1-4.1.0.8.jar";
       hash = "sha256-+H6Up/oSJ3EcP4rqn/rHoU4Me+IS/lDd7pXSxrpyPKw=";
     };
     # ChoiceTheorem's Overhauled Village — exploration, overhauled villages with custom structures and pathing
     "ctov-3.6.3.jar" = pkgs.fetchurl {
       url = "https://cdn.modrinth.com/data/fgmhI8kH/versions/dqaObRbU/%5BFabric%5Dctov-3.6.3.jar";
+      name = "ctov-3.6.3.jar";
       hash = "sha256-5EOSXY/k0JLx85Ji+nMYLknjTcv5ylHqqlMGS7ku5lI=";
     };
   };
