@@ -12,6 +12,11 @@ let
     sha256 = "sha256-KpOoctVm2tTNKu/dUNHTfj+Xyh/1iC5fNnRA7t/3K1o=";
   };
 
+  modsWithoutBCC = pkgs.runCommand "mods-no-bcc" { } ''
+    cp -r --no-preserve=mode ${atmonsServerPack}/mods $out
+    rm -f $out/better-compatability-checker-neoforge-21.1.8.jar
+  '';
+
     gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
     {
       name = "pack.mcmeta";
@@ -41,9 +46,7 @@ in
   services.minecraft-servers = {
     enable = true;
     eula = true;
-
-    dataDir = "/Vault/Minecraft";
-    
+ 
     servers.violet-town = {
       enable = true;
       openFirewall = true;
@@ -72,14 +75,19 @@ in
       };
       
       files = {
-        "mods" = "${atmonsServerPack}/mods";
+        "mods" = "${modsWithoutBCC}";
         "config" = "${atmonsServerPack}/config";
         "kubejs" = "${atmonsServerPack}/kubejs";
         "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
         "world/datapacks/gamerules" = gameRulesDatapack;
+        "config/connectivity-server.toml" = pkgs.writeText "connectivity-server.toml" ''
+          [timeouts]
+          readTimeout = 120
+          connectionTimeout = 60
+        '';
       };
       
-      jvmOpts = "-Xms4G -Xmx16G";
+      jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=60";
     };
   };
 }
