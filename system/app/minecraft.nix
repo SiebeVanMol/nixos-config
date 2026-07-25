@@ -75,9 +75,14 @@ in
           "kubejs" = "${atmonsServerPack}/kubejs";
           "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
           "world/datapacks/gamerules" = gameRulesDatapack;
+          "config/connectivity-server.toml" = pkgs.writeText "connectivity-server.toml" ''
+            [timeouts]
+            readTimeout = 120
+            connectionTimeout = 60
+          '';
         };
 
-        jvmOpts = "-Xms8G -Xmx32G";
+        jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=60";
       };
     };
   };
