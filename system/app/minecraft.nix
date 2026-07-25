@@ -13,6 +13,11 @@ let
     sha256 = "sha256-KpOoctVm2tTNKu/dUNHTfj+Xyh/1iC5fNnRA7t/3K1o=";
   };
 
+  modsWithoutBCC = pkgs.runCommand "mods-no-bcc" { } ''
+    cp -r ${atmonsServerPack}/mods $out
+    rm -f $out/better-compatability-checker-neoforge-21.1.8.jar
+  '';
+
   # Datapack that disables mobGriefing on world load.
   gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
     {
@@ -70,7 +75,7 @@ in
         };
         
         files = {
-          "mods" = "${atmonsServerPack}/mods";
+          "mods" = "${modsWithoutBCC}";
           "config" = "${atmonsServerPack}/config";
           "kubejs" = "${atmonsServerPack}/kubejs";
           "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
