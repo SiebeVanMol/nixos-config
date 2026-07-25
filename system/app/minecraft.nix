@@ -54,9 +54,9 @@ in
         enable = true;
         openFirewall = true;
 
-        package = pkgs.neoforgeServers.${serverVersion}.override {
-          jre_headless = pkgs.jdk21_headless;
-        };
+        # package = pkgs.neoforgeServers.${serverVersion}.override {
+        #   jre_headless = pkgs.jdk21_headless;
+        # };
 
         serverProperties = {
           difficulty = 3;
