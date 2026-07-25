@@ -14,7 +14,7 @@ let
   };
 
   modsWithoutBCC = pkgs.runCommand "mods-no-bcc" { } ''
-    cp -r ${atmonsServerPack}/mods $out
+    cp -r --no-preserve=mode ${atmonsServerPack}/mods $out
     rm -f $out/better-compatability-checker-neoforge-21.1.8.jar
   '';
 
