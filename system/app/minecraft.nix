@@ -68,13 +68,13 @@ in
           # players-sleeping-percentage = 0;
         };
 
-        symlinks = {
+        # symlinks = {
           # "datapacks" = "${atmonsServerPack}/datapacks";
           # "user_jvm_args.txt" = "${atmonsServerPack}/user_jvm_args.txt";
-          "server-icon.png" = "${atmonsServerPack}/server-icon.png";
-        };
+          # "server-icon.png" = "${atmonsServerPack}/server-icon.png";
+        # };
         
-        files = {
+        # files = {
           # "mods" = "${modsWithoutBCC}";
           # "config" = "${atmonsServerPack}/config";
           # "kubejs" = "${atmonsServerPack}/kubejs";
@@ -85,7 +85,7 @@ in
           #   readTimeout = 120
           #   connectionTimeout = 60
           # '';
-        };
+        # };
 
         # jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=120";
       };
