@@ -69,6 +69,7 @@ in
         package = pkgs.fabricServers.fabric-1_21_1;
 
         serverProperties = {
+          level-name = "cobbleverse-world";
           difficulty = 3;
           gamemode = "survival";
           motd = "Cobbleverse";
