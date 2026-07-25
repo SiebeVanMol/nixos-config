@@ -45,8 +45,6 @@ in
       enable = true;
       eula = true;
 
-      dataDir = "/Vault/Minecraft";
-
       servers.violet-town = {
         enable = true;
         openFirewall = true;
@@ -61,9 +59,6 @@ in
           motd = "violet town";
           allow-cheats = true;
           allow-flight = true;
-          max-tick-time = 180000;
-          simulation-distance = 5;
-          view-distance = 8;
           pause-when-empty-seconds = 60;
           players-sleeping-percentage = 0;
         };
@@ -82,7 +77,7 @@ in
           "world/datapacks/gamerules" = gameRulesDatapack;
         };
 
-        jvmOpts = "-Xms4G -Xmx16G";
+        jvmOpts = "-Xms8G -Xmx32G";
       };
     };
   };
