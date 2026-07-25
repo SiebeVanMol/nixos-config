@@ -138,6 +138,12 @@ let
       filename = "[Fabric]ctov-3.6.3.jar";
       hash = "sha256-5EOSXY/k0JLx85Ji+nMYLknjTcv5ylHqqlMGS7ku5lI=";
     };
+    # Distant Horizons — level-of-detail rendering and server-side LOD generation
+    "DistantHorizons-3.2.0-b-1.21.1-fabric-neoforge.jar" = modrinth {
+      id = "uCdwusMi"; version = "ZpKb4kZp";
+      filename = "DistantHorizons-3.2.0-b-1.21.1-fabric-neoforge.jar";
+      hash = "sha256-1qepY/eUUBZ4ET4lRdiyXJDhI+9rkla7VxaQfQWeHvU=";
+    };
   };
 in
 {
@@ -147,7 +153,7 @@ in
       eula = true;
 
       servers.violet-town = {
-        enable = true;
+        # enable = true;
         openFirewall = true;
 
         package = pkgs.fabricServers.fabric-1_21_1;
