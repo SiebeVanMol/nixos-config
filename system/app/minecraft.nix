@@ -54,6 +54,72 @@ let
       filename = "ars_elemancy-1.21.1-1.17.jar";
       hash = "sha256-wJv6rQAXREQOde3W1J6770WC1Wt73SOgYywIxR1pFnQ=";
     };
+    # Tectonic — world generation, large-scale terrain shaping
+    "tectonic-3.0.26-neoforge-21.1.jar" = modrinth {
+      id = "lWDHr9jE"; version = "vNrkxC3z";
+      filename = "tectonic-3.0.26-neoforge-21.1.jar";
+      hash = "sha256-NqqbSow5nJlDRgp6WNkUArbWccEKsRsJnC7h11ryMuo=";
+    };
+    # Terralith — vanilla-style biome expansion (requires TerraBlender)
+    "Terralith_1.21.1_v2.6.2_Neoforge.jar" = modrinth {
+      id = "8oi3bsk5"; version = "IY93YaEe";
+      filename = "Terralith_1.21.1_v2.6.2_Neoforge.jar";
+      hash = "sha256-04vTBIl3MbQvbAE83AfggudEEegMdKq87jhSUb6ztUY=";
+    };
+    # Regions Unexplored — new biomes, blocks, and vegetation
+    "regions-unexplored-0.6.2-neoforge-21.1.jar" = modrinth {
+      id = "Tkikq67H"; version = "5A8LFnXX";
+      filename = "regions-unexplored-0.6.2-neoforge-21.1.jar";
+      hash = "sha256-zPMu1xTyck9UQGueAqjW+U2H3FxyOXvDmz1u2PMkEuo=";
+    };
+    # YUNG's API — library for YUNG structure mods
+    "YungsApi-1.21.1-NeoForge-5.1.6.jar" = modrinth {
+      id = "Ua7DFN59"; version = "ZB22DE9q";
+      filename = "YungsApi-1.21.1-NeoForge-5.1.6.jar";
+      hash = "sha256-COHSFpDTITpMYt5rbPefNSevsucuDK0OGEjUbrj2gso=";
+    };
+    # YUNG's Better Dungeons — better dungeon loot and layouts
+    "YungsBetterDungeons-1.21.1-NeoForge-5.1.4.jar" = modrinth {
+      id = "o1C1Dkj5"; version = "D6aZn0Em";
+      filename = "YungsBetterDungeons-1.21.1-NeoForge-5.1.4.jar";
+      hash = "sha256-YYFsO3ydksa0T5Pc6HzrCiKCfyAoXV2cTRDVGdc03gQ=";
+    };
+    # YUNG's Better Mineshafts — overhauled mineshaft generation
+    "YungsBetterMineshafts-1.21.1-NeoForge-5.1.1.jar" = modrinth {
+      id = "HjmxVlSr"; version = "Go3nbneL";
+      filename = "YungsBetterMineshafts-1.21.1-NeoForge-5.1.1.jar";
+      hash = "sha256-ViWTDfsyQIINbk7PVf/ww59wzngvrRF6TUGCURhMe+A=";
+    };
+    # YUNG's Better Strongholds — overhauled stronghold generation
+    "YungsBetterStrongholds-1.21.1-NeoForge-5.1.3.jar" = modrinth {
+      id = "kidLKymU"; version = "8U0dIfSM";
+      filename = "YungsBetterStrongholds-1.21.1-NeoForge-5.1.3.jar";
+      hash = "sha256-qcqy/AFTg2iGI2VpH30hUwmAGu0LOQNRaBtrYKHbe1g=";
+    };
+    # YUNG's Better Ocean Monuments — overhauled ocean monument generation
+    "YungsBetterOceanMonuments-1.21.1-NeoForge-4.1.2.jar" = modrinth {
+      id = "3dT9sgt4"; version = "yFjEcj2g";
+      filename = "YungsBetterOceanMonuments-1.21.1-NeoForge-4.1.2.jar";
+      hash = "sha256-zc+P4OCMdSYQSNQ8btSJiXLSPglt0EolJME28GQWqwI=";
+    };
+    # YUNG's Better Witch Huts — overhauled witch hut generation
+    "YungsBetterWitchHuts-1.21.1-NeoForge-4.1.1.jar" = modrinth {
+      id = "t5FRdP87"; version = "AvedwcIe";
+      filename = "YungsBetterWitchHuts-1.21.1-NeoForge-4.1.1.jar";
+      hash = "sha256-iIsebRraIZgqdav7SvsEDJvCzGh3fsX80Rmbl449T40=";
+    };
+    # TerraBlender — biome/region API (needed by Terralith and Regions Unexplored)
+    "TerraBlender-neoforge-1.21.1-4.1.0.8.jar" = modrinth {
+      id = "kkmrDlKT"; version = "6e8GCrLb";
+      filename = "TerraBlender-neoforge-1.21.1-4.1.0.8.jar";
+      hash = "sha256-DEm170R6fwkQDpohCIinNH+9oKp1MiBjmR9gY7Jf4/k=";
+    };
+    # ChoiceTheorem's Overhauled Village — overhauled villages
+    "ctov-3.6.3.jar" = pkgs.fetchurl {
+      url = "https://cdn.modrinth.com/data/fgmhI8kH/versions/ztzRUnQ7/%5BNeoforge%5Dctov-3.6.3.jar";
+      name = "ctov-3.6.3.jar";
+      hash = "sha256-SBWxm4NUHwnLpVbiImErxd3MMffEuiGY9LTWN2zKiy4=";
+    };
   };
 in
 {
