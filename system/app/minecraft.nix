@@ -1,133 +1,58 @@
 { config, lib, pkgs, ... }:
 let
+  mcVersion = "1.21.1";
+  forgeVersion = "21.1.234";
+  forgeVersionUnderscored = lib.replaceStrings [ "." ] [ "_" ] forgeVersion;
+  serverVersion = "neoforge-${lib.replaceStrings [ "." ] [ "_" ] mcVersion}-${forgeVersionUnderscored}";
+
   modrinth = { id, version, filename, hash }: pkgs.fetchurl {
     url = "https://cdn.modrinth.com/data/${id}/versions/${version}/${filename}";
     name = filename;
     inherit hash;
   };
 
-  mrpack = pkgs.fetchurl {
-    url = "https://cdn.modrinth.com/data/Jkb29YJU/versions/4SKGla61/COBBLEVERSE%201.7.42.mrpack";
-    name = "cobbleverse-1.7.42.mrpack";
-    hash = "sha256-3K8BBix8OH4O0HIJqrmT4uOycRHnePWDLFJVjSi8zYg=";
-  };
-
-  cobbleverse = pkgs.stdenvNoCC.mkDerivation {
-    pname = "cobbleverse";
-    version = "1.7.42";
-    src = mrpack;
-    nativeBuildInputs = [ pkgs.jq pkgs.curl pkgs.cacert pkgs.unzip ];
-
-    dontUnpack = true;
-    dontConfigure = true;
-    dontFixup = true;
-
-    buildPhase = ''
-      unzip -q "$src" -d pack-src
-
-      find pack-src -type d -exec chmod 755 {} \;
-      find pack-src -type f -exec chmod 644 {} \;
-
-      jq -c '.files[]' pack-src/modrinth.index.json > /tmp/files.json
-      while IFS= read -r file; do
-        envState=$(echo "$file" | jq -r --arg side "server" '.env[$side] // "required"')
-        [ "$envState" = "unsupported" ] && continue
-
-        path=$(echo "$file" | jq -r '.path')
-        url=$(echo "$file" | jq -r '.downloads[0]')
-        mkdir -p "$(dirname "$path")"
-        curl -L "$url" > "$path"
-
-        expected=$(echo "$file" | jq -r '.hashes.sha512 // .hashes.sha1')
-        actual=$(${pkgs.coreutils}/bin/sha512sum "$path" | cut -d' ' -f1)
-        if echo "$file" | jq -e '.hashes.sha512' > /dev/null; then
-          [ "$actual" != "$expected" ] && echo "Hash mismatch for $path" >&2 && exit 1
-        else
-          sha1actual=$(${pkgs.coreutils}/bin/sha1sum "$path" | cut -d' ' -f1)
-          [ "$sha1actual" != "$expected" ] && echo "Hash mismatch for $path" >&2 && exit 1
-        fi
-      done < /tmp/files.json
-
-      [ -d pack-src/overrides ] && cp -r pack-src/overrides/. .
-    '';
-
-    installPhase = ''
-      rm -rf pack-src env-vars
-      mkdir -p "$out"
-      cp -r . "$out/"
-    '';
-
-    outputHashMode = "recursive";
-    outputHashAlgo = "sha256";
-    outputHash = "sha256-r9urTFPVcxkgzwFJdffzva35H5DjqvHKY4beoJgLOOs=";
-  };
-
-  extraMods = {
-    # Tectonic — world generation, large-scale terrain shaping (mountains, rivers, caves)
-    "tectonic-3.0.26-fabric-21.1.jar" = modrinth {
-      id = "lWDHr9jE"; version = "L87Phsbl";
-      filename = "tectonic-3.0.26-fabric-21.1.jar";
-      hash = "sha256-ZlO+fLFXTllzzeCoysudednlWpm/c3iTfgxHl5txi2c=";
+  mods = {
+    # Cobblemon — Pokémon mod
+    "Cobblemon-neoforge-1.7.3+1.21.1.jar" = modrinth {
+      id = "MdwFAVRL"; version = "S1TrAn8c";
+      filename = "Cobblemon-neoforge-1.7.3%2B1.21.1.jar";
+      hash = "sha256-li1130+2SdlIY6en0TDU0rPeTamzyuTESxzpDzfsDtU=";
     };
-    # Terralith — world generation, vanilla-style biome expansion (requires TerraBlender)
-    "Terralith_1.21.x_v2.6.2.jar" = modrinth {
-      id = "8oi3bsk5"; version = "eWDLFabb";
-      filename = "Terralith_1.21.x_v2.6.2.jar";
-      hash = "sha256-nNTUAv3g9SPltDCsj9R5zgWup6UP4MjCaQH192knIhQ=";
+    # Create — mechanical engineering and automation
+    "create-1.21.1-6.0.10.jar" = modrinth {
+      id = "LNytGWDc"; version = "UjX6dr61";
+      filename = "create-1.21.1-6.0.10.jar";
+      hash = "sha256-74f+Vwnxuh9bi7IKKSW1r7RmnheP1ti/EMFndZ7v43o=";
     };
-    # Regions Unexplored — world generation, new biomes, blocks, and vegetation
-    "regions-unexplored-0.6.2-fabric-21.1.jar" = modrinth {
-      id = "Tkikq67H"; version = "SffwLsGY";
-      filename = "regions-unexplored-0.6.2-fabric-21.1.jar";
-      hash = "sha256-wMLxqDy9wfJSJVgj4zIwrOnbb1/W2gEKc59G96bTpqc=";
+    # Create: Enchantment Industry — Create addon for automation
+    "create-enchantment-industry-2.5.0-preview-alpha1.jar" = modrinth {
+      id = "JWGBpFUP"; version = "8XedJhwv";
+      filename = "create-enchantment-industry-2.5.0-preview-alpha1.jar";
+      hash = "sha256-slzFdpbmom/vFkN9iPP+WiaQCQ5vlyi2xyyj6UXLB+s=";
     };
-    # YUNG's Better Dungeons — exploration, better dungeon loot and layouts (requires YUNG's API)
-    "YungsBetterDungeons-1.21.1-Fabric-5.1.4.jar" = modrinth {
-      id = "o1C1Dkj5"; version = "fQ7EjDPE";
-      filename = "YungsBetterDungeons-1.21.1-Fabric-5.1.4.jar";
-      hash = "sha256-af59k6+hgD12WN8/hhIT+CVfaNTpdtZt3OZvugjRILw=";
+    # Ars Nouveau — spellcasting and magic
+    "ars_nouveau-1.21.1-5.12.1.jar" = modrinth {
+      id = "TKB6INcv"; version = "7IK2KsiH";
+      filename = "ars_nouveau-1.21.1-5.12.1.jar";
+      hash = "sha256-skQSrM5zA7r1xGv0EwumrdXDSQR6bfxEXhrdDNhSj6I=";
     };
-    # YUNG's Better Mineshafts — exploration, overhauled mineshaft generation (requires YUNG's API)
-    "YungsBetterMineshafts-1.21.1-Fabric-5.1.1.jar" = modrinth {
-      id = "HjmxVlSr"; version = "4ybDuGhA";
-      filename = "YungsBetterMineshafts-1.21.1-Fabric-5.1.1.jar";
-      hash = "sha256-J5SfW64K/v9FdxGltCSCvjAbdryLETbxEg+EhIm7X6Y=";
+    # Ars Creo — Ars Nouveau and Create compatibility
+    "ars_creo-1.21.1-5.4.0.jar" = modrinth {
+      id = "fZ324GMc"; version = "LqOllHms";
+      filename = "ars_creo-1.21.1-5.4.0.jar";
+      hash = "sha256-UPD+XF+FUVHBSCwXcuqUwuqtwrDIXJY7ua60IfyAHk8=";
     };
-    # YUNG's Better Strongholds — exploration, overhauled stronghold generation (requires YUNG's API)
-    "YungsBetterStrongholds-1.21.1-Fabric-5.1.3.jar" = modrinth {
-      id = "kidLKymU"; version = "uYZShp1p";
-      filename = "YungsBetterStrongholds-1.21.1-Fabric-5.1.3.jar";
-      hash = "sha256-HLQSyDqg6Cc9KaESLFeZ6xWkisyPC3cO/kUcUWZH9fg=";
+    # Ars Additions — addon for Ars Nouveau
+    "ars_additions-1.21.1-21.3.0.jar" = modrinth {
+      id = "GYK6Gk8R"; version = "aQ0r5GD2";
+      filename = "ars_additions-1.21.1-21.3.0.jar";
+      hash = "sha256-5jSj8MOc04AHYIzOGXSnybutfYICv7bHXxfCkB82LJs=";
     };
-    # YUNG's Better Ocean Monuments — exploration, overhauled ocean monument generation (requires YUNG's API)
-    "YungsBetterOceanMonuments-1.21.1-Fabric-4.1.2.jar" = modrinth {
-      id = "3dT9sgt4"; version = "TGK6gpeO";
-      filename = "YungsBetterOceanMonuments-1.21.1-Fabric-4.1.2.jar";
-      hash = "sha256-TPuyJr0dsXAyrH5zBulO0n8aji8+CftixHaI+KUnrew=";
-    };
-    # YUNG's Better Witch Huts — exploration, overhauled witch hut generation (requires YUNG's API)
-    "YungsBetterWitchHuts-1.21.1-Fabric-4.1.1.jar" = modrinth {
-      id = "t5FRdP87"; version = "bdpPtvTn";
-      filename = "YungsBetterWitchHuts-1.21.1-Fabric-4.1.1.jar";
-      hash = "sha256-lU/wBN4VFlLZvmngPRuEjW/RWg9fLfFcTOLnZEZ2hec=";
-    };
-    # YUNG's API — library, shared API required by all YUNG structure mods
-    "YungsApi-1.21.1-Fabric-5.1.6.jar" = modrinth {
-      id = "Ua7DFN59"; version = "9aZPNrZC";
-      filename = "YungsApi-1.21.1-Fabric-5.1.6.jar";
-      hash = "sha256-NvuQOh688VEXRb4tqeUUTx0kZb/3pcF77/00c5ms0bo=";
-    };
-    # TerraBlender — library, biome/region API required by Terralith and Regions Unexplored
-    "TerraBlender-fabric-1.21.1-4.1.0.8.jar" = modrinth {
-      id = "kkmrDlKT"; version = "XNtIBXyQ";
-      filename = "TerraBlender-fabric-1.21.1-4.1.0.8.jar";
-      hash = "sha256-+H6Up/oSJ3EcP4rqn/rHoU4Me+IS/lDd7pXSxrpyPKw=";
-    };
-    # ChoiceTheorem's Overhauled Village — exploration, overhauled villages with custom structures and pathing
-    "ctov-3.6.3.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/fgmhI8kH/versions/dqaObRbU/%5BFabric%5Dctov-3.6.3.jar";
-      name = "ctov-3.6.3.jar";
-      hash = "sha256-5EOSXY/k0JLx85Ji+nMYLknjTcv5ylHqqlMGS7ku5lI=";
+    # Ars Elemancy — elemental spells and foci for Ars Nouveau
+    "ars_elemancy-1.21.1-1.17.jar" = modrinth {
+      id = "mR4yp7HM"; version = "LMOUcsOQ";
+      filename = "ars_elemancy-1.21.1-1.17.jar";
+      hash = "sha256-wJv6rQAXREQOde3W1J6770WC1Wt73SOgYywIxR1pFnQ=";
     };
   };
 in
@@ -141,7 +66,9 @@ in
         enable = true;
         openFirewall = true;
 
-        package = pkgs.fabricServers.fabric-1_21_1;
+        package = pkgs.neoforgeServers.${serverVersion}.override {
+          jre_headless = pkgs.jdk21_headless;
+        };
 
         serverProperties = {
           level-name = "cobbleverse-world";
@@ -154,10 +81,7 @@ in
           players-sleeping-percentage = 0;
         };
 
-        files = {
-          "mods" = "${cobbleverse}/mods";
-          "config" = "${cobbleverse}/config";
-        } // lib.mapAttrs' (name: drv: lib.nameValuePair "mods/${name}" drv) extraMods;
+        files = lib.mapAttrs' (name: drv: lib.nameValuePair "mods/${name}" drv) mods;
 
         jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=120";
       };
