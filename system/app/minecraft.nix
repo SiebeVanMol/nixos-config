@@ -172,7 +172,7 @@ in
         files = {
           "mods" = "${cobbleverse}/mods";
           "config" = "${cobbleverse}/config";
-          "config/DistantHorizons-server.toml" = pkgs.writeText "DistantHorizons-server.toml" ''
+          "config/DistantHorizons.toml" = pkgs.writeText "DistantHorizons.toml" ''
             [world]
             serverLevelGeneration = true
 
