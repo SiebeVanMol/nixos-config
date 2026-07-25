@@ -54,18 +54,18 @@ in
         enable = true;
         openFirewall = true;
 
-        # package = pkgs.neoforgeServers.${serverVersion}.override {
-        #   jre_headless = pkgs.jdk21_headless;
-        # };
+        package = pkgs.neoforgeServers.${serverVersion}.override {
+          jre_headless = pkgs.jdk21_headless;
+        };
 
         serverProperties = {
-          difficulty = 3;
-          gamemode = "survival";
-          motd = "violet town";
-          allow-cheats = true;
-          allow-flight = true;
-          pause-when-empty-seconds = 60;
-          players-sleeping-percentage = 0;
+          # difficulty = 3;
+          # gamemode = "survival";
+          # motd = "violet town";
+          # allow-cheats = true;
+          # allow-flight = true;
+          # pause-when-empty-seconds = 60;
+          # players-sleeping-percentage = 0;
         };
 
         symlinks = {
@@ -79,15 +79,15 @@ in
           # "config" = "${atmonsServerPack}/config";
           # "kubejs" = "${atmonsServerPack}/kubejs";
           # "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
-          "world/datapacks/gamerules" = gameRulesDatapack;
-          "config/connectivity-server.toml" = pkgs.writeText "connectivity-server.toml" ''
-            [timeouts]
-            readTimeout = 120
-            connectionTimeout = 60
-          '';
+          # "world/datapacks/gamerules" = gameRulesDatapack;
+          # "config/connectivity-server.toml" = pkgs.writeText "connectivity-server.toml" ''
+          #   [timeouts]
+          #   readTimeout = 120
+          #   connectionTimeout = 60
+          # '';
         };
 
-        jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=120";
+        # jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=120";
       };
     };
   };
