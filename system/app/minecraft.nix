@@ -1,7 +1,7 @@
 { config, lib, pkgs, ... }:
 let
   modrinth = { id, version, filename, hash }: pkgs.fetchurl {
-    url = "https://cdn.modrinth.com/data/${id}/versions/${version}/${filename}";
+    url = "https://cdn.modrinth.com/data/${id}/versions/${version}/${lib.strings.escapeURL filename}";
     name = filename;
     inherit hash;
   };
@@ -124,9 +124,9 @@ let
       hash = "sha256-+H6Up/oSJ3EcP4rqn/rHoU4Me+IS/lDd7pXSxrpyPKw=";
     };
     # ChoiceTheorem's Overhauled Village — exploration, overhauled villages with custom structures and pathing
-    "ctov-3.6.3.jar" = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/fgmhI8kH/versions/dqaObRbU/%5BFabric%5Dctov-3.6.3.jar";
-      name = "ctov-3.6.3.jar";
+    "ctov-3.6.3.jar" = modrinth {
+      id = "fgmhI8kH"; version = "dqaObRbU";
+      filename = "[Fabric]ctov-3.6.3.jar";
       hash = "sha256-5EOSXY/k0JLx85Ji+nMYLknjTcv5ylHqqlMGS7ku5lI=";
     };
   };
