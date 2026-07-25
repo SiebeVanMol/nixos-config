@@ -153,7 +153,7 @@ in
       eula = true;
 
       servers.violet-town = {
-        # enable = true;
+        enable = true;
         openFirewall = true;
 
         package = pkgs.fabricServers.fabric-1_21_1;
@@ -172,6 +172,14 @@ in
         files = {
           "mods" = "${cobbleverse}/mods";
           "config" = "${cobbleverse}/config";
+          "config/DistantHorizons-server.toml" = pkgs.writeText "DistantHorizons-server.toml" ''
+            [world]
+            serverLevelGeneration = true
+
+            [levelGen]
+            workerThreads = 1
+            maxQueueSize = 500
+          '';
         } // lib.mapAttrs' (name: drv: lib.nameValuePair "mods/${name}" drv) extraMods;
 
         jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=120";
