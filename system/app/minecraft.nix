@@ -87,7 +87,7 @@ in
         '';
       };
 
-      jvmOpts = "-Xms8G -Xmx32G -Dfml.readTimeout=120 -Dfml.connectionTimeout=60";
+      jvmOpts = "-Xms6G -Xmx12G -XX:+UseZGC -XX:+ZGenerational -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -Dfml.readTimeout=120 -Dfml.connectionTimeout=60";
     };
   };
 }

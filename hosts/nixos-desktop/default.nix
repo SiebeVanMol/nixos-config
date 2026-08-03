@@ -32,6 +32,9 @@
     wm.hyprland.enable = true;
   };
 
+  services.minecraft-servers.dataDir = "/Vault/minecraft";
+  users.users.minecraft.extraGroups = ["users"];
+
   boot.loader = {
     systemd-boot.enable = true;
     efi.canTouchEfiVariables = true;
@@ -39,6 +42,8 @@
 
   networking.networkmanager.enable = true;
   networking.hostName = "nixos-desktop";
+
+  powerManagement.cpuFreqGovernor = "performance";
 
   time.timeZone = "Europe/Brussels";
 
