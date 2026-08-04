@@ -50,6 +50,9 @@
     minecraft = {
       enable = lib.mkEnableOption "Minecraft server";
     };
+    virtualization = {
+      enable = lib.mkEnableOption "QEMU/KVM + virt-manager";
+    };
   };
 
   options.device.wm = {

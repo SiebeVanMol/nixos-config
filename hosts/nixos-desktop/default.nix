@@ -28,6 +28,7 @@
       gamemode.enable = true;
       jellyfin.enable = true;
       minecraft.enable = true;
+      virtualization.enable = true;
     };
     wm.hyprland.enable = true;
   };
