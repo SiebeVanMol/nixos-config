@@ -44,11 +44,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784546264,
-        "narHash": "sha256-jxVr5EHMYAOkFvS2k0abIvt6NqyshyWmiHHzV17sT2g=",
+        "lastModified": 1785531816,
+        "narHash": "sha256-vkMnV0JIyw+g/NmcfoajlGaAO+9a0ezia+FZohQJrik=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "e3dea8e4792b09a6c0eb5836b0284ad05b1acba0",
+        "rev": "bf9ce9fec78f95f374e8dd3b503863a3ec128ebe",
         "type": "github"
       },
       "original": {
@@ -86,11 +86,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1784519325,
-        "narHash": "sha256-FmdN2JR8mYBuWEkGrEJEXB+IiOFBO5WKfmNlDooLfwg=",
+        "lastModified": 1785986405,
+        "narHash": "sha256-UOFmsCE2qVcfbki5n+hVOXf1vKMZoaAbZsuBB7a2Log=",
         "owner": "Infinidoge",
         "repo": "nix-minecraft",
-        "rev": "b73dfa305befd2e932371647e8060f307b9f8706",
+        "rev": "a28972426b5487f0e936bb0275ab48139753bc4c",
         "type": "github"
       },
       "original": {
@@ -117,11 +117,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1784497964,
-        "narHash": "sha256-vlHUuqAcbcH2RKmHbPiuQzbv1pnzzavXnI62RD0bqCU=",
+        "lastModified": 1785571196,
+        "narHash": "sha256-KoTsyMQqnXQZq8deCEnu4QkyldkwH/bpMMhUcfMdGIw=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "241313f4e8e508cb9b13278c2b0fa25b9ca27163",
+        "rev": "148bab9c1c3c53136ecb44a6ea356a0ed5b39b06",
         "type": "github"
       },
       "original": {
@@ -139,11 +139,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784562713,
-        "narHash": "sha256-dnYidE939eWPmAHcGak73XbTe1kvvIgH/76aeRBvPyM=",
+        "lastModified": 1785612184,
+        "narHash": "sha256-xqo5oGiflhuBHkpWta0jGaj8CjxD2sDo2OFdHTsvYMk=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "e72f07b6ac3d9a7982598514a98294867da81420",
+        "rev": "b5db55a508629adc966aa4dd3de42b8d606f8b11",
         "type": "github"
       },
       "original": {
@@ -179,11 +179,11 @@
     },
     "vpn-confinement": {
       "locked": {
-        "lastModified": 1783793099,
-        "narHash": "sha256-10ZPBveBW3uzMvjQMFo318oXFrd5Vn7gIyRIAdIEo/8=",
+        "lastModified": 1785142579,
+        "narHash": "sha256-WEPxDMiKt3uGVVu/aorHnIgYYW62mEq2Q+rlN3qH6bg=",
         "owner": "Maroka-chan",
         "repo": "VPN-Confinement",
-        "rev": "f0570ae5dc54a13d881b46d2772369dd832d6021",
+        "rev": "b3aa71a7edfe6af748c23729d1bdec3b499741ff",
         "type": "github"
       },
       "original": {
@@ -200,11 +200,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1784352415,
-        "narHash": "sha256-sHuh1KQopmLPWouFBYwZ5PVWj19Y4mKAjkQeQHCT3E0=",
+        "lastModified": 1785569296,
+        "narHash": "sha256-ux2+60xcjl4LloKPevqrkP+uY4DNZXhzVd+TYrfE2+w=",
         "owner": "0xc000022070",
         "repo": "zen-browser-flake",
-        "rev": "7202b917826e2e335d9935c3a943ae18681056b1",
+        "rev": "945e834a12a97a5e3b08869960e35c7ccfde6f69",
         "type": "github"
       },
       "original": {

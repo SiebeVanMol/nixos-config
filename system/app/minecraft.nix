@@ -1,15 +1,15 @@
 { pkgs, lib, ... }:
 let
   mcVersion = "1.21.1";
-  forgeVersion = "21.1.234";
+  forgeVersion = "21.1.248";
   mcVersionUnderscored = lib.replaceStrings [ "." ] [ "_" ] mcVersion;
   forgeVersionUnderscored = lib.replaceStrings [ "." ] [ "_" ] forgeVersion;
   serverVersion = "neoforge-${mcVersionUnderscored}-${forgeVersionUnderscored}";
 
   atmonsServerPack = pkgs.fetchzip {
-    url = "https://mediafilez.forgecdn.net/files/8431/25/ServerFiles-1.1.1.zip";
+    url = "https://mediafilez.forgecdn.net/files/8572/602/ServerFiles-1.2.0.zip";
     stripRoot = false;
-    sha256 = "sha256-KpOoctVm2tTNKu/dUNHTfj+Xyh/1iC5fNnRA7t/3K1o=";
+    sha256 = "sha256-TaNQCmeA6TlY0xlxp7S8CFzYpm7rAicwV8f5wZNeoMY=";
   };
 
   modsWithoutBCC = pkgs.runCommand "mods-no-bcc" { } ''
@@ -47,6 +47,8 @@ in
     enable = true;
     eula = true;
 
+    dataDir = "/Vault/minecraft";
+    
     servers.violet-town = {
       enable = true;
       openFirewall = true;
@@ -87,7 +89,7 @@ in
         '';
       };
 
-      jvmOpts = "-Xms4G -Xmx8G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dfml.readTimeout=120 -Dfml.connectionTimeout=60";
+      jvmOpts = "-Xms10G -Xmx20G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dfml.readTimeout=120 -Dfml.connectionTimeout=60";
     };
   };
 }
