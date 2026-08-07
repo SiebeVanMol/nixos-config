@@ -12,9 +12,15 @@ let
     sha256 = "sha256-TaNQCmeA6TlY0xlxp7S8CFzYpm7rAicwV8f5wZNeoMY=";
   };
 
-  modsWithoutBCC = pkgs.runCommand "mods-no-bcc" { } ''
+  distantHorizons = pkgs.fetchurl {
+    url = "https://cdn.modrinth.com/data/uCdwusMi/versions/ZpKb4kZp/DistantHorizons-3.2.0-b-1.21.1-fabric-neoforge.jar";
+    sha256 = "sha256-1qepY/eUUBZ4ET4lRdiyXJDhI+9rkla7VxaQfQWeHvU=";
+  };
+
+  serverMods = pkgs.runCommand "mods" { } ''
     cp -r --no-preserve=mode ${atmonsServerPack}/mods $out
     rm -f $out/better-compatability-checker-neoforge-21.1.8.jar
+    cp ${distantHorizons} $out/DistantHorizons-3.2.0-b-1.21.1-fabric-neoforge.jar
   '';
 
   gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
@@ -77,7 +83,7 @@ in
       };
 
       files = {
-        "mods" = "${modsWithoutBCC}";
+        "mods" = "${serverMods}";
         "config" = "${atmonsServerPack}/config";
         "kubejs" = "${atmonsServerPack}/kubejs";
         "world/datapacks/atmons" = "${atmonsServerPack}/datapacks";
