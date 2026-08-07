@@ -16,13 +16,12 @@
   fileSystems."/" =
     { device = "/dev/disk/by-uuid/b7843c7e-3a86-4a99-9f0e-d212a014a3b4";
       fsType = "btrfs";
-      options = [ "subvol=@" "compress=zstd" ];
+      options = [ "subvol=@" ];
     };
 
   fileSystems."/nix" =
     { device = "/dev/disk/by-uuid/eebd6d88-08aa-48fe-9307-a1e9a122e1a0";
       fsType = "btrfs";
-      options = [ "noatime" "compress=zstd" ];
     };
 
   fileSystems."/boot" =
@@ -34,13 +33,11 @@
   fileSystems."/home" =
     { device = "/dev/disk/by-uuid/b78dca76-0b68-4373-98b0-ec5f9c8f08f9";
       fsType = "btrfs";
-      options = [ "compress=zstd" ];
     };
 
   fileSystems."/Vault" =
     { device = "/dev/mapper/Vault-lvol0";
       fsType = "btrfs";
-      options = [ "compress=zstd" ];
     };
 
   swapDevices = [ ];

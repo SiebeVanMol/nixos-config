@@ -67,7 +67,7 @@ in
         simulation-distance = 5;
         view-distance = 8;
         pause-when-empty-seconds = 60;
-        players-sleeping-percentage = 0;
+        players-sleeping-percentage = 1;
       };
 
       symlinks = {

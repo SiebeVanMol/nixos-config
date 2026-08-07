@@ -46,6 +46,17 @@
         openFirewall = true;
       };
       prowlarr.enable = true;
+
+      # Bypass Cloudflare on protected indexers (e.g. 1337x).
+      # Point Prowlarr at http://127.0.0.1:8191 as a FlareSolverr proxy.
+      flaresolverr.enable = true;
+    };
+
+    # ISP DNS (Telenet) sinkholes 1337x.to, so pin it to its Cloudflare IPs.
+    # Update these if Cloudflare rotates the addresses.
+    networking.hosts = {
+      "172.67.188.67" = [ "1337x.to" ];
+      "104.21.40.193" = [ "1337x.to" ];
     };
 
     # VPN namespace for torrenting
@@ -84,3 +95,4 @@
     };
   };
 }
+
