@@ -27,9 +27,8 @@
       cmake
       valgrind
       rustup
-      python3
-      mypy
-      python313Packages.flake8
+      # Python
+      (python3.withPackages (ps: [ ps.mypy ps.flake8 ]))
       # Cargo
       cargo-expand
       cargo-tarpaulin
