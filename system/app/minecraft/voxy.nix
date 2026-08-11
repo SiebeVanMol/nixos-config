@@ -13,7 +13,7 @@
 { pkgs }:
 
 let
-  sha256 = "sha256-ddefde02ac5fee32812ba7c577ea59fe301fd1af01a352a768af61e7d01621cb";
+  sha256 = "sha256-81cf0813abc1caad48f33d2890bd079551c0bb83fd689f34c2d573698c467626";
 in
 pkgs.runCommand "voxyworldgenv2" { inherit sha256; } ''
   mkdir -p $out
