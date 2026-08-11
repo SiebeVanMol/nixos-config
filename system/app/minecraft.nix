@@ -61,10 +61,10 @@ let
   voxyworldgenv2Config = pkgs.writeText "voxyworldgenv2.json" (builtins.toJSON {
     enabled = true;
     showF3MenuStats = true;
-    generationRadius = 128;
+    generationRadius = 64;
     update_interval = 20;
     maxQueueSize = 4000;
-    maxActiveTasks = 8;
+    maxActiveTasks = 4;
   });
 
   gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
