@@ -55,16 +55,16 @@ let
     sha512 = "88798ae8e6765c83ff9333299c22fec8695a94e9c8c1b5db574424645a5b409e120dc3755096030d2c9798b9fb645d566e129b3308f5d13ef9004ecf24dd6089";
   };
 
-  # voxyworldgenv2 server-side generation config: generate LOD chunks out to a 256
-  # chunk radius around each player, heavily throttled so it never starves the tick.
+  # voxyworldgenv2 server-side generation config: keep the radius and concurrency
+  # conservative so LOD generation/streaming never starves the tick on a heavy pack.
   # The client-side equivalent lives in the modpack instance, not here.
   voxyworldgenv2Config = pkgs.writeText "voxyworldgenv2.json" (builtins.toJSON {
     enabled = true;
     showF3MenuStats = true;
-    generationRadius = 256;
+    generationRadius = 128;
     update_interval = 20;
-    maxQueueSize = 20000;
-    maxActiveTasks = 20;
+    maxQueueSize = 4000;
+    maxActiveTasks = 8;
   });
 
   gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
