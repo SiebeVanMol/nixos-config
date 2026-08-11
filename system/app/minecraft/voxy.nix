@@ -18,8 +18,8 @@
 let
   voxyworldgenv2Src = pkgs.fetchgit {
     url = "file:///home/snowyrenard/Downloads/voxy_worldgen_v2";
-    rev = "0f4f2aa75f1453adf0ef2e0074e5aa92e8b1d46e";
-    sha256 = "sha256-wI4EwunMXiun/e6c5FLfbJH72PFz1tpZDctCx6WI65k=";
+    rev = "d11e1b5da8e674e9553041d4f7706c6f823460f5";
+    sha256 = "sha256-kJvkyr5oOlJaDNyCmHdaOOXSM5iOYNQiWo3JcbqQkb4=";
   };
 in
 pkgs.stdenvNoCC.mkDerivation {
@@ -35,7 +35,7 @@ pkgs.stdenvNoCC.mkDerivation {
   # Fixed-output derivation: the gradle build needs network access to fetch the Loom
   # toolchain and maven dependencies.
   outputHashMode = "recursive";
-  outputHash = "sha256-kQh0Eath6LJg0ir7K8OzVcaknKrN0mB0bSY01clBYQY=";
+  outputHash = "sha256-4FhfwGuKvQ/+qo1kyHe60nInuZVLm3Nt99VyhzkauDc=";
 
   buildPhase = ''
     runHook preBuild
