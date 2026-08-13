@@ -48,12 +48,14 @@
       heroic
       prismlauncher
       protonup-qt
+      lutris
 
     ################
     # Productivity #
     ################
       # Communication
       discord
+      vencord
       # File sharing
       qbittorrent
 
