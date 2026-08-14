@@ -55,7 +55,6 @@
     ################
       # Communication
       discord
-      vencord
       # File sharing
       qbittorrent
 
