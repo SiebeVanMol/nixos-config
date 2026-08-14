@@ -74,6 +74,14 @@
     proton-vpn = {
       enable = lib.mkEnableOption "ProtonVPN CLI tools";
     };
+    reverse-proxy = {
+      enable = lib.mkEnableOption "Caddy reverse proxy for LAN services";
+      publicDomain = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "Public domain served by the reverse proxy (e.g. snowyrenard.com). Empty = LAN-only.";
+      };
+    };
     ssh = {
       enable = lib.mkEnableOption "OpenSSH server";
     };

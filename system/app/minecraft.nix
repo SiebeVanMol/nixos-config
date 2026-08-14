@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, lib, config, ... }:
 let
   mcVersion = "1.21.1";
   mcVersionUnderscored = lib.replaceStrings [ "." ] [ "_" ] mcVersion;
@@ -93,6 +93,12 @@ let
   ];
 in
 {
+  # Minecraft is raw TCP, not HTTP, so it bypasses the reverse proxy.
+  # LAN clients connect directly to minecraft.lan:25565 (firewall already open).
+  networking.hosts = lib.mkIf config.device.security.reverse-proxy.enable {
+    "127.0.0.1" = [ "minecraft.lan" ];
+  };
+
   users.users.minecraft.extraGroups = [ "users" ];
   services.minecraft-servers = {
     enable = true;
