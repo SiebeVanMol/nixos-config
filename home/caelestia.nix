@@ -1,12 +1,11 @@
 # Seed caelestia's theme settings into its runtime config, and push the palette
-# into kitty (the terminal) so new kitty windows inherit it.
+# into kitty (the terminal) so all kitty windows inherit it.
 #
 # Caelestia OWNS ~/.config/caelestia/shell.json (it writes to it to persist
 # settings), so home-manager must NOT manage that file as a read-only symlink.
-#
-# kitty reads its config (and the included colors.conf) at startup, so new
-# windows always pick up the current palette. `kitty @ set-colors` additionally
-# repaints already-open windows.
+# For the same reason, caelestia may overwrite a custom postHook we seed, so the
+# kitty palette is applied by a systemd path unit that watches scheme.json and
+# regenerates colors.conf + repaints kitty (new windows read it via the include).
 { lib, pkgs, config, ... }:
 let
   kittyColorsPy = ''
@@ -26,7 +25,7 @@ let
     open(out, 'w').write('\n'.join(L) + '\n')
   '';
 
-  postHook = ''
+  themeApplyScript = pkgs.writeShellScript "caelestia-theme-apply" ''
     SCHEME="$HOME/.local/state/caelestia/scheme.json"
     COLORS="$HOME/.config/kitty/colors.conf"
     if [ -f "$SCHEME" ]; then
@@ -34,10 +33,14 @@ let
       ${pkgs.python3}/bin/python3 - "$SCHEME" "$COLORS" <<'PY'
 ${kittyColorsPy}
 PY
-      ${pkgs.kitty}/bin/kitty @ set-colors "$COLORS" 2>/dev/null || true
+      # kitty auto-reloads kitty.conf on change; touch it so it re-reads colors.conf
+      # and repaints all running (and future) windows.
+      touch "$HOME/.config/kitty/kitty.conf" 2>/dev/null || true
     fi
-    ${pkgs.hyprland}/bin/hyprctl reload
+    ${pkgs.hyprland}/bin/hyprctl reload || true
   '';
+
+  postHook = "${pkgs.hyprland}/bin/hyprctl reload";
 in {
   home.activation.seedCaelestiaTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "$HOME/.config/caelestia"
@@ -81,4 +84,24 @@ ${kittyColorsPy}
 PY
     fi
   '';
+
+  # Reliably re-apply the theme (kitty colors + hyprland borders) whenever
+  # caelestia writes a new scheme, regardless of caelestia's own postHook.
+  systemd.user.services.caelestia-theme-apply = {
+    Unit = {
+      Description = "Apply caelestia theme to kitty and hyprland";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = themeApplyScript;
+    };
+  };
+
+  systemd.user.paths.caelestia-theme-apply = {
+    Unit = { Description = "Watch caelestia scheme for theme changes"; };
+    Path = { PathChanged = [ "%h/.local/state/caelestia/scheme.json" ]; };
+    Install = { WantedBy = [ "graphical-session.target" ]; };
+  };
 }
