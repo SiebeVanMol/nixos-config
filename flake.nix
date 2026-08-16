@@ -25,6 +25,11 @@
     vpn-confinement.url = "github:Maroka-chan/VPN-Confinement";
 
     nix-minecraft.url = "github:Infinidoge/nix-minecraft";
+
+    caelestia-shell = {
+      url = "github:caelestia-dots/shell";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs@{ nixpkgs, home-manager, nur, vpn-confinement, nix-minecraft, ... }:

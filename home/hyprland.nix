@@ -17,7 +17,8 @@
     extraConfig = /*lua*/ ''
       local terminal = os.getenv("TERMINAL")
       local browser = os.getenv("BROWSER")
-      local drun = "rofi -show drun"
+      -- Caelestia's launcher ("run menu") replaces rofi.
+      local drun = "${config.programs.caelestia.cli.package}/bin/caelestia shell drawers toggle launcher"
 
       hl.config({
         dwindle = {
@@ -41,12 +42,16 @@
       hl.env("XCURSOR_SIZE", 16)
       hl.env("HYPRCURSOR_SIZE", 16)
 
-      pcall(dofile, "${config.xdg.cacheHome}/wallust/hypr-colors")
+      -- Caelestia writes its colour scheme (and Hyprland border colours) to
+      -- ~/.config/hypr/scheme/current.lua; source it and let background.lua override.
+      local ok, scheme = pcall(dofile, os.getenv("HOME") .. "/.config/hypr/scheme/current.lua")
       pcall(dofile, os.getenv("HOME") .. "/Pictures/Backgrounds/background.lua")
+
+      local c1 = color1 or (ok and scheme.primary) or "ff3333"
+      local c2 = color5 or (ok and scheme.tertiary) or (ok and scheme.primary) or "ff00ff"
 
       hl.on("hyprland.start", function()
         hl.exec_cmd("hyprctl setcursor Bibata-Modern-Classic 16")
-        hl.exec_cmd("sleep 5s; swww_randomize ~/Pictures/Backgrounds/Art/ 309sec")
       end)
 
       hl.config({
@@ -59,7 +64,7 @@
           layout = "dwindle",
 
           col = {
-            active_border = { colors = {"rgb(" .. (color1 or "ff3333") .. ")", "rgb(" .. (color5 or color1 or "ff00ff") .. ")"} },
+            active_border = { colors = {"rgb(" .. c1 .. ")", "rgb(" .. c2 .. ")"} },
             inactive_border = "rgba(ffffffbb)",
           },
         },
@@ -152,6 +157,9 @@
         hl.bind(mod .. " + " .. i, hl.dsp.focus({ workspace = i }))
         hl.bind(mod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
       end
+      -- Workspace 10 on SUPER+0
+      hl.bind(mod .. " + 0", hl.dsp.focus({ workspace = 10 }))
+      hl.bind(mod .. " + SHIFT + 0", hl.dsp.window.move({ workspace = 10 }))
 
       hl.bind(mod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
       hl.bind(mod .. " + mouse_up", hl.dsp.focus({ workspace = "e-1" }))

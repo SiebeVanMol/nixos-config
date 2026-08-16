@@ -9,7 +9,7 @@
       enable = lib.mkEnableOption "backlight control (Brillo + DDC/CI)";
     };
     bluetooth = {
-      enable = lib.mkEnableOption "Bluetooth + Blueman";
+      enable = lib.mkEnableOption "Bluetooth (managed by the Caelestia shell)";
     };
     dualsense = {
       enable = lib.mkEnableOption "DualSense controller touchpad ignore";
