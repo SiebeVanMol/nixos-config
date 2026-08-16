@@ -30,6 +30,8 @@
       environment = [
         "CAELESTIA_WALLPAPERS_DIR=/home/${username}/Pictures/Backgrounds"
         "QT_QPA_PLATFORMTHEME=gtk3"
+        # Keep the shell's UI consistently Japanese.
+        "LC_ALL=ja_JP.UTF-8"
       ];
     };
   };
