@@ -75,8 +75,17 @@
 
   };
 
-  services.jellyfin-mpv-shim = {
+  # direnv + nix-direnv: loads a project's `use flake` dev shell (from its
+  # `.envrc`) into the shell and IDE (e.g. RustRover), caching the environment
+  # between runs. Requires nushell integration (see home/shell/nushell).
+  programs.direnv = {
     enable = true;
+    enableNushellIntegration = true;
+    nix-direnv.enable = true;
+  };
+
+  services.jellyfin-mpv-shim = {
+    # enable = true;
     mpvConfig = {
       target-colorspace-hint = "yes";
       vo = "dmabuf-wayland";
