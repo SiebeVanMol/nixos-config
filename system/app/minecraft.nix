@@ -94,12 +94,24 @@ let
 in
 {
   # Minecraft is raw TCP, not HTTP, so it bypasses the reverse proxy.
-  # LAN clients connect directly to minecraft.lan:25565 (firewall already open).
+  # It is exposed directly on the public internet via its public domain
+  # (minecraft.snowyrenard.com:25565), so the firewall port stays open.
   networking.hosts = lib.mkIf config.device.security.reverse-proxy.enable {
     "127.0.0.1" = [ "minecraft.lan" ];
   };
 
   users.users.minecraft.extraGroups = [ "users" ];
+
+  # Restrict the server to writing only its own data under /Vault/minecraft;
+  # the rest of /Vault is read-only. NoNewPrivileges is JVM-safe; we avoid
+  # MemoryDenyWriteExecute / a strict SystemCallFilter which would break the JVM.
+  systemd.services.minecraft-server-violet-town.serviceConfig = {
+    NoNewPrivileges = true;
+    ProtectSystem = "full";
+    ReadOnlyPaths = [ "/Vault" ];
+    ReadWritePaths = [ "/Vault/minecraft" ];
+  };
+
   services.minecraft-servers = {
     enable = true;
     eula = true;
