@@ -66,6 +66,12 @@ theme.pop('iconThemeLight', None)
 theme.pop('iconThemeDark', None)
 # Launch terminal apps (btop, etc.) with kitty instead of the default foot.
 d.setdefault('general', {}).setdefault('apps', {})['terminal'] = ['kitty']
+# Drop the default 600s "suspendThenHibernate" idle timeout: otherwise the
+# system powers off (and stops any servers) after ~10 min of idle/lock.
+d.setdefault('general', {}).setdefault('idle', {})['timeouts'] = [
+    {"timeout": 120, "idleAction": "lock"},
+    {"timeout": 300, "idleAction": "dpms off", "returnAction": "dpms on"},
+]
 # Drop any home-manager store symlink so caelestia can write to a real file.
 if os.path.islink(p) or os.path.exists(p):
     os.remove(p)

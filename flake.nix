@@ -26,8 +26,10 @@
 
     nix-minecraft.url = "github:Infinidoge/nix-minecraft";
 
+    # Fetched over SSH (uses the user's GitHub SSH key) so GitHub's HTTPS
+    # archive/API rate limit can't stall the build.
     caelestia-shell = {
-      url = "github:caelestia-dots/shell";
+      url = "git+ssh://git@github.com/caelestia-dots/shell";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
