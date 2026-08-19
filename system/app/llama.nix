@@ -263,7 +263,7 @@ in
       description = "Watch for new llama models";
       wantedBy = [ "multi-user.target" ];
       pathConfig = {
-        PathChangedGlob = "${modelsDir}/*.gguf";
+        PathChanged = "${modelsDir}";
         Unit = "llama-cpp-reload.service";
       };
     };
