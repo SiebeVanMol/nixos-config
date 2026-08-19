@@ -24,46 +24,6 @@
 let
   modelsDir = "/Vault/llama/models";
 
-  # Speculative-decoding defaults from the declarative options; the runtime
-  # markers written by `llama-model draft`/`llama-model spec` override these.
-  draftDefault =
-    if config.device.app.llama.draftModel != null
-    then config.device.app.llama.draftModel
-    else "";
-  specDefault = config.device.app.llama.specType;
-
-  # The nixpkgs module builds ExecStart straight from `settings`; we replace it
-  # with this wrapper so the draft model / spec type can be chosen at runtime
-  # (the service reads two marker files in the models directory at startup).
-  draftWrapper = pkgs.writeShellScript "llama-cpp-with-draft" ''
-    set -euo pipefail
-    static_args=(
-      ${
-        lib.concatStringsSep " " (
-          lib.mapAttrsToList (n: v: "--${n} ${toString v}") (
-            lib.filterAttrs (n: _: !(lib.elem n [ "spec-type" "model-draft" "spec-draft-hf" ]))
-              config.services.llama-cpp.settings
-          )
-        )
-      }
-    )
-    spec_type=$(cat ${modelsDir}/.spec-type 2>/dev/null || true)
-    draft=$(cat ${modelsDir}/.draft 2>/dev/null || true)
-    [[ -n "$spec_type" ]] || spec_type=${specDefault}
-    [[ -n "$draft" ]] || draft='${draftDefault}'
-    if [[ -n "$spec_type" && "$spec_type" != "none" ]]; then
-      static_args+=(--spec-type "$spec_type")
-    fi
-    if [[ -n "$draft" ]]; then
-      if [[ "$draft" == /* ]]; then
-        static_args+=(--model-draft "$draft")
-      else
-        static_args+=(--spec-draft-hf "$draft")
-      fi
-    fi
-    exec ${config.services.llama-cpp.package}/bin/llama-server "''${static_args[@]}"
-  '';
-
   # Interactive model manager. All Hugging Face interactions (search, file
   # listing, download, auth) are delegated to the official `hf` CLI; this
   # wrapper only adds the menus and the local model directory bookkeeping.
@@ -87,8 +47,6 @@ let
       echo "  list                  show installed models" >&2
       echo "  rm [FILE]             delete a downloaded model" >&2
       echo "  status                show the server and loaded models" >&2
-      echo "  draft [FILE|HF-REF|off] set the speculative draft model (interactive pick)" >&2
-      echo "  spec [TYPE|off]       set spec type (draft-simple, draft-mtp, ngram-mod, ...)" >&2
       echo "  login | logout        manage your Hugging Face token (hf auth login/logout)" >&2
       echo "  whoami                who is logged in" >&2
       echo "  hf <args...>          pass through to the hf CLI" >&2
@@ -207,66 +165,6 @@ for m in json.load(sys.stdin):
       echo
     }
 
-    restart_server() {
-      echo "Restarting llama-cpp to apply speculative decoding settings..."
-      sudo systemctl restart llama-cpp || {
-        echo "Restart failed (sudo required). Run: sudo systemctl restart llama-cpp" >&2
-        return 1
-      }
-      echo "Restarted. Models load on demand again."
-    }
-
-    # Runtime spec settings: the service reads .spec-type and .draft in the
-    # models directory at startup (see draftWrapper in the Nix module), so we
-    # write those markers and restart the service.
-    cmd_draft() { # $1 = FILE | HF-REF | off (empty = pick from installed)
-      local pick="''${1:-}"
-      if [[ -z "$pick" ]]; then
-        local -a files=()
-        if [[ -d "$models_dir" ]]; then
-          while IFS= read -r f; do files+=("$f"); done < <(
-            find "$models_dir" -type f -name '*.gguf' -printf '%f\t%k KiB\n' | sort
-          )
-        fi
-        files+=("none"$'\t'"(disable drafting)")
-        local chosen
-        chosen=$(printf '%s\n' "''${files[@]}" | pick_fzf "Pick a draft model") || { echo "Nothing changed."; return; }
-        pick=''${chosen%%$'\t'*}
-      fi
-      if [[ -z "$pick" || "$pick" == "off" || "$pick" == "none" ]]; then
-        rm -f "$models_dir/.draft"
-        echo "Draft model disabled."
-      else
-        [[ "$pick" == /* ]] || pick="$models_dir/$pick"
-        printf '%s\n' "$pick" > "$models_dir/.draft"
-        echo "Draft model set to $pick."
-        local cur
-        cur=$(cat "$models_dir/.spec-type" 2>/dev/null || true)
-        if [[ -z "$cur" || "$cur" == "none" ]]; then
-          printf 'draft-simple\n' > "$models_dir/.spec-type"
-          echo "Spec type set to draft-simple (override with 'llama-model spec TYPE')."
-        fi
-      fi
-      restart_server
-    }
-
-    cmd_spec() { # $1 = TYPE | off (empty = show current)
-      local type="''${1:-}"
-      if [[ -z "$type" ]]; then
-        echo "Speculative decoding type: $(cat "$models_dir/.spec-type" 2>/dev/null || echo none)"
-        echo "Draft model: $(cat "$models_dir/.draft" 2>/dev/null || echo none)"
-        return
-      fi
-      if [[ "$type" == "off" || "$type" == "none" ]]; then
-        rm -f "$models_dir/.spec-type"
-        echo "Speculative decoding disabled."
-      else
-        printf '%s\n' "$type" > "$models_dir/.spec-type"
-        echo "Speculative decoding type set to $type."
-      fi
-      restart_server
-    }
-
     interactive() {
       while true; do
         echo
@@ -277,9 +175,7 @@ for m in json.load(sys.stdin):
         echo "  4) Remove a model"
         echo "  5) Server status"
         echo "  6) Hugging Face login"
-        echo "  7) Set draft model (speculative decoding)"
-        echo "  8) Speculative decoding type"
-        echo "  9) Quit"
+        echo "  7) Quit"
         local choice
         read -rp "> " choice || { echo; return; }
         case "$choice" in
@@ -289,9 +185,7 @@ for m in json.load(sys.stdin):
           4) cmd_rm "" ;;
           5) cmd_status ;;
           6) "$hf" auth login ;;
-          7) cmd_draft "" ;;
-          8) cmd_spec "" ;;
-          9 | q) return ;;
+          7 | q) return ;;
           *) ;;
         esac
       done
@@ -307,8 +201,6 @@ for m in json.load(sys.stdin):
       list) cmd_list ;;
       rm) cmd_rm "''${2:-}" ;;
       status) cmd_status ;;
-      draft) cmd_draft "''${2:-}" ;;
-      spec) cmd_spec "''${2:-}" ;;
       login) "$hf" auth login ;;
       logout) "$hf" auth logout ;;
       whoami) "$hf" auth whoami ;;
@@ -337,14 +229,6 @@ in
         "ctx-size" = 8192;
       };
     };
-
-    # Use the draft wrapper instead of the module's plain ExecStart so the
-    # speculative-decoding settings can be changed at runtime via the markers.
-    # NB: writeShellScript outputs a single file (not a bin/ dir), so use the
-    # store path directly rather than lib.getExe.
-    systemd.services.llama-cpp.serviceConfig.ExecStart = lib.mkForce [
-      (builtins.toString draftWrapper)
-    ];
 
     # The service runs as an ephemeral DynamicUser: /Vault is read-only to it,
     # so it can only read the models. The user (group `users`) owns the directory.
