@@ -54,6 +54,25 @@
         default = false;
         description = "Expose the llama server web UI on ai.<publicDomain> (ai.snowyrenard.com) in addition to ai.lan.";
       };
+      draftModel = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = ''
+          Draft model for speculative decoding. Either a local GGUF path
+          (e.g. /Vault/llama/models/draft.gguf) or an HF repo ref such as
+          user/model:quant (fetched automatically via --spec-draft-hf).
+          Leave null to disable a separate draft model.
+        '';
+      };
+      specType = lib.mkOption {
+        type = lib.types.str;
+        default = "none";
+        description = ''
+          Speculative decoding type: none, draft-mtp, draft-simple, draft-eagle3,
+          ngram-simple, ngram-map-k, ngram-mod, ... See `llama-server --help`.
+          Use draft-mtp for models with a built-in MTP head (e.g. Qwen3).
+        '';
+      };
     };
     minecraft = {
       enable = lib.mkEnableOption "Minecraft server";
