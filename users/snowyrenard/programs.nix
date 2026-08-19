@@ -1,5 +1,5 @@
 # Snowy's installed programs: dev tools, games, media, productivity apps.
-{ pkgs, ... }:
+{ pkgs, nur,... }:
 {
   home.packages = with pkgs; [
     #########
@@ -39,6 +39,8 @@
       norminette
       opencode
       lmstudio
+      jan
+      llama-cpp-rocm
 
     #########  
     # Games #
