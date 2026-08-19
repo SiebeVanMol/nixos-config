@@ -19,10 +19,20 @@
   config,
   lib,
   pkgs,
+  username,
   ...
 }:
 let
   modelsDir = "/Vault/llama/models";
+
+  # Web store: search Hugging Face, pick a quant, and manage installed models
+  # from the browser. Served at http://ai.lan/models. Uses huggingface_hub
+  # directly (same token as `llama-model login`), downloads into modelsDir.
+  storePython = pkgs.python3.withPackages (ps: [ ps.huggingface-hub ]);
+  llamaStore = pkgs.writeScriptBin "llama-store" ''
+    #!${storePython}/bin/python
+    ${builtins.readFile ./llama-store.py}
+  '';
 
   # Interactive model manager. All Hugging Face interactions (search, file
   # listing, download, auth) are delegated to the official `hf` CLI; this
@@ -230,6 +240,22 @@ in
       };
     };
 
+    # Web store service: runs as the desktop user (group `users`) so downloads
+    # land group-writable in modelsDir and the user's HF token is available.
+    systemd.services.llama-store = {
+      description = "Model store web UI for the llama.cpp server";
+      after = [ "network.target" ];
+      wantedBy = [ "multi-user.target" ];
+      environment.MODELS_DIR = modelsDir;
+      serviceConfig = {
+        User = username;
+        Group = "users";
+        ExecStart = "${llamaStore}/bin/llama-store";
+        Restart = "on-failure";
+        RestartSec = 3;
+      };
+    };
+
     # The service runs as an ephemeral DynamicUser: /Vault is read-only to it,
     # so it can only read the models. The user (group `users`) owns the directory.
     systemd.tmpfiles.rules = [
@@ -239,12 +265,17 @@ in
 
     # Serve on ai.lan (plain HTTP, LAN-only). Optionally also on the public
     # domain (ai.snowyrenard.com) via the automatic HTTPS challenge.
+    # The model store lives under /models on ai.lan; everything else (the
+    # llama-server web UI + OpenAI API) goes straight to the backend.
     services.caddy.virtualHosts = lib.mkIf config.device.security.reverse-proxy.enable (
       lib.listToAttrs (
         [{
           name = "http://ai.lan";
           value = {
             extraConfig = ''
+              handle_path /models/* {
+                reverse_proxy 127.0.0.1:8090
+              }
               reverse_proxy 127.0.0.1:8080
             '';
           };
