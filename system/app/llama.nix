@@ -54,7 +54,12 @@ let
 
     # Fuzzy picker over stdin lines; prints the chosen line. Requires a TTY.
     pick_fzf() { # $1=prompt
-      [[ -t 0 ]] || { echo "No terminal to pick from; pass the file explicitly (REPO:FILE)." >&2; return 1; }
+      # stdin is usually a pipe here, so test the TTY device, not fd 0.
+      if ! { exec 3<> /dev/tty; } 2>/dev/null; then
+        echo "No terminal available; pass the file explicitly (REPO:FILE) or run interactively." >&2
+        return 1
+      fi
+      exec 3>&-
       "$fzf" --prompt="$1> " --height 60% --layout=reverse --border --select-1 \
         || { echo "No selection." >&2; return 1; }
     }
