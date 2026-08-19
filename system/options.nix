@@ -47,6 +47,14 @@
     jellyfin = {
       enable = lib.mkEnableOption "Jellyfin media server";
     };
+    llama = {
+      enable = lib.mkEnableOption "llama.cpp OpenAI-compatible server";
+      public = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Expose the llama server web UI on ai.<publicDomain> (ai.snowyrenard.com) in addition to ai.lan.";
+      };
+    };
     minecraft = {
       enable = lib.mkEnableOption "Minecraft server";
     };

@@ -31,6 +31,7 @@
       steam.enable = true;
       gamemode.enable = true;
       jellyfin.enable = true;
+      llama.enable = true;
       minecraft.enable = true;
       virtualization.enable = true;
     };
