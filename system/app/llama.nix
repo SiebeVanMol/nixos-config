@@ -28,7 +28,7 @@ let
   # Web store: search Hugging Face, pick a quant, and manage installed models
   # from the browser. Served at http://ai.lan/models. Uses huggingface_hub
   # directly (same token as `llama-model login`), downloads into modelsDir.
-  storePython = pkgs.python3.withPackages (ps: [ ps.huggingface-hub ]);
+  storePython = pkgs.python3.withPackages (ps: [ ps.huggingface-hub ps.requests ]);
   llamaStore = pkgs.writeScriptBin "llama-store" ''
     #!${storePython}/bin/python
     ${builtins.readFile ./llama-store.py}
@@ -253,6 +253,25 @@ in
         ExecStart = "${llamaStore}/bin/llama-store";
         Restart = "on-failure";
         RestartSec = 3;
+      };
+    };
+
+    # Router mode snapshots the models dir at startup, so watch for new GGUF
+    # files and restart the server to refresh the model list. Drops loaded
+    # models, which reload on demand on the next request.
+    systemd.paths.llama-cpp-models = {
+      description = "Watch for new llama models";
+      wantedBy = [ "multi-user.target" ];
+      pathConfig = {
+        PathChangedGlob = "${modelsDir}/*.gguf";
+        Unit = "llama-cpp-reload.service";
+      };
+    };
+    systemd.services.llama-cpp-reload = {
+      description = "Reload llama-cpp after models changed";
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = "${pkgs.systemd}/bin/systemctl restart llama-cpp.service";
       };
     };
 

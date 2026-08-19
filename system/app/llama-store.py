@@ -5,10 +5,11 @@ import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
 
-from huggingface_hub import HfApi, hf_hub_download, snapshot_download
+import requests
+from huggingface_hub import HfApi
 
 MODELS_DIR = Path(os.environ.get("MODELS_DIR", "/Vault/llama/models"))
 LLAMA_SERVER = os.environ.get("LLAMA_SERVER", "http://127.0.0.1:8080")
@@ -17,6 +18,17 @@ PORT = int(os.environ.get("STORE_PORT", "8090"))
 api = HfApi()
 download_lock = threading.Lock()
 SHARD_RE = re.compile(r"^(.*)-(\d+)-of-(\d+)\.gguf$")
+
+# Current download progress, reported via /api/download/status.
+progress = {
+    "active": False,
+    "repo": "",
+    "file": "",
+    "total": 0,
+    "done": 0,
+    "files_done": 0,
+    "files_total": 0,
+}
 
 
 def human(n):
@@ -67,19 +79,60 @@ def repo_files(repo):
     return {"files": files}
 
 
+def _download_file(repo, fname, revision="main"):
+    """Stream a single GGUF to the models dir, updating `progress`."""
+    url = f"https://huggingface.co/{repo}/resolve/{revision}/{quote(fname)}"
+    headers = {"User-Agent": "llama-store/0.1"}
+    if api.token:
+        headers["Authorization"] = f"Bearer {api.token}"
+    dest = MODELS_DIR / fname
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with requests.get(url, stream=True, timeout=60, headers=headers) as r:
+        r.raise_for_status()
+        total = int(r.headers.get("Content-Length") or 0)
+        progress["total"] = total
+        with open(dest, "wb") as fh:
+            for chunk in r.iter_content(chunk_size=1 << 16):
+                if chunk:
+                    fh.write(chunk)
+                    progress["done"] += len(chunk)
+
+
 def download(repo, fname):
+    global progress
     with download_lock:
         m = SHARD_RE.match(fname)
         if m:
             base = m.group(1)
-            snapshot_download(
-                repo_id=repo,
-                allow_patterns=[f"{base}-*.gguf"],
-                local_dir=str(MODELS_DIR),
-            )
+            files = [
+                f["path"]
+                for f in repo_files(repo).get("files", [])
+                if f["path"].startswith(base) and f["path"].endswith(".gguf")
+            ]
         else:
-            hf_hub_download(
-                repo_id=repo, filename=fname, local_dir=str(MODELS_DIR)
+            files = [fname]
+        progress.update(
+            active=True,
+            repo=repo,
+            file="",
+            total=0,
+            done=0,
+            files_done=0,
+            files_total=len(files),
+        )
+        try:
+            for i, f in enumerate(files):
+                progress["file"] = f
+                progress["files_done"] = i
+                _download_file(repo, f)
+        finally:
+            progress.update(
+                active=False,
+                file="",
+                total=0,
+                done=0,
+                files_done=0,
+                files_total=0,
             )
     return {"ok": True, "downloaded": fname}
 
@@ -126,7 +179,10 @@ th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a2a2a; 
 tr.model:hover { background: #1c1c1c; cursor: pointer; }
 .muted { color: #999; font-size: 13px; }
 .section { margin-top: 28px; }
-.progress { display: none; margin-top: 10px; color: #8ec78e; }
+.progress { display: none; margin-top: 12px; }
+.bar { height: 10px; background: #333; border-radius: 5px; overflow: hidden; }
+.bar-fill { height: 100%; width: 0; background: #8ec78e; transition: width .3s; }
+#progress-label { display: block; margin-top: 6px; font-size: 13px; color: #bbb; }
 </style>
 </head>
 <body>
@@ -150,7 +206,10 @@ tr.model:hover { background: #1c1c1c; cursor: pointer; }
 
   <div class="section" id="files" style="display:none">
     <h2 id="files-title"></h2>
-    <div class="progress" id="progress">Downloading... this may take a while for large models.</div>
+    <div class="progress" id="progress">
+      <div class="bar"><div class="bar-fill" id="bar-fill"></div></div>
+      <span id="progress-label"></span>
+    </div>
     <table>
       <thead><tr><th>Quant file</th><th>Size</th><th></th></tr></thead>
       <tbody id="file-rows"></tbody>
@@ -170,10 +229,11 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 
 // The page is served under /models (Caddy strips the prefix), so API calls
 // must be relative to the page location, not the site root.
-const BASE = location.pathname.replace(/\/?$/, '/');
+const BASE = location.pathname.endsWith('/') ? location.pathname : location.pathname + '/';
 
 async function api(path, opts) {
-  const r = await fetch(BASE + path.replace(/^\//, ''), opts);
+  const p = path.startsWith('/') ? path.slice(1) : path;
+  const r = await fetch(BASE + p, opts);
   return r.json();
 }
 
@@ -235,8 +295,30 @@ async function showFiles(repo) {
   }
 }
 
+function fmtBytes(n) {
+  const u = ['B','KiB','MiB','GiB','TiB'];
+  let i = 0;
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+  return n.toFixed(1) + ' ' + u[i];
+}
+
 async function startDownload(repo, file) {
-  document.getElementById('progress').style.display = 'block';
+  const prog = document.getElementById('progress');
+  const fill = document.getElementById('bar-fill');
+  const label = document.getElementById('progress-label');
+  prog.style.display = 'block';
+  fill.style.width = '0';
+  label.textContent = 'Starting download of ' + file + '...';
+  const poll = setInterval(async () => {
+    try {
+      const s = await api('api/download/status');
+      const pct = s.total ? Math.min(100, Math.round(s.done / s.total * 100)) : 0;
+      fill.style.width = pct + '%';
+      label.textContent = s.active
+        ? `File ${Math.min(s.files_done + 1, s.files_total)}/${s.files_total} — ${esc(s.file)} — ${fmtBytes(s.done)} / ${fmtBytes(s.total)} (${pct}%)`
+        : 'Finishing...';
+    } catch (e) { /* ignore */ }
+  }, 400);
   try {
     const res = await fetch(BASE + 'api/download', {
       method: 'POST',
@@ -244,13 +326,16 @@ async function startDownload(repo, file) {
       body: JSON.stringify({repo, file})
     });
     const data = await res.json();
-    if (data.error) alert('Error: ' + data.error);
-    else { document.getElementById('progress').textContent = 'Done: ' + data.downloaded; }
+    if (data.error) { alert('Error: ' + data.error); }
+    else { fill.style.width = '100%'; label.textContent = 'Done: ' + data.downloaded; }
   } catch (e) {
     alert('Download failed: ' + e);
+  } finally {
+    clearInterval(poll);
+    refreshInstalled();
+    setTimeout(refreshStatus, 3000);
+    setTimeout(() => { prog.style.display = 'none'; }, 4000);
   }
-  refreshInstalled();
-  setTimeout(() => { document.getElementById('progress').style.display = 'none'; document.getElementById('progress').textContent = 'Downloading... this may take a while for large models.'; }, 3000);
 }
 
 async function removeModel(name) {
@@ -310,6 +395,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, installed())
         if path == "/api/status":
             return self._send(200, server_status())
+        if path == "/api/download/status":
+            return self._send(200, progress)
         self._send(404, {"error": "not found"})
 
     def do_POST(self):
