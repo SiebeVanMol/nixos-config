@@ -32,6 +32,7 @@
       gamemode.enable = true;
       jellyfin.enable = true;
       llama.enable = true;
+      llama.koboldCpp = true;
       minecraft.enable = true;
       virtualization.enable = true;
     };

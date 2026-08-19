@@ -49,6 +49,7 @@
     };
     llama = {
       enable = lib.mkEnableOption "llama.cpp OpenAI-compatible server";
+      koboldCpp = lib.mkEnableOption "KoboldCpp web UI (LM Studio-like, built-in model downloads)";
       public = lib.mkOption {
         type = lib.types.bool;
         default = false;

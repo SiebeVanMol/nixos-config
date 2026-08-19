@@ -15,6 +15,11 @@
 # Models live in /Vault/llama/models. The llama-cpp service can only read them
 # (DynamicUser, /Vault not writable); downloads are done by the user through
 # the helper, so a compromised server can't touch the rest of /Vault.
+#
+# KoboldCpp (optional, device.app.llama.koboldCpp) adds an LM Studio-like web
+# UI at http://kobold.lan with model downloads built in (downloaddir = models
+# dir) and a router that hotswaps models from the UI. Vulkan (RADV) backend.
+#
 {
   config,
   lib,
@@ -24,6 +29,16 @@
 }:
 let
   modelsDir = "/Vault/llama/models";
+
+  # nixpkgs installs the embedded UI assets (klite.embd, ...) flat in bin/,
+  # but koboldcpp looks for them in bin/embd_res/. Symlink them so the web
+  # UI is served instead of the "connect via the main client" fallback page.
+  koboldCppPkg = pkgs.koboldcpp.overrideAttrs (final: prev: {
+    postInstall = (prev.postInstall or "") + ''
+      mkdir -p "$out/bin/embd_res"
+      ln -s "$out"/bin/*.embd "$out/bin/embd_res/"
+    '';
+  });
 
   # Web store: search Hugging Face, pick a quant, and manage installed models
   # from the browser. Served at http://ai.lan/models. Uses huggingface_hub
@@ -275,6 +290,43 @@ in
       };
     };
 
+    # KoboldCpp: an LM Studio-like web UI with model downloads built in
+    # ("Download Models" tab) and a router so models can be hotswapped from
+    # the UI without a server restart. Uses the Vulkan backend (RADV) and the
+    # same models dir as llama-server. Served at http://kobold.lan.
+    systemd.services.koboldcpp = lib.mkIf config.device.app.llama.koboldCpp {
+      description = "KoboldCpp AI server (router mode)";
+      after = [ "network.target" ];
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        User = username;
+        Group = "users";
+        ExecStart = toString [
+          "${koboldCppPkg}/bin/koboldcpp"
+          "--host"
+          "127.0.0.1"
+          # In router mode the proxy binds the *positional* port, so the empty
+          # model placeholder + port slot below is what actually sets it.
+          ""
+          "5001"
+          "--nomodel"
+          "--usevulkan"
+          "--gpulayers"
+          "99"
+          "--contextsize"
+          "8192"
+          "--routermode"
+          "--admin"
+          "--admindir"
+          modelsDir
+          "--downloaddir"
+          modelsDir
+        ];
+        Restart = "on-failure";
+        RestartSec = 3;
+      };
+    };
+
     # The service runs as an ephemeral DynamicUser: /Vault is read-only to it,
     # so it can only read the models. The user (group `users`) owns the directory.
     systemd.tmpfiles.rules = [
@@ -299,6 +351,14 @@ in
             '';
           };
         }]
+        ++ lib.optionals config.device.app.llama.koboldCpp [{
+          name = "http://kobold.lan";
+          value = {
+            extraConfig = ''
+              reverse_proxy 127.0.0.1:5001
+            '';
+          };
+        }]
         ++ lib.optionals config.device.app.llama.public [{
           name = "ai.${config.device.security.reverse-proxy.publicDomain}";
           value = {
@@ -311,7 +371,9 @@ in
     );
 
     networking.hosts = lib.mkIf config.device.security.reverse-proxy.enable {
-      "127.0.0.1" = [ "ai.lan" ];
+      "127.0.0.1" =
+        [ "ai.lan" ]
+        ++ lib.optionals config.device.app.llama.koboldCpp [ "kobold.lan" ];
     };
 
     environment.systemPackages = [
