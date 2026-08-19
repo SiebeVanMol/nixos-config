@@ -168,8 +168,12 @@ tr.model:hover { background: #1c1c1c; cursor: pointer; }
 <script>
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+// The page is served under /models (Caddy strips the prefix), so API calls
+// must be relative to the page location, not the site root.
+const BASE = location.pathname.replace(/\/?$/, '/');
+
 async function api(path, opts) {
-  const r = await fetch(path, opts);
+  const r = await fetch(BASE + path.replace(/^\//, ''), opts);
   return r.json();
 }
 
@@ -234,7 +238,7 @@ async function showFiles(repo) {
 async function startDownload(repo, file) {
   document.getElementById('progress').style.display = 'block';
   try {
-    const res = await fetch('/api/download', {
+    const res = await fetch(BASE + 'api/download', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({repo, file})
@@ -251,7 +255,7 @@ async function startDownload(repo, file) {
 
 async function removeModel(name) {
   if (!confirm('Remove ' + name + '?')) return;
-  await fetch('/api/remove', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name}) });
+  await fetch(BASE + 'api/remove', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name}) });
   refreshInstalled();
 }
 
