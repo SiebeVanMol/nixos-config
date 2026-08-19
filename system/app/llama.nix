@@ -273,7 +273,7 @@ in
           name = "http://ai.lan";
           value = {
             extraConfig = ''
-              handle_path /models/* {
+              handle_path /models* {
                 reverse_proxy 127.0.0.1:8090
               }
               reverse_proxy 127.0.0.1:8080

@@ -292,7 +292,7 @@ class Handler(BaseHTTPRequestHandler):
     def _get(self):
         path = urlparse(self.path).path
         qs = parse_qs(urlparse(self.path).query)
-        if path in ("/", "/models", "/models/"):
+        if path in ("", "/", "/models", "/models/"):
             return self._html(PAGE.encode())
         if path == "/api/search":
             q = (qs.get("q") or [""])[0].strip()
