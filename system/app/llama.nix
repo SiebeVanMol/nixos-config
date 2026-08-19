@@ -340,8 +340,10 @@ in
 
     # Use the draft wrapper instead of the module's plain ExecStart so the
     # speculative-decoding settings can be changed at runtime via the markers.
+    # NB: writeShellScript outputs a single file (not a bin/ dir), so use the
+    # store path directly rather than lib.getExe.
     systemd.services.llama-cpp.serviceConfig.ExecStart = lib.mkForce [
-      (lib.getExe draftWrapper)
+      (builtins.toString draftWrapper)
     ];
 
     # The service runs as an ephemeral DynamicUser: /Vault is read-only to it,
