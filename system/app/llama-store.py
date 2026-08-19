@@ -12,7 +12,7 @@ import requests
 from huggingface_hub import HfApi
 
 MODELS_DIR = Path(os.environ.get("MODELS_DIR", "/Vault/llama/models"))
-LLAMA_SERVER = os.environ.get("LLAMA_SERVER", "http://127.0.0.1:8080")
+LLAMA_SERVER = os.environ.get("LLAMA_SERVER", "http://127.0.0.1:5001")
 PORT = int(os.environ.get("STORE_PORT", "8090"))
 
 api = HfApi()

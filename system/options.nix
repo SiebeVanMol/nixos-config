@@ -47,13 +47,12 @@
     jellyfin = {
       enable = lib.mkEnableOption "Jellyfin media server";
     };
-    llama = {
-      enable = lib.mkEnableOption "llama.cpp OpenAI-compatible server";
-      koboldCpp = lib.mkEnableOption "KoboldCpp web UI (LM Studio-like, built-in model downloads)";
+    ai = {
+      enable = lib.mkEnableOption "KoboldCpp OpenAI-compatible server + web UI";
       public = lib.mkOption {
         type = lib.types.bool;
         default = false;
-        description = "Expose the llama server web UI on ai.<publicDomain> (ai.snowyrenard.com) in addition to ai.lan.";
+        description = "Expose the KoboldCpp web UI on ai.<publicDomain> (ai.snowyrenard.com) in addition to ai.lan.";
       };
     };
     minecraft = {

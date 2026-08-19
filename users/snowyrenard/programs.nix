@@ -38,9 +38,6 @@
       man-pages
       norminette
       opencode
-      lmstudio
-      jan
-      llama-cpp-rocm
 
     #########  
     # Games #

@@ -1,9 +1,11 @@
-# llama.cpp server (OpenAI-compatible API) served through Caddy on the `ai` subdomain.
+# KoboldCpp (OpenAI-compatible server + web UI) served through Caddy on the
+# `ai` subdomain, with a model store under /models.
 #
-# Runs in router mode: the server watches a models directory and loads any GGUF
-# file on demand, so you can switch models per request by setting the `model`
-# field in the API call. Models are managed with the interactive `llama-model`
-# helper, which wraps the official `hf` CLI:
+# KoboldCpp runs in router mode against /Vault/llama/models: the LM Studio-like
+# web UI hotswaps models, and its built-in "Download Models" tab saves into the
+# same directory. The backend is Vulkan (RADV) on the AMD box. Models can also
+# be managed with the interactive `llama-model` helper, which wraps the
+# official `hf` CLI:
 #
 #   llama-model                interactive menu (search HF, add, remove, ...)
 #   llama-model search QUERY   search Hugging Face, then pick a model + file
@@ -12,14 +14,9 @@
 #   llama-model login          `hf auth login` (tokens for gated/private repos)
 #   llama-model hf <args...>   pass anything through to the hf CLI
 #
-# Models live in /Vault/llama/models. The llama-cpp service can only read them
-# (DynamicUser, /Vault not writable); downloads are done by the user through
-# the helper, so a compromised server can't touch the rest of /Vault.
-#
-# KoboldCpp (optional, device.app.llama.koboldCpp) adds an LM Studio-like web
-# UI at http://kobold.lan with model downloads built in (downloaddir = models
-# dir) and a router that hotswaps models from the UI. Vulkan (RADV) backend.
-#
+# Downloads land group-writable in modelsDir; the services run as the desktop
+# user so the user's HF token is available and /Vault stays out of reach of
+# anything untrusted.
 {
   config,
   lib,
@@ -184,9 +181,9 @@ for m in json.load(sys.stdin):
 
     cmd_status() {
       printf 'Service:\n'
-      systemctl --no-pager status llama-cpp --output=short || true
+      systemctl --no-pager status koboldcpp --output=short || true
       printf '\nLoaded models (GET /v1/models):\n'
-      "$curl" --silent --fail http://127.0.0.1:8080/v1/models || echo "server not reachable yet"
+      "$curl" --silent --fail http://127.0.0.1:5001/v1/models || echo "server not reachable yet"
       echo
     }
 
@@ -236,32 +233,15 @@ for m in json.load(sys.stdin):
   '';
 in
 {
-  config = lib.mkIf config.device.app.llama.enable {
-    # ROCm build on AMD (mesa) hardware, plain CPU build elsewhere.
-    services.llama-cpp.package = lib.mkIf config.device.hardware.mesa.enable pkgs.llama-cpp-rocm;
-
-    services.llama-cpp = {
-      enable = true;
-
-      # Router mode: serve every GGUF under modelsDir; the client picks a model
-      # via the `model` field in the request (the filename without the directory).
-      settings = {
-        host = "127.0.0.1";
-        port = 8080;
-        "models-dir" = modelsDir;
-        "flash-attn" = "on";
-        "n-gpu-layers" = 99;
-        "ctx-size" = 8192;
-      };
-    };
-
+  config = lib.mkIf config.device.app.ai.enable {
     # Web store service: runs as the desktop user (group `users`) so downloads
     # land group-writable in modelsDir and the user's HF token is available.
     systemd.services.llama-store = {
-      description = "Model store web UI for the llama.cpp server";
+      description = "Model store web UI for the KoboldCpp server";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
       environment.MODELS_DIR = modelsDir;
+      environment.LLAMA_SERVER = "http://127.0.0.1:5001";
       serviceConfig = {
         User = username;
         Group = "users";
@@ -271,30 +251,10 @@ in
       };
     };
 
-    # Router mode snapshots the models dir at startup, so watch for new GGUF
-    # files and restart the server to refresh the model list. Drops loaded
-    # models, which reload on demand on the next request.
-    systemd.paths.llama-cpp-models = {
-      description = "Watch for new llama models";
-      wantedBy = [ "multi-user.target" ];
-      pathConfig = {
-        PathChanged = "${modelsDir}";
-        Unit = "llama-cpp-reload.service";
-      };
-    };
-    systemd.services.llama-cpp-reload = {
-      description = "Reload llama-cpp after models changed";
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = "${pkgs.systemd}/bin/systemctl restart llama-cpp.service";
-      };
-    };
-
     # KoboldCpp: an LM Studio-like web UI with model downloads built in
-    # ("Download Models" tab) and a router so models can be hotswapped from
-    # the UI without a server restart. Uses the Vulkan backend (RADV) and the
-    # same models dir as llama-server. Served at http://kobold.lan.
-    systemd.services.koboldcpp = lib.mkIf config.device.app.llama.koboldCpp {
+    # ("Download Models" tab) and a router that hotswaps models from the UI
+    # without a server restart. Vulkan backend (RADV), same models dir.
+    systemd.services.koboldcpp = {
       description = "KoboldCpp AI server (router mode)";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
@@ -327,8 +287,6 @@ in
       };
     };
 
-    # The service runs as an ephemeral DynamicUser: /Vault is read-only to it,
-    # so it can only read the models. The user (group `users`) owns the directory.
     systemd.tmpfiles.rules = [
       "d /Vault/llama 0755 root users -"
       "d ${modelsDir} 0775 root users -"
@@ -337,7 +295,7 @@ in
     # Serve on ai.lan (plain HTTP, LAN-only). Optionally also on the public
     # domain (ai.snowyrenard.com) via the automatic HTTPS challenge.
     # The model store lives under /models on ai.lan; everything else (the
-    # llama-server web UI + OpenAI API) goes straight to the backend.
+    # KoboldCpp web UI + OpenAI API) goes straight to the backend.
     services.caddy.virtualHosts = lib.mkIf config.device.security.reverse-proxy.enable (
       lib.listToAttrs (
         [{
@@ -347,23 +305,15 @@ in
               handle_path /models* {
                 reverse_proxy 127.0.0.1:8090
               }
-              reverse_proxy 127.0.0.1:8080
-            '';
-          };
-        }]
-        ++ lib.optionals config.device.app.llama.koboldCpp [{
-          name = "http://kobold.lan";
-          value = {
-            extraConfig = ''
               reverse_proxy 127.0.0.1:5001
             '';
           };
         }]
-        ++ lib.optionals config.device.app.llama.public [{
+        ++ lib.optionals config.device.app.ai.public [{
           name = "ai.${config.device.security.reverse-proxy.publicDomain}";
           value = {
             extraConfig = ''
-              reverse_proxy 127.0.0.1:8080
+              reverse_proxy 127.0.0.1:5001
             '';
           };
         }]
@@ -371,9 +321,7 @@ in
     );
 
     networking.hosts = lib.mkIf config.device.security.reverse-proxy.enable {
-      "127.0.0.1" =
-        [ "ai.lan" ]
-        ++ lib.optionals config.device.app.llama.koboldCpp [ "kobold.lan" ];
+      "127.0.0.1" = [ "ai.lan" ];
     };
 
     environment.systemPackages = [
