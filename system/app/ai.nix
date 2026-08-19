@@ -265,9 +265,7 @@ in
           "${koboldCppPkg}/bin/koboldcpp"
           "--host"
           "127.0.0.1"
-          # In router mode the proxy binds the *positional* port, so the empty
-          # model placeholder + port slot below is what actually sets it.
-          ""
+          "--port"
           "5001"
           "--nomodel"
           "--usevulkan"
