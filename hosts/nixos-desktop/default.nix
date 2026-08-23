@@ -31,7 +31,7 @@
       steam.enable = true;
       gamemode.enable = true;
       jellyfin.enable = true;
-      dsh.enable = true;
+      # ai.enable = true;
       minecraft.enable = true;
       virtualization.enable = true;
     };
