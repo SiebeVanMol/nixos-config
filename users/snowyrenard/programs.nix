@@ -1,77 +1,76 @@
 # Snowy's installed programs: dev tools, games, media, productivity apps.
-{ pkgs, nur,... }:
-{
+{pkgs, ...}: {
   home.packages = with pkgs; [
     #########
     # Utils #
     #########
-      # Archives
-      p7zip
-      # File System
-      dust
-      ripgrep
-      pipe-rename
-      # Monitoring
-      yazi
-      nvtopPackages.amd
-      # Extra
-      tokei
-      tealdeer
+    # Archives
+    p7zip
+    # File System
+    dust
+    ripgrep
+    pipe-rename
+    # Monitoring
+    yazi
+    nvtopPackages.amd
+    # Extra
+    tokei
+    tealdeer
 
     ###############
     # Programming #
     ###############
-      # Compilers
-      gcc
-      gnumake
-      cmake
-      valgrind
-      rustup
-      # Python
-      (python3.withPackages (ps: [ ps.mypy ps.flake8 ]))
-      # Cargo
-      cargo-expand
-      cargo-tarpaulin
-      cargo-flamegraph
-      cargo-all-features
-      # code tools
-      man-pages
-      norminette
-      opencode
+    # Compilers
+    gcc
+    gnumake
+    cmake
+    valgrind
+    rustup
+    # Python
+    (python3.withPackages (ps: [ps.mypy ps.flake8]))
+    # Cargo
+    cargo-expand
+    cargo-tarpaulin
+    cargo-flamegraph
+    cargo-all-features
+    # code tools
+    man-pages
+    norminette
+    opencode
+    llm-agents.dsh
 
-    #########  
+    #########
     # Games #
     #########
-      # Launcher
-      xivlauncher
-      heroic
-      prismlauncher
-      protonup-qt
-      lutris
+    # Launcher
+    xivlauncher
+    heroic
+    prismlauncher
+    protonup-qt
+    lutris
 
     ################
     # Productivity #
     ################
-      # Communication
-      discord
-      # File sharing
-      qbittorrent
+    # Communication
+    discord
+    # File sharing
+    qbittorrent
 
     #########
     # Media #
     #########
-      # Music
-      ncspot
+    # Music
+    ncspot
 
-      jetbrains.clion
-      jetbrains.pycharm
-      jetbrains.rust-rover
+    jetbrains.clion
+    jetbrains.pycharm
+    jetbrains.rust-rover
   ];
 
   home.sessionVariables = {
     OBS_VKCAPTURE = 1;
     PROTON_FSR4_UPGRADE = 1;
-
   };
 
   # direnv + nix-direnv: loads a project's `use flake` dev shell (from its
@@ -90,12 +89,12 @@
       vo = "dmabuf-wayland";
     };
   };
-  
+
   programs = {
     btop = {
       enable = true;
       package = pkgs.btop-rocm;
-      
+
       settings = {
         theme_background = false;
         update_ms = 100;

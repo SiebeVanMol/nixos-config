@@ -5,8 +5,7 @@
   zen-browser,
   ...
 }: {
-
-  imports = [ zen-browser.homeModules.default ];
+  imports = [zen-browser.homeModules.default];
   home.sessionVariables.BROWSER = "zen-beta";
 
   programs.zen-browser = {
@@ -25,8 +24,14 @@
         Fingerprinting = true;
       };
       Preferences = {
-        "widget.use-xdg-desktop-portal.mime-handler" = { Value = 0; Status = "locked"; };
-        "widget.use-xdg-desktop-portal.file-picker" = { Value = 0; Status = "locked"; };
+        "widget.use-xdg-desktop-portal.mime-handler" = {
+          Value = 0;
+          Status = "locked";
+        };
+        "widget.use-xdg-desktop-portal.file-picker" = {
+          Value = 0;
+          Status = "locked";
+        };
         "gfx.color_management.mode" = 1;
       };
     };
@@ -70,7 +75,6 @@
           id = "94";
           container = containers."Work".id;
         };
-        
       };
 
       containersForce = true;
@@ -84,7 +88,7 @@
           sponsorblock
           proton-pass
         ];
-      }; 
+      };
 
       search = {
         force = true;
@@ -92,111 +96,162 @@
         engines = {
           nix-packages = {
             name = "Nix Packages";
-            urls = [{
-              template = "https://search.nixos.org/packages";
-              params = [
-                { name = "type"; value = "packages"; }
-                { name = "channel"; value = "unstable"; }
-                { name = "query"; value = "{searchTerms}"; }
-              ];
-            }];
+            urls = [
+              {
+                template = "https://search.nixos.org/packages";
+                params = [
+                  {
+                    name = "type";
+                    value = "packages";
+                  }
+                  {
+                    name = "channel";
+                    value = "unstable";
+                  }
+                  {
+                    name = "query";
+                    value = "{searchTerms}";
+                  }
+                ];
+              }
+            ];
 
             icon = "${pkgs.nixos-icons}/share/icons/hicolor/scalable/apps/nix-snowflake.svg";
-            definedAliases = [ "@np" ];
+            definedAliases = ["@np"];
           };
 
           nix-options = {
             name = "Nix Options";
-            urls = [{
-              template = "https://search.nixos.org/options";
-              params = [
-                { name = "channel"; value = "unstable"; }
-                { name = "query"; value = "{searchTerms}"; }
-              ];
-            }];
+            urls = [
+              {
+                template = "https://search.nixos.org/options";
+                params = [
+                  {
+                    name = "channel";
+                    value = "unstable";
+                  }
+                  {
+                    name = "query";
+                    value = "{searchTerms}";
+                  }
+                ];
+              }
+            ];
 
             icon = "${pkgs.nixos-icons}/share/icons/hicolor/scalable/apps/nix-snowflake.svg";
-            definedAliases = [ "@no" ];
+            definedAliases = ["@no"];
           };
 
           nix-wiki = {
             name = "Nix Wiki";
-            urls = [{
-              template = "https://nixos.wiki/wiki/{searchTerms}";
-            }];
+            urls = [
+              {
+                template = "https://nixos.wiki/wiki/{searchTerms}";
+              }
+            ];
 
             icon = "${pkgs.nixos-icons}/share/icons/hicolor/scalable/apps/nix-snowflake.svg";
-            definedAliases = [ "@nw" ];
+            definedAliases = ["@nw"];
           };
           home-manager-Options = {
-           name = "Home Manager Options";
-           urls = [{
-             template = "https://home-manager-options.extranix.com/{searchTerms}";
-             params = [
-               { name = "query"; value = "{searchTerms}"; }
-               { name = "release"; value = "master"; }
-             ];
-           }];
+            name = "Home Manager Options";
+            urls = [
+              {
+                template = "https://home-manager-options.extranix.com/{searchTerms}";
+                params = [
+                  {
+                    name = "query";
+                    value = "{searchTerms}";
+                  }
+                  {
+                    name = "release";
+                    value = "master";
+                  }
+                ];
+              }
+            ];
 
-           icon = "${pkgs.nixos-icons}/share/icons/hicolor/scalable/apps/nix-snowflake.svg";
-           definedAliases = [ "@hm" "home manager" ];
+            icon = "${pkgs.nixos-icons}/share/icons/hicolor/scalable/apps/nix-snowflake.svg";
+            definedAliases = ["@hm" "home manager"];
           };
 
           jisho = {
             name = "Jisho";
-            urls = [{
-              template = "https://jisho.org/search/{searchTerms}";
-            }];
+            urls = [
+              {
+                template = "https://jisho.org/search/{searchTerms}";
+              }
+            ];
 
-            definedAliases = [ "@js" "jisho" ];
+            definedAliases = ["@js" "jisho"];
           };
 
           youtube = {
             name = "Youtube";
-            urls = [{
-              template = "https://youtube.com/results";
-              params = [
-                { name = "search_query"; value = "{searchTerms}"; }
-              ];
-            }];
+            urls = [
+              {
+                template = "https://youtube.com/results";
+                params = [
+                  {
+                    name = "search_query";
+                    value = "{searchTerms}";
+                  }
+                ];
+              }
+            ];
 
-            definedAliases = [ "@yt" "youtube" ];
+            definedAliases = ["@yt" "youtube"];
           };
 
           wallhaven = {
             name = "Wallhaven";
-            urls = [{
-              template = "https://wallhaven.cc/search";
-              params = [
-                { name = "q"; value = "{searchTerms}"; }
-              ];
-            }];
+            urls = [
+              {
+                template = "https://wallhaven.cc/search";
+                params = [
+                  {
+                    name = "q";
+                    value = "{searchTerms}";
+                  }
+                ];
+              }
+            ];
 
-            definedAliases = [ "@wh" "wallhaven" ];
+            definedAliases = ["@wh" "wallhaven"];
           };
 
           g2a = {
             name = "G2A";
-            urls = [{
-              template = "https://g2a.com/search";
-              params = [
-                { name = "query"; value = "{searchTerms}"; }
-              ];
-            }];
+            urls = [
+              {
+                template = "https://g2a.com/search";
+                params = [
+                  {
+                    name = "query";
+                    value = "{searchTerms}";
+                  }
+                ];
+              }
+            ];
 
-            definedAliases = [ "@g" "@g2a" "g2a" ];
+            definedAliases = ["@g" "@g2a" "g2a"];
           };
 
           protond-db = {
             name = "protondb";
-            urls = [{
-              template = "https://protondb.com/search";
-              params = [
-                { name = "q"; value = "{searchTerms}"; }
-              ];
-            }];
+            urls = [
+              {
+                template = "https://protondb.com/search";
+                params = [
+                  {
+                    name = "q";
+                    value = "{searchTerms}";
+                  }
+                ];
+              }
+            ];
 
-            definedAliases = [ "@pdb" ];
+            definedAliases = ["@pdb"];
           };
         };
       };

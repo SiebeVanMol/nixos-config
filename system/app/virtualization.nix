@@ -1,5 +1,11 @@
 # QEMU/KVM virtualization with virt-manager GUI for running VMs (e.g. custom prototype kernels).
-{ config, lib, pkgs, username, ... }: {
+{
+  config,
+  lib,
+  pkgs,
+  username,
+  ...
+}: {
   config = lib.mkIf config.device.app.virtualization.enable {
     virtualisation.libvirtd = {
       enable = true;

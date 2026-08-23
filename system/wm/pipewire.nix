@@ -1,5 +1,5 @@
 # PipeWire audio server: ALSA (with 32-bit), PulseAudio, and JACK compatibility.
-{ ... }: {
+{...}: {
   security.rtkit.enable = true;
   services.pipewire = {
     enable = true;

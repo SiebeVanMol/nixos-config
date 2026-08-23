@@ -1,6 +1,6 @@
 # Custom NixOS option declarations that act as feature toggles.
 # Hosts enable subsets via device.hardware.<name>.enable and device.security.<name>.enable.
-{ lib, ... }: {
+{lib, ...}: {
   options.device.hardware = {
     amd = {
       enable = lib.mkEnableOption "AMD GPU powercap udev rules";
@@ -29,10 +29,10 @@
     time = {
       enable = lib.mkEnableOption "timesyncd";
     };
-      zsa = {
-        enable = lib.mkEnableOption "ZSA keyboard + keymapp";
-      };
+    zsa = {
+      enable = lib.mkEnableOption "ZSA keyboard + keymapp";
     };
+  };
 
   options.device.app = {
     steam = {
@@ -48,12 +48,7 @@
       enable = lib.mkEnableOption "Jellyfin media server";
     };
     ai = {
-      enable = lib.mkEnableOption "KoboldCpp OpenAI-compatible server + web UI";
-      public = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Expose the KoboldCpp web UI on ai.<publicDomain> (ai.snowyrenard.com) in addition to ai.lan.";
-      };
+      enable = lib.mkEnableOption "llama.cpp (ROCm) server with Gemma 4 REAP 19B";
     };
     minecraft = {
       enable = lib.mkEnableOption "Minecraft server";

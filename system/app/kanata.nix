@@ -1,5 +1,9 @@
 # Kanata keyboard remapper: QWERTY, Canary-angle, layers, and command-mode layouts.
-{ config, lib, ... }: {
+{
+  config,
+  lib,
+  ...
+}: {
   config = lib.mkIf config.device.app.kanata.enable {
     hardware.uinput.enable = true;
 

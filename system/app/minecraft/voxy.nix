@@ -10,12 +10,10 @@
 # local fork ~/Downloads/voxy_worldgen_v2 (1.21.1 backport of iSeeEthan/voxy_worldgen_v2
 # with dedicated-server fixes). To update: rebuild the fork, copy the new jar in here,
 # and bump the hash.
-{ pkgs }:
-
-let
+{pkgs}: let
   sha256 = "sha256-81cf0813abc1caad48f33d2890bd079551c0bb83fd689f34c2d573698c467626";
 in
-pkgs.runCommand "voxyworldgenv2" { inherit sha256; } ''
-  mkdir -p $out
-  cp ${./vendor/voxyworldgenv2-2.2.4.jar} $out/VoxyWorldGenV2-2.2.4.jar
-''
+  pkgs.runCommand "voxyworldgenv2" {inherit sha256;} ''
+    mkdir -p $out
+    cp ${./vendor/voxyworldgenv2-2.2.4.jar} $out/VoxyWorldGenV2-2.2.4.jar
+  ''

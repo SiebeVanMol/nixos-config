@@ -1,6 +1,10 @@
 # OpenSSH server for remote access, hardened for key-only auth, plus fail2ban
 # to rate-limit brute-force attempts against SSH and exposed services.
-{ config, lib, ... }: {
+{
+  config,
+  lib,
+  ...
+}: {
   config = lib.mkIf config.device.security.ssh.enable {
     services.openssh = {
       enable = true;
@@ -28,7 +32,7 @@
       enable = true;
       maxretry = 5;
       bantime = "1h";
-      ignoreIP = [ "127.0.0.1/8" "::1/128" ];
+      ignoreIP = ["127.0.0.1/8" "::1/128"];
     };
   };
 }

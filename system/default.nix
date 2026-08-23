@@ -1,7 +1,12 @@
 # Base system configuration shared across all machines.
 # Creates the primary user, sets Nix/SSD/locale defaults, and pulls in the option-defined
 # hardware and security toggle modules.
-{ username, pkgs, lib, ... }: {
+{
+  username,
+  pkgs,
+  lib,
+  ...
+}: {
   imports = [
     ./options.nix
     ./hardware
@@ -13,7 +18,7 @@
   users.users.${username} = {
     isNormalUser = true;
     description = username;
-    extraGroups = ["networkmanager" "wheel" "input" "uinput" "video" "render" ];
+    extraGroups = ["networkmanager" "wheel" "input" "uinput" "video" "render"];
     shell = pkgs.nushell;
   };
 

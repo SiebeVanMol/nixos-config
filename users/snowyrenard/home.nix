@@ -1,5 +1,5 @@
 # Snowy's user home: MIME application defaults, Japanese input (fcitx5 + Mozc).
-{ pkgs, ... }: {
+{pkgs, ...}: {
   imports = [
     ../../home/core.nix
 
@@ -13,32 +13,32 @@
     defaultApplications = {
       # Terminal
       "x-scheme-handler/terminal" = "kitty.desktop";
-      
+
       # Browser
-      "application/pdf"           = "zen-beta.desktop";
-      "x-scheme-handler/http"     = "zen-beta.desktop";
-      "x-scheme-handler/https"    = "zen-beta.desktop";
-      "x-scheme-handler/about"    = "zen-beta.desktop";
-      "x-scheme-handler/unknown"  = "zen-beta.desktop";
+      "application/pdf" = "zen-beta.desktop";
+      "x-scheme-handler/http" = "zen-beta.desktop";
+      "x-scheme-handler/https" = "zen-beta.desktop";
+      "x-scheme-handler/about" = "zen-beta.desktop";
+      "x-scheme-handler/unknown" = "zen-beta.desktop";
 
       # Files
       "inode/directory" = "yazi.desktop";
 
       # Images
-      "image/png"      = "yazi.desktop";
-      "image/jpeg"     = "yazi.desktop";
-      "image/gif"      = "yazi.desktop";
-      "image/webp"     = "yazi.desktop";
-      "image/svg+xml"  = "yazi.desktop";
-      "image/tiff"     = "yazi.desktop";
-      "image/bmp"      = "yazi.desktop";
+      "image/png" = "yazi.desktop";
+      "image/jpeg" = "yazi.desktop";
+      "image/gif" = "yazi.desktop";
+      "image/webp" = "yazi.desktop";
+      "image/svg+xml" = "yazi.desktop";
+      "image/tiff" = "yazi.desktop";
+      "image/bmp" = "yazi.desktop";
 
       # Text
-      "text/plain"    = "Helix.desktop";
-      "text/html"     = "Helix.desktop";
+      "text/plain" = "Helix.desktop";
+      "text/html" = "Helix.desktop";
       "text/markdown" = "Helix.desktop";
-      "text/csv"      = "Helix.desktop";
-      "text/xml"      = "Helix.desktop";
+      "text/csv" = "Helix.desktop";
+      "text/xml" = "Helix.desktop";
     };
   };
 

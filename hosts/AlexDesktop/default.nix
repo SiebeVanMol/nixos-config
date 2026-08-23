@@ -1,5 +1,5 @@
 # Alex's desktop configuration. DualSense controller, Asia/Tokyo timezone.
-{ ... }: {
+{...}: {
   imports = [
     ../../system/default.nix
     ./hardware-configuration.nix

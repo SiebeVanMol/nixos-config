@@ -1,9 +1,5 @@
 # Helix editor with LSP servers (nixd, rust-analyzer, clangd, zls, markdown-oxide, harper, typos).
-{
-  pkgs,
-  ...
-}: 
-{
+{pkgs, ...}: {
   home.sessionVariables.EDITOR = "hx";
 
   programs.helix = {
@@ -61,7 +57,7 @@
     languages = {
       language-server.harper = with pkgs; {
         command = "${harper}/bin/harper-ls";
-        args = [ "--stdio" ];
+        args = ["--stdio"];
       };
       language-server.typos = with pkgs; {
         command = "${typos-lsp}/bin/typos-lsp";
@@ -70,23 +66,29 @@
       language = [
         {
           name = "c";
-          indent = { unit = "\t"; tab-width = 4;};
+          indent = {
+            unit = "\t";
+            tab-width = 4;
+          };
         }
         {
           name = "cpp";
-          indent = { unit = "\t"; tab-width = 4;};
+          indent = {
+            unit = "\t";
+            tab-width = 4;
+          };
         }
         {
           name = "rust";
-          language-servers = [ "harper" "typos" "rust-analyzer" ]; 
+          language-servers = ["harper" "typos" "rust-analyzer"];
         }
         {
           name = "markdown";
-          language-servers = [ "harper" "markdown-oxide" ];
+          language-servers = ["harper" "markdown-oxide"];
         }
         {
           name = "nix";
-          language-servers = [ "harper" "typos" "nixd" ];
+          language-servers = ["harper" "typos" "nixd"];
         }
       ];
     };

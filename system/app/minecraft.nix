@@ -1,7 +1,11 @@
-{ pkgs, lib, config, ... }:
-let
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}: let
   mcVersion = "1.21.1";
-  mcVersionUnderscored = lib.replaceStrings [ "." ] [ "_" ] mcVersion;
+  mcVersionUnderscored = lib.replaceStrings ["."] ["_"] mcVersion;
   serverVersion = "fabric-${mcVersionUnderscored}";
 
   # Stock COBBLEVERSE 1.7.42 pack, fetched directly from Modrinth. When a new pack
@@ -21,26 +25,27 @@ let
   # to voxyworldgenv2 clients over its own channel. voxy itself is NOT needed on the
   # server: it is only a renderer/ingest target on the client, and the client never
   # generates when connected to a dedicated server, so no Chunky pre-generation either.
-  voxyMods = import ./minecraft/voxy.nix { inherit pkgs; };
+  voxyMods = import ./minecraft/voxy.nix {inherit pkgs;};
 
   # cobblemon-battle-positions is shipped as a pack override (no standalone Modrinth/CF
   # project), so it comes from the pack's own overrides folder.
-  serverMods = pkgs.runCommand "cobbleverse-mods" { } (
+  serverMods = pkgs.runCommand "cobbleverse-mods" {} (
     "mkdir -p $out\n"
-    + lib.concatStringsSep "\n" (map (m:
-      "cp ${pkgs.fetchurl {
-        url = m.url;
-        hash = m.hash;
-        name = lib.strings.sanitizeDerivationName m.file;
-      }} $out/${lib.escapeShellArg m.file}"
-    ) serverModsList)
+    + lib.concatStringsSep "\n" (map (
+        m: "cp ${pkgs.fetchurl {
+          url = m.url;
+          hash = m.hash;
+          name = lib.strings.sanitizeDerivationName m.file;
+        }} $out/${lib.escapeShellArg m.file}"
+      )
+      serverModsList)
     + "\ncp ${cobbleversePack}/overrides/mods/cobblemon-battle-positions-1.1.3.jar $out/cobblemon-battle-positions-1.1.3.jar"
     + "\ncp ${voxyMods}/VoxyWorldGenV2-2.2.4.jar $out/VoxyWorldGenV2-2.2.4.jar"
   );
 
   # Pack overrides (configs, datapacks) from the stock pack's modrinth release, plus the
   # PokeCenterPCs datapack which ships as a separate file in the pack's modrinth index.
-  cobbleverseOverrides = pkgs.runCommand "cobbleverse-overrides" { } ''
+  cobbleverseOverrides = pkgs.runCommand "cobbleverse-overrides" {} ''
     mkdir -p $out
     cp -r --no-preserve=mode ${cobbleversePack}/overrides/config $out/config
     cp -r --no-preserve=mode ${cobbleversePack}/overrides/datapacks $out/datapacks
@@ -61,10 +66,10 @@ let
   voxyworldgenv2Config = pkgs.writeText "voxyworldgenv2.json" (builtins.toJSON {
     enabled = true;
     showF3MenuStats = true;
-    generationRadius = 128;
+    generationRadius = 64;
     update_interval = 20;
     maxQueueSize = 4000;
-    maxActiveTasks = 8;
+    maxActiveTasks = 4;
   });
 
   gameRulesDatapack = pkgs.linkFarm "gamerules-datapack" [
@@ -87,71 +92,72 @@ let
     {
       name = "data/minecraft/tags/function/load.json";
       path = pkgs.writeText "load.json" (builtins.toJSON {
-        values = [ "gamerules:load" ];
+        values = ["gamerules:load"];
       });
     }
   ];
-in
-{
-  # Minecraft is raw TCP, not HTTP, so it bypasses the reverse proxy.
-  # It is exposed directly on the public internet via its public domain
-  # (minecraft.snowyrenard.com:25565), so the firewall port stays open.
-  networking.hosts = lib.mkIf config.device.security.reverse-proxy.enable {
-    "127.0.0.1" = [ "minecraft.lan" ];
-  };
+in {
+  config = lib.mkIf config.device.app.minecraft.enable {
+    # Minecraft is raw TCP, not HTTP, so it bypasses the reverse proxy.
+    # It is exposed directly on the public internet via its public domain
+    # (minecraft.snowyrenard.com:25565), so the firewall port stays open.
+    networking.hosts = lib.mkIf config.device.security.reverse-proxy.enable {
+      "127.0.0.1" = ["minecraft.lan"];
+    };
 
-  users.users.minecraft.extraGroups = [ "users" ];
+    users.users.minecraft.extraGroups = ["users"];
 
-  # Restrict the server to writing only its own data under /Vault/minecraft;
-  # the rest of /Vault is read-only. NoNewPrivileges is JVM-safe; we avoid
-  # MemoryDenyWriteExecute / a strict SystemCallFilter which would break the JVM.
-  systemd.services.minecraft-server-violet-town.serviceConfig = {
-    NoNewPrivileges = true;
-    ProtectSystem = "full";
-    ReadOnlyPaths = [ "/Vault" ];
-    ReadWritePaths = [ "/Vault/minecraft" ];
-  };
+    # Restrict the server to writing only its own data under /Vault/minecraft;
+    # the rest of /Vault is read-only. NoNewPrivileges is JVM-safe; we avoid
+    # MemoryDenyWriteExecute / a strict SystemCallFilter which would break the JVM.
+    systemd.services.minecraft-server-violet-town.serviceConfig = {
+      NoNewPrivileges = true;
+      ProtectSystem = "full";
+      ReadOnlyPaths = ["/Vault"];
+      ReadWritePaths = ["/Vault/minecraft"];
+    };
 
-  services.minecraft-servers = {
-    enable = true;
-    eula = true;
-
-    dataDir = "/Vault/minecraft";
-
-    servers.violet-town = {
+    services.minecraft-servers = {
       enable = true;
-      openFirewall = true;
+      eula = true;
 
-      package = pkgs.fabricServers.${serverVersion}.override {
-        jre_headless = pkgs.jdk21_headless;
+      dataDir = "/Vault/minecraft";
+
+      servers.violet-town = {
+        enable = true;
+        openFirewall = true;
+
+        package = pkgs.fabricServers.${serverVersion}.override {
+          jre_headless = pkgs.jdk21_headless;
+        };
+
+        serverProperties = {
+          difficulty = 3;
+          gamemode = "survival";
+          motd = "violet town";
+          allow-cheats = true;
+          allow-flight = true;
+          max-tick-time = 180000;
+          simulation-distance = 5;
+          view-distance = 8;
+          pause-when-empty-seconds = 60;
+          players-sleeping-percentage = 1;
+        };
+
+        symlinks = {
+          "server-icon.png" = serverIcon;
+        };
+
+        files = {
+          "mods" = serverMods;
+          "config" = "${cobbleverseOverrides}/config";
+          "config/voxyworldgenv2.json" = voxyworldgenv2Config;
+          "datapacks" = "${cobbleverseOverrides}/datapacks";
+          "world/datapacks/gamerules" = gameRulesDatapack;
+        };
+
+        jvmOpts = "-Xms4G -Xmx12G -XX:+UseZGC -XX:+DisableExplicitGC -XX:+PerfDisableSharedMem";
       };
-
-      serverProperties = {
-        difficulty = 3;
-        gamemode = "survival";
-        motd = "violet town";
-        allow-cheats = true;
-        allow-flight = true;
-        max-tick-time = 180000;
-        simulation-distance = 5;
-        view-distance = 8;
-        pause-when-empty-seconds = 60;
-        players-sleeping-percentage = 1;
-      };
-
-      symlinks = {
-        "server-icon.png" = serverIcon;
-      };
-
-      files = {
-        "mods" = serverMods;
-        "config" = "${cobbleverseOverrides}/config";
-        "config/voxyworldgenv2.json" = voxyworldgenv2Config;
-        "datapacks" = "${cobbleverseOverrides}/datapacks";
-        "world/datapacks/gamerules" = gameRulesDatapack;
-      };
-
-      jvmOpts = "-Xms4G -Xmx12G -XX:+UseZGC -XX:+DisableExplicitGC -XX:+PerfDisableSharedMem";
     };
   };
 }

@@ -1,9 +1,14 @@
 # Latest Linux kernel, uinput module for input device emulation, low swappiness.
-{ config, lib, pkgs, ... }: {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
   config = lib.mkIf config.device.hardware.kernel.enable {
     boot = {
       kernelPackages = pkgs.linuxPackages_latest;
-      kernelModules = [ "uinput" ];
+      kernelModules = ["uinput"];
       consoleLogLevel = 0;
       kernel.sysctl = {
         "vm.swappiness" = 10;

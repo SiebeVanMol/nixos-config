@@ -6,21 +6,46 @@
   pkgs,
   username,
   ...
-}:
-let
+}: let
   # Services exposed through the reverse proxy: name → local port.
   # `public = true` additionally publishes the service on *.${publicDomain}.
   # Keep ONLY Jellyfin and Seerr public; the rest of the *arr suite, Transmission
   # and FlareSolverr are sensitive admin/management UIs and stay LAN/Tailscale-only.
   sites = [
-    { name = "jellyfin"; port = 8096; public = true; }
-    { name = "sonarr"; port = 8989; }
-    { name = "radarr"; port = 7878; }
-    { name = "bazarr"; port = 6767; }
-    { name = "prowlarr"; port = 9696; }
-    { name = "seerr"; port = 5055; public = true; }
-    { name = "transmission"; port = 9091; }
-    { name = "flaresolverr"; port = 8191; }
+    {
+      name = "jellyfin";
+      port = 8096;
+      public = true;
+    }
+    {
+      name = "sonarr";
+      port = 8989;
+    }
+    {
+      name = "radarr";
+      port = 7878;
+    }
+    {
+      name = "bazarr";
+      port = 6767;
+    }
+    {
+      name = "prowlarr";
+      port = 9696;
+    }
+    {
+      name = "seerr";
+      port = 5055;
+      public = true;
+    }
+    {
+      name = "transmission";
+      port = 9091;
+    }
+    {
+      name = "flaresolverr";
+      port = 8191;
+    }
   ];
 
   publicSites = lib.filter (s: s ? public && s.public) sites;
@@ -38,11 +63,11 @@ let
   mkLanVhost = mkHost "http://" ".lan";
   mkPublicVhost = mkHost "" ".${config.device.security.reverse-proxy.publicDomain}";
 
-  lanHosts = [ "jellyfin.lan" "sonarr.lan" "radarr.lan" "bazarr.lan" "prowlarr.lan" "seerr.lan" "transmission.lan" "flaresolverr.lan" ];
+  lanHosts = ["jellyfin.lan" "sonarr.lan" "radarr.lan" "bazarr.lan" "prowlarr.lan" "seerr.lan" "transmission.lan" "flaresolverr.lan"];
 in {
   config = lib.mkIf config.device.app.jellyfin.enable {
     # AMD OpenCL for tone mapping
-    hardware.graphics.extraPackages = lib.mkIf config.device.hardware.amd.enable [
+    hardware.graphics.extraPackages = lib.mkIf config.device.hardware.mesa.enable [
       pkgs.libva
       pkgs.libva-vdpau-driver
       pkgs.libvdpau-va-gl
@@ -64,18 +89,18 @@ in {
     systemd.services = let
       vaultRw = writable: {
         ProtectSystem = lib.mkForce "full";
-        ReadOnlyPaths = [ "/Vault" ];
+        ReadOnlyPaths = ["/Vault"];
         ReadWritePaths = writable;
       };
     in {
-      jellyfin.serviceConfig = vaultRw [ "/Vault/Jellyfin" ];
-      sonarr.serviceConfig = vaultRw [ "/Vault/Downloads" "/Vault/Jellyfin" ];
-      radarr.serviceConfig = vaultRw [ "/Vault/Downloads" "/Vault/Jellyfin" ];
-      bazarr.serviceConfig = vaultRw [ "/Vault/Jellyfin" "/Vault/Downloads" ];
-      transmission.serviceConfig = vaultRw [ "/Vault/Downloads" ];
-      prowlarr.serviceConfig = vaultRw [ ];
-      seerr.serviceConfig = vaultRw [ ];
-      flaresolverr.serviceConfig = vaultRw [ ];
+      jellyfin.serviceConfig = vaultRw ["/Vault/Jellyfin"];
+      sonarr.serviceConfig = vaultRw ["/Vault/Downloads" "/Vault/Jellyfin"];
+      radarr.serviceConfig = vaultRw ["/Vault/Downloads" "/Vault/Jellyfin"];
+      bazarr.serviceConfig = vaultRw ["/Vault/Jellyfin" "/Vault/Downloads"];
+      transmission.serviceConfig = vaultRw ["/Vault/Downloads"];
+      prowlarr.serviceConfig = vaultRw [];
+      seerr.serviceConfig = vaultRw [];
+      flaresolverr.serviceConfig = vaultRw [];
 
       # Attach the transmission systemd service to the VPN namespace.
       transmission.vpnConfinement = {
@@ -94,8 +119,8 @@ in {
 
     networking.hosts = lib.mkMerge [
       {
-        "172.67.188.67" = [ "1337x.to" ];
-        "104.21.40.193" = [ "1337x.to" ];
+        "172.67.188.67" = ["1337x.to"];
+        "104.21.40.193" = ["1337x.to"];
       }
       (lib.mkIf config.device.security.reverse-proxy.enable {
         "127.0.0.1" = lanHosts;
@@ -155,10 +180,14 @@ in {
         umask = "002";
         rpc-bind-address = "0.0.0.0";
         rpc-whitelist-enabled = false;
-        seed_ratio_limit = 0;
-        seed_ratio_limited = true;
+        # Stop seeding once a torrent's share ratio hits 0.00 (right after
+        # download completes). Uses the kebab-case keys Transmission 4 honors.
+        "ratio-limit" = 0;
+        "ratio-limit-enabled" = true;
+        # Also stop seeding if a torrent is idle for 0 minutes.
+        "idle-seeding-limit" = 0;
+        "idle-seeding-limit-enabled" = true;
       };
     };
   };
 }
-

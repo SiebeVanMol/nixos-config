@@ -1,3 +1,7 @@
+# Caelestia desktop shell (Quickshell-based), its theme integration, and the
+# wallpaper rotation unit. Everything shell-specific lives here so core.nix stays
+# a generic base that every user imports regardless of which shell they run.
+#
 # Seed caelestia's theme settings into its runtime config, and push the palette
 # into kitty (the terminal) so all kitty windows inherit it.
 #
@@ -6,8 +10,14 @@
 # For the same reason, caelestia may overwrite a custom postHook we seed, so the
 # kitty palette is applied by a systemd path unit that watches scheme.json and
 # regenerates colors.conf + repaints kitty (new windows read it via the include).
-{ lib, pkgs, config, ... }:
-let
+{
+  username,
+  config,
+  pkgs,
+  lib,
+  caelestia-shell,
+  ...
+}: let
   kittyColorsPy = ''
     import json, sys
     scheme, out = sys.argv[1], sys.argv[2]
@@ -26,69 +36,106 @@ let
   '';
 
   themeApplyScript = pkgs.writeShellScript "caelestia-theme-apply" ''
-    SCHEME="$HOME/.local/state/caelestia/scheme.json"
-    COLORS="$HOME/.config/kitty/colors.conf"
-    if [ -f "$SCHEME" ]; then
-      mkdir -p "$HOME/.config/kitty"
-      ${pkgs.python3}/bin/python3 - "$SCHEME" "$COLORS" <<'PY'
-${kittyColorsPy}
-PY
-      # kitty auto-reloads kitty.conf on change; touch it so it re-reads colors.conf
-      # and repaints all running (and future) windows.
-      touch "$HOME/.config/kitty/kitty.conf" 2>/dev/null || true
-    fi
-    ${pkgs.hyprland}/bin/hyprctl reload || true
+        SCHEME="$HOME/.local/state/caelestia/scheme.json"
+        COLORS="$HOME/.config/kitty/colors.conf"
+        if [ -f "$SCHEME" ]; then
+          mkdir -p "$HOME/.config/kitty"
+          ${pkgs.python3}/bin/python3 - "$SCHEME" "$COLORS" <<'PY'
+    ${kittyColorsPy}
+    PY
+          # kitty auto-reloads kitty.conf on change; touch it so it re-reads colors.conf
+          # and repaints all running (and future) windows.
+          touch "$HOME/.config/kitty/kitty.conf" 2>/dev/null || true
+        fi
+        ${pkgs.hyprland}/bin/hyprctl reload || true
   '';
 
   postHook = "${pkgs.hyprland}/bin/hyprctl reload";
 in {
-  home.activation.seedCaelestiaTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "$HOME/.config/caelestia"
-    ${pkgs.python3}/bin/python3 - "$HOME/.config/caelestia/shell.json" "${postHook}" <<'PY'
-import json, os, sys
-p, post = sys.argv[1], sys.argv[2]
-d = {}
-if os.path.exists(p) or os.path.islink(p):
-    try:
-        with open(p) as f:
-            d = json.load(f)
-    except Exception:
-        d = {}
-theme = d.setdefault('theme', {})
-theme['enableHypr'] = True
-for k in ['enableTerm', 'enableDiscord', 'enableSpicetify', 'enablePandora',
-          'enableFuzzel', 'enableBtop', 'enableNvtop', 'enableHtop',
-          'enableGtk', 'enableQt', 'enableWarp', 'enableChromium',
-          'enableZed', 'enableCava']:
-    theme[k] = False
-theme['postHook'] = post
-theme.pop('iconThemeLight', None)
-theme.pop('iconThemeDark', None)
-# Launch terminal apps (btop, etc.) with kitty instead of the default foot.
-d.setdefault('general', {}).setdefault('apps', {})['terminal'] = ['kitty']
-# Drop the default 600s "suspendThenHibernate" idle timeout: otherwise the
-# system powers off (and stops any servers) after ~10 min of idle/lock.
-d.setdefault('general', {}).setdefault('idle', {})['timeouts'] = [
-    {"timeout": 120, "idleAction": "lock"},
-    {"timeout": 300, "idleAction": "dpms off", "returnAction": "dpms on"},
-]
-# Drop any home-manager store symlink so caelestia can write to a real file.
-if os.path.islink(p) or os.path.exists(p):
-    os.remove(p)
-with open(p, 'w') as f:
-    json.dump(d, f, indent=4)
-PY
+  imports = [
+    # Caelestia desktop shell (Quickshell-based).
+    caelestia-shell.homeManagerModules.default
+  ];
+
+  programs.caelestia = {
+    enable = true;
+    systemd = {
+      # UWSM launches the shell via the graphical session target, like the old waybar.
+      target = "graphical-session.target";
+      # Caelestia's FileSystemModel doesn't follow symlinks, so point it straight
+      # at the real wallpaper folder instead of relying on ~/Pictures/Wallpapers.
+      # QT_QPA_PLATFORMTHEME=gtk3 makes quickshell read the GTK icon theme (Papirus).
+      environment = [
+        "CAELESTIA_WALLPAPERS_DIR=/home/${username}/Pictures/Backgrounds"
+        "QT_QPA_PLATFORMTHEME=gtk3"
+        # Keep the shell's UI consistently Japanese.
+        "LC_ALL=ja_JP.UTF-8"
+      ];
+    };
+  };
+
+  # Auto-rotate the wallpaper on a timer, like the old swww_randomize loop.
+  systemd.user.services.caelestia-wallpaper = {
+    Unit = {
+      Description = "Rotate caelestia wallpaper";
+      After = ["graphical-session.target"];
+      PartOf = ["graphical-session.target"];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.programs.caelestia.cli.package}/bin/caelestia wallpaper -r";
+      Environment = ["CAELESTIA_WALLPAPERS_DIR=/home/${username}/Pictures/Backgrounds"];
+    };
+    Install = {WantedBy = ["graphical-session.target"];};
+  };
+
+  home.activation.seedCaelestiaTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
+        mkdir -p "$HOME/.config/caelestia"
+        ${pkgs.python3}/bin/python3 - "$HOME/.config/caelestia/shell.json" "${postHook}" <<'PY'
+    import json, os, sys
+    p, post = sys.argv[1], sys.argv[2]
+    d = {}
+    if os.path.exists(p) or os.path.islink(p):
+        try:
+            with open(p) as f:
+                d = json.load(f)
+        except Exception:
+            d = {}
+    theme = d.setdefault('theme', {})
+    for k in ['enableHypr', 'enableTerm', 'enableBtop', 'enableNvtop']:
+        theme[k] = True
+    for k in ['enableDiscord', 'enableSpicetify', 'enablePandora',
+              'enableFuzzel', 'enableHtop', 'enableGtk', 'enableQt',
+              'enableWarp', 'enableChromium', 'enableZed', 'enableCava']:
+        theme[k] = False
+    theme['postHook'] = post
+    theme.pop('iconThemeLight', None)
+    theme.pop('iconThemeDark', None)
+    # Launch terminal apps (btop, etc.) with kitty instead of the default foot.
+    d.setdefault('general', {}).setdefault('apps', {})['terminal'] = ['kitty']
+    # Drop the default 600s "suspendThenHibernate" idle timeout: otherwise the
+    # system powers off (and stops any servers) after ~10 min of idle/lock.
+    d.setdefault('general', {}).setdefault('idle', {})['timeouts'] = [
+        {"timeout": 120, "idleAction": "lock"},
+        {"timeout": 300, "idleAction": "dpms off", "returnAction": "dpms on"},
+    ]
+    # Drop any home-manager store symlink so caelestia can write to a real file.
+    if os.path.islink(p) or os.path.exists(p):
+        os.remove(p)
+    with open(p, 'w') as f:
+        json.dump(d, f, indent=4)
+    PY
   '';
 
   # Write the initial kitty palette so terminals are themed before the first apply.
-  home.activation.writeKittyColors = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    SCHEME="$HOME/.local/state/caelestia/scheme.json"
-    if [ -f "$SCHEME" ]; then
-      mkdir -p "$HOME/.config/kitty"
-      ${pkgs.python3}/bin/python3 - "$SCHEME" "$HOME/.config/kitty/colors.conf" <<'PY'
-${kittyColorsPy}
-PY
-    fi
+  home.activation.writeKittyColors = lib.hm.dag.entryAfter ["writeBoundary"] ''
+        SCHEME="$HOME/.local/state/caelestia/scheme.json"
+        if [ -f "$SCHEME" ]; then
+          mkdir -p "$HOME/.config/kitty"
+          ${pkgs.python3}/bin/python3 - "$SCHEME" "$HOME/.config/kitty/colors.conf" <<'PY'
+    ${kittyColorsPy}
+    PY
+        fi
   '';
 
   # Reliably re-apply the theme (kitty colors + hyprland borders) whenever
@@ -96,8 +143,8 @@ PY
   systemd.user.services.caelestia-theme-apply = {
     Unit = {
       Description = "Apply caelestia theme to kitty and hyprland";
-      After = [ "graphical-session.target" ];
-      PartOf = [ "graphical-session.target" ];
+      After = ["graphical-session.target"];
+      PartOf = ["graphical-session.target"];
     };
     Service = {
       Type = "oneshot";
@@ -106,8 +153,8 @@ PY
   };
 
   systemd.user.paths.caelestia-theme-apply = {
-    Unit = { Description = "Watch caelestia scheme for theme changes"; };
-    Path = { PathChanged = [ "%h/.local/state/caelestia/scheme.json" ]; };
-    Install = { WantedBy = [ "graphical-session.target" ]; };
+    Unit = {Description = "Watch caelestia scheme for theme changes";};
+    Path = {PathChanged = ["%h/.local/state/caelestia/scheme.json"];};
+    Install = {WantedBy = ["graphical-session.target"];};
   };
 }

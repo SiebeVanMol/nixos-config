@@ -1,6 +1,5 @@
 # Alex's installed programs: monitoring, games, git, study tools.
-{ pkgs, ... }:
-{
+{pkgs, ...}: {
   home.packages = with pkgs; [
     # Archives
     p7zip
@@ -14,7 +13,7 @@
 
     # Web Tools
     curl
-    
+
     # Games
     discord
     gamemode
@@ -82,7 +81,5 @@
       enable = true;
       gitCredentialHelper.enable = true;
     };
-
-
   };
 }

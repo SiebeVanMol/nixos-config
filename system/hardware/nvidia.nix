@@ -1,11 +1,16 @@
 # NVIDIA proprietary driver with modesetting, dynamic boost, VA-API, and DDC/CI brightness control.
-{ config, lib, pkgs, ... }: {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: {
   config = lib.mkIf config.device.hardware.nvidia.enable {
-    services.xserver.videoDrivers = [ "nvidia" ];
+    services.xserver.videoDrivers = ["nvidia"];
     hardware = {
       graphics = {
         enable = true;
-        extraPackages = with pkgs; [ nvidia-vaapi-driver ];
+        extraPackages = with pkgs; [nvidia-vaapi-driver];
       };
       nvidia = {
         package = config.boot.kernelPackages.nvidiaPackages.stable;

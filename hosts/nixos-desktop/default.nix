@@ -1,5 +1,5 @@
 # Desktop machine configuration. Full workstation: Jellyfin media server, Minecraft server.
-{ ... }: {
+{...}: {
   imports = [
     ../../system/default.nix
     ./hardware-configuration.nix
@@ -31,15 +31,12 @@
       steam.enable = true;
       gamemode.enable = true;
       jellyfin.enable = true;
-      ai.enable = false;
+      # ai.enable = true;
       minecraft.enable = true;
       virtualization.enable = true;
     };
     wm.hyprland.enable = true;
   };
-
-  services.minecraft-servers.dataDir = "/Vault/minecraft";
-  users.users.minecraft.extraGroups = ["users"];
 
   boot.loader = {
     systemd-boot.enable = true;

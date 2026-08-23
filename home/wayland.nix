@@ -1,8 +1,5 @@
 # User-level Wayland configuration: cursor theme, GTK icon theme.
-{
-  pkgs,
-  ...
-}: {
+{pkgs, ...}: {
   home.sessionVariables = {
     NIXOS_OZONE_WL = "1";
   };
