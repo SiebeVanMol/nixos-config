@@ -50,6 +50,14 @@
     ai = {
       enable = lib.mkEnableOption "llama.cpp (ROCm) server with Gemma 4 REAP 19B";
     };
+    dsh = {
+      enable = lib.mkEnableOption "dsh (DeepSeek shell) web UI";
+      port = lib.mkOption {
+        type = lib.types.int;
+        default = 3000;
+        description = "Local port for the dsh web UI.";
+      };
+    };
     minecraft = {
       enable = lib.mkEnableOption "Minecraft server";
     };
