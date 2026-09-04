@@ -19,6 +19,10 @@
 #
 # FAT-family filesystems additionally get uid/gid mount options so the primary
 # desktop user (`username`) can read and write them.
+#
+# On plug-in a desktop notification is also sent (via notify-send) to the primary
+# user's graphical session when one is active — caelestia (Quickshell) provides
+# the org.freedesktop.Notifications daemon. Headless/SSH sessions get no pop-up.
 {
   config,
   lib,
@@ -52,6 +56,36 @@
       exec ${pkgs.systemd}/bin/systemd-mount --no-block --collect "$DEVNAME"
     fi
   '';
+
+  # Best-effort desktop notification on plug-in. Runs as root from udev and sends
+  # the pop-up through the primary user's session bus if one is present, silently
+  # doing nothing otherwise.
+  notifyScript = pkgs.writeShellScript "usb-automount-notify.sh" ''
+    set -u
+    export PATH="${pkgs.coreutils}/bin:${pkgs.glibc.bin}/bin:$PATH"
+
+    user="${username}"
+    owner_line="$(${pkgs.glibc.bin}/bin/getent passwd "$user" 2>/dev/null)" || exit 0
+    uid="$(printf '%s' "$owner_line" | cut -d: -f3)"
+    bus="/run/user/$uid/bus"
+    [ -S "$bus" ] || exit 0
+
+    label="$ID_FS_LABEL"
+    [ -n "$label" ] || label="$ID_FS_UUID"
+    [ -n "$label" ] || label="USB storage device"
+
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$bus"
+    export XDG_RUNTIME_DIR="/run/user/$uid"
+    export HOME="/run/user/$uid"
+
+    # Cap it: notify-send can block waiting for an absent Notifications daemon,
+    # which we never want to stall a udev worker.
+    ${pkgs.coreutils}/bin/timeout 5 \
+      ${pkgs.libnotify}/bin/notify-send \
+      -a "usb-automount" -i "drive-removable-media" \
+      "Removable storage connected" "$label" >/dev/null 2>&1
+    exit 0
+  '';
 in {
   config = lib.mkIf cfg.enable {
     services.udev.extraRules = ''
@@ -62,6 +96,9 @@ in {
       # automount handles unmounting and unplug cleanup, so no ACTION=="remove"
       # rule is needed here.
       KERNEL=="sd*", SUBSYSTEM=="block", ACTION=="add", ENV{ID_BUS}=="usb", ENV{ID_FS_USAGE}=="filesystem", RUN+="${mountScript}"
+
+      # Best-effort desktop notification of the new connection.
+      KERNEL=="sd*", SUBSYSTEM=="block", ACTION=="add", ENV{ID_BUS}=="usb", ENV{ID_FS_USAGE}=="filesystem", RUN+="${notifyScript}"
     '';
   };
 }
