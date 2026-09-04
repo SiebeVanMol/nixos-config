@@ -29,6 +29,9 @@
     time = {
       enable = lib.mkEnableOption "timesyncd";
     };
+    usb-automount = {
+      enable = lib.mkEnableOption "system-wide USB automount via udev + systemd-mount (no desktop session)";
+    };
     zsa = {
       enable = lib.mkEnableOption "ZSA keyboard + keymapp";
     };
@@ -70,9 +73,6 @@
     };
     tailscale = {
       enable = lib.mkEnableOption "Tailscale VPN";
-    };
-    automount = {
-      enable = lib.mkEnableOption "Automatic mounting (devmon, gvfs, udisks2)";
     };
     proton-vpn = {
       enable = lib.mkEnableOption "ProtonVPN CLI tools";

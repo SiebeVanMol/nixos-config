@@ -15,11 +15,12 @@
       mesa.enable = true;
       time.enable = true;
       zsa.enable = true;
+      dualsense.enable = true;
+      usb-automount.enable = true;
     };
     security = {
       firewall.enable = true;
       tailscale.enable = true;
-      automount.enable = true;
       proton-vpn.enable = true;
       reverse-proxy = {
         enable = true;
