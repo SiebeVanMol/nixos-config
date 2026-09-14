@@ -131,46 +131,9 @@
         '';
     };
 
-    packages.x86_64-linux = let
-      rebuild = pkgs.writeShellScriptBin "rebuild" ''
-        set -euo pipefail
-
-        # Find the flake root (directory containing flake.nix).
-        ROOT="$(pwd)"
-        while [[ "$ROOT" != "/" && ! -f "$ROOT/flake.nix" ]]; do
-          ROOT="$(dirname "$ROOT")"
-        done
-        if [[ ! -f "$ROOT/flake.nix" ]]; then
-          echo "error: could not find flake.nix from $(pwd)" >&2
-          exit 1
-        fi
-
-        cd "$ROOT"
-        ${pkgs.nix}/bin/nix fmt .
-
-        # Only add --flake if the user didn't already pass one.
-        if [[ "$*" != *"--flake"* ]]; then
-          set -- --flake "$ROOT" "$@"
-        fi
-
-        needs_sudo=false
-        for arg in "$@"; do
-          case "$arg" in
-            switch|boot|test|rollback|build-vm-with-bootloader)
-              needs_sudo=true
-              ;;
-          esac
-        done
-
-        if $needs_sudo; then
-          exec sudo nixos-rebuild "$@"
-        else
-          exec nixos-rebuild "$@"
-        fi
-      '';
-    in {
-      inherit rebuild;
-    };
+    # The flake's own helper commands live in lib/flake-packages.nix; this
+    # file stays an entry point: inputs, hosts, and where each piece lives.
+    packages.x86_64-linux = import ./lib/flake-packages.nix {inherit pkgs;};
 
     nixosConfigurations = {
       nixos-desktop = buildSystem {

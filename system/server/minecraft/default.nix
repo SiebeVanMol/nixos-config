@@ -18,14 +18,14 @@
 
   # Server mods, downloaded from Modrinth/CurseForge with pinned hashes.
   # The stock Cobbleverse mod list (server-needed mods only).
-  serverModsList = import ./minecraft/cobbleverse-mods.nix;
+  serverModsList = import ./cobbleverse-mods.nix;
 
   # voxyworldgenv2 (compiled from source): the server-side LOD solution. It generates
   # vanilla chunks around players on the server and streams their voxel data straight
   # to voxyworldgenv2 clients over its own channel. voxy itself is NOT needed on the
   # server: it is only a renderer/ingest target on the client, and the client never
   # generates when connected to a dedicated server, so no Chunky pre-generation either.
-  voxyMods = import ./minecraft/voxy.nix {inherit pkgs;};
+  voxyMods = import ./voxy.nix {inherit pkgs;};
 
   # cobblemon-battle-positions is shipped as a pack override (no standalone Modrinth/CF
   # project), so it comes from the pack's own overrides folder.

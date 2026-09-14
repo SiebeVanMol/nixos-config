@@ -12,6 +12,7 @@
     ./hardware
     ./security
     ./app
+    ./server
     ./wm
     # Host-level maintenance: restic backups of the service state and secrets
     # (backup.nix), and SMART/btrfs/capacity/service monitoring (monitoring.nix).

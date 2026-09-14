@@ -37,6 +37,11 @@
 
   mountsArg = lib.concatStringsSep " " (map lib.escapeShellArg btrfsMounts);
 
+  # Reports what the *arr services say about themselves; see the script.
+  arrHealth = pkgs.writers.writePython3Bin "arr-health" {
+    flakeIgnore = ["E501"];
+  } (builtins.readFile ./server/jellyfin/arr-health.py);
+
   healthCheck = pkgs.writeShellApplication {
     name = "nixos-health-check";
     runtimeInputs = [
@@ -53,14 +58,24 @@
     ];
     text = ''
             findings=()
+            critical=0
             note() { findings+=("$1"); }
+            # A critical finding is one where something is already broken or about
+            # to be: the unit fails so it shows up in `systemctl --failed`.
+            # Warnings are reported and sent to the webhook but leave the unit
+            # green, because a check that turns red every day for something
+            # merely worth knowing is a check nobody reads.
+            note_critical() {
+              note "$1"
+              critical=1
+            }
 
             # 1. Services that are not running. Dependants of a dead service usually
             #    fail too, so one root cause shows up as several lines here.
             failed="$(systemctl list-units --state=failed --no-legend --plain 2>/dev/null \
               | awk '{print $1}' | grep -v '^nixos-health-check' || true)"
             if [ -n "$failed" ]; then
-              note "failed systemd units:"
+              note_critical "failed systemd units:"
               while IFS= read -r unit; do
                 note "  $unit"
               done <<< "$failed"
@@ -74,7 +89,7 @@
               pct="$(df --output=pcent "$mount" 2>/dev/null | tail -n 1 | tr -dc '0-9' || true)"
               if [ -n "$pct" ]; then
                 if [ "$pct" -ge 95 ]; then
-                  note "CRITICAL: $mount is ''${pct}% full"
+                  note_critical "CRITICAL: $mount is ''${pct}% full"
                 elif [ "$pct" -ge 90 ]; then
                   note "warning: $mount is ''${pct}% full"
                 fi
@@ -84,7 +99,7 @@
               #    kernel already saw IO that it could not fix.
               errors="$(btrfs device stats "$mount" 2>/dev/null | awk '$NF != 0' || true)"
               if [ -n "$errors" ]; then
-                note "CRITICAL: btrfs device errors on $mount:"
+                note_critical "CRITICAL: btrfs device errors on $mount:"
                 while IFS= read -r line; do
                   note "  $line"
                 done <<< "$errors"
@@ -100,9 +115,22 @@
               [ -n "$health" ] || continue
               case "$health" in
                 PASSED | OK | PASSED*) : ;;
-                *) note "CRITICAL: SMART health on /dev/$disk: $health" ;;
+                *) note_critical "CRITICAL: SMART health on /dev/$disk: $health" ;;
               esac
             done
+
+            # 5. The *arr services' own health warnings: an indexer that started
+            #    refusing connections, a download client that went away, a root
+            #    folder that is no longer writable. Each application already
+            #    knows this and exposes it on /api/<v>/health; without this the
+            #    only way to learn about it is to open four web UIs and look.
+            #    Warnings, not critical: the stack still plays and still imports.
+            arr_health="$(${lib.getExe arrHealth} 2>/dev/null || true)"
+            if [ -n "$arr_health" ]; then
+              while IFS= read -r line; do
+                [ -n "$line" ] && note "$line"
+              done <<< "$arr_health"
+            fi
 
             if [ "''${#findings[@]}" -eq 0 ]; then
               echo "nixos health check: all clear"
@@ -128,7 +156,10 @@
               echo "(ALERT_WEBHOOK_URL unset; journal only)"
             fi
 
-            exit 1
+            # Only a critical finding fails the unit; warnings are reported and
+            # delivered but leave `systemctl --failed` clean.
+            [ "$critical" -eq 1 ] && exit 1
+            exit 0
     '';
   };
 in {

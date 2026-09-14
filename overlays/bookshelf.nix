@@ -25,7 +25,7 @@
 #      the projects target net6.0). .NET 6 is out of support, so nixpkgs marks
 #      the SDK and the ASP.NET runtime as insecure. The consuming configuration
 #      MUST list them in `nixpkgs.config.permittedInsecurePackages` (see
-#      system/app/jellyfin.nix); without that, evaluation aborts. Building with
+#      system/server/jellyfin/books.nix); without that, evaluation aborts. Building with
 #      a newer SDK is not an option while global.json pins 6.x.
 #   2. Its frontend is a yarn/webpack project that is built and copied next to
 #      the managed assemblies, alongside a NuGet dependency graph that has to be

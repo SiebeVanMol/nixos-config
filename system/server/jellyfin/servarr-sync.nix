@@ -73,8 +73,87 @@
     dir = "/var/lib/prowlarr";
   };
 
+  # The indexers Prowlarr searches. These values are not invented: they are
+  # exactly what `nix run .#servarr-export` read back from the live instance, so
+  # the first convergence run is a no-op and this list simply makes the current
+  # state recoverable. The `info_*` fields the API also returns are left out on
+  # purpose - those are the definition's own help text, which Prowlarr fills in
+  # itself and which changes with the definition.
+  #
+  # None of these four needs a credential (they are all public Cardigann
+  # trackers); a private tracker would add its login through the root-only
+  # secrets file rather than here.
+  indexers = [
+    {
+      name = "1337x";
+      definitionFile = "1337x";
+      priority = 25;
+      fields = {
+        baseUrl = "https://1337x.to/";
+        "baseSettings.limitsUnit" = 0;
+        "torrentBaseSettings.preferMagnetUrl" = false;
+        primarydownloadlink = 1;
+        fallbackdownloadlink = 0;
+        disablesort = false;
+        sort = 2;
+        type = 1;
+      };
+    }
+    {
+      name = "Nyaa.si";
+      definitionFile = "nyaasi";
+      # First priority on purpose: this is the indexer the anime libraries and
+      # Shelfmark's manga search actually rely on.
+      priority = 1;
+      fields = {
+        "baseSettings.limitsUnit" = 0;
+        "torrentBaseSettings.preferMagnetUrl" = false;
+        prefer_magnet_links = true;
+        sonarr_compatibility = false;
+        strip_s01 = false;
+        radarr_compatibility = false;
+        "filter-id" = 0;
+        "cat-id" = 0;
+        sort = 0;
+        type = 1;
+      };
+    }
+    {
+      name = "LimeTorrents";
+      definitionFile = "limetorrents";
+      priority = 50;
+      fields = {
+        "baseSettings.limitsUnit" = 0;
+        "torrentBaseSettings.preferMagnetUrl" = false;
+        primarydownloadlink = 1;
+        fallbackdownloadlink = 0;
+        sort = 2;
+      };
+    }
+    {
+      name = "The Pirate Bay";
+      definitionFile = "thepiratebay";
+      priority = 50;
+      fields = {
+        "baseSettings.limitsUnit" = 0;
+        "torrentBaseSettings.preferMagnetUrl" = false;
+        apiurl = "apibay.org";
+        top100 = 6;
+      };
+    }
+  ];
+
   syncConfig = pkgs.writeText "servarr-sync.json" (builtins.toJSON {
-    inherit apps prowlarr;
+    inherit apps prowlarr indexers;
+
+    # SeerrNG's own API key and its service links live in one root-only file.
+    # Only the services that actually run are listed: Readarr's link is left
+    # untouched while the ebook chain is parked.
+    seerr = {
+      port = 5055;
+      settings = "/var/lib/seerr/settings.json";
+      services = ["sonarr" "radarr" "lidarr"] ++ lib.optional config.device.app.books.enable "readarr";
+    };
     transmission = {
       # Transmission's RPC lives inside the WireGuard namespace, not on the
       # host: locally generated traffic never traverses PREROUTING, so the
@@ -113,7 +192,7 @@
 in {
   config = lib.mkIf config.device.app.jellyfin.enable {
     systemd.services.servarr-sync = {
-      description = "Converge Prowlarr applications, download clients and indexer proxies";
+      description = "Converge Prowlarr indexers and applications, download clients, notifications";
 
       # Root, because the per-application state directories are 0700 and hold
       # the config.xml the API keys are read from.
@@ -129,6 +208,11 @@ in {
         Type = "exec";
         User = "root";
         Environment = "SERVARR_SYNC_CONFIG=${syncConfig}";
+        # Same optional file the host health check uses: when it exists, its
+        # ALERT_WEBHOOK_URL also becomes the *arr notification target, so
+        # failures and health warnings reach the same place as everything else.
+        # Without it, notifications are simply skipped.
+        EnvironmentFile = "-/etc/nixos-alerts/webhook.env";
         ExecStart = lib.getExe syncScript;
       };
 
