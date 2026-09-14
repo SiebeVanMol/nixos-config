@@ -17,17 +17,20 @@
 #     and is removed automatically when the device is unplugged — so there is no
 #     manual lifecycle registry and no separate remove rule.
 #
-# FAT-family filesystems additionally get uid/gid mount options so the primary
-# desktop user (`username`) can read and write them.
+# FAT-family filesystems additionally get uid/gid mount options so whoever is
+# logged into a desktop session can read and write them.
 #
-# On plug-in a desktop notification is also sent (via notify-send) to the primary
-# user's graphical session when one is active — caelestia (Quickshell) provides
-# the org.freedesktop.Notifications daemon. Headless/SSH sessions get no pop-up.
+# On plug-in a desktop notification is also sent (via notify-send) to every
+# logged-in desktop session — caelestia (Quickshell) provides the
+# org.freedesktop.Notifications daemon. Headless/SSH sessions get no pop-up.
+#
+# Neither behaviour hard-codes a single owner: the scripts discover logged-in
+# users at runtime by scanning their session buses under /run/user/<uid>/bus, so
+# the module works on hosts with any number of users.
 {
   config,
   lib,
   pkgs,
-  username,
   ...
 }: let
   cfg = config.device.hardware.usb-automount;
@@ -42,11 +45,19 @@
     opts=""
     case "$ID_FS_TYPE" in
       vfat|msdos|exfat)
-        if owner_line="$(${pkgs.glibc.bin}/bin/getent passwd "${username}" 2>/dev/null)"; then
-          oid="$(printf '%s' "$owner_line" | cut -d: -f3)"
-          ogid="$(printf '%s' "$owner_line" | cut -d: -f4)"
-          opts="uid=$oid,gid=$ogid,fmask=0133,dmask=0022"
-        fi
+        # Own the FAT mount for the first logged-in desktop session we find.
+        # /run/user/<uid>/bus exists only while a graphical session is active.
+        for bus in /run/user/*/bus; do
+          [ -S "$bus" ] || continue
+          uid="''${bus#/run/user/}"
+          uid="''${uid%/bus}"
+          if owner_line="$(${pkgs.glibc.bin}/bin/getent passwd "$uid" 2>/dev/null)"; then
+            oid="$(printf '%s' "$owner_line" | cut -d: -f3)"
+            ogid="$(printf '%s' "$owner_line" | cut -d: -f4)"
+            opts="uid=$oid,gid=$ogid,fmask=0133,dmask=0022"
+            break
+          fi
+        done
         ;;
     esac
 
@@ -58,32 +69,33 @@
   '';
 
   # Best-effort desktop notification on plug-in. Runs as root from udev and sends
-  # the pop-up through the primary user's session bus if one is present, silently
-  # doing nothing otherwise.
+  # a pop-up through every logged-in user's session bus, silently doing nothing
+  # for sessions without one (headless / SSH).
   notifyScript = pkgs.writeShellScript "usb-automount-notify.sh" ''
     set -u
     export PATH="${pkgs.coreutils}/bin:${pkgs.glibc.bin}/bin:$PATH"
-
-    user="${username}"
-    owner_line="$(${pkgs.glibc.bin}/bin/getent passwd "$user" 2>/dev/null)" || exit 0
-    uid="$(printf '%s' "$owner_line" | cut -d: -f3)"
-    bus="/run/user/$uid/bus"
-    [ -S "$bus" ] || exit 0
 
     label="$ID_FS_LABEL"
     [ -n "$label" ] || label="$ID_FS_UUID"
     [ -n "$label" ] || label="USB storage device"
 
-    export DBUS_SESSION_BUS_ADDRESS="unix:path=$bus"
-    export XDG_RUNTIME_DIR="/run/user/$uid"
-    export HOME="/run/user/$uid"
+    # Notify each active graphical session. Cap each notify-send because it can
+    # block waiting for an absent Notifications daemon, which we never want to
+    # stall a udev worker.
+    for bus in /run/user/*/bus; do
+      [ -S "$bus" ] || continue
+      uid="''${bus#/run/user/}"
+      uid="''${uid%/bus}"
 
-    # Cap it: notify-send can block waiting for an absent Notifications daemon,
-    # which we never want to stall a udev worker.
-    ${pkgs.coreutils}/bin/timeout 5 \
-      ${pkgs.libnotify}/bin/notify-send \
-      -a "usb-automount" -i "drive-removable-media" \
-      "Removable storage connected" "$label" >/dev/null 2>&1
+      export DBUS_SESSION_BUS_ADDRESS="unix:path=$bus"
+      export XDG_RUNTIME_DIR="/run/user/$uid"
+      export HOME="/run/user/$uid"
+
+      ${pkgs.coreutils}/bin/timeout 5 \
+        ${pkgs.libnotify}/bin/notify-send \
+        -a "usb-automount" -i "drive-removable-media" \
+        "Removable storage connected" "$label" >/dev/null 2>&1
+    done
     exit 0
   '';
 in {

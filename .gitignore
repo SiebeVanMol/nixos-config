@@ -1,2 +1,10 @@
 result
 .chmod_test
+
+# Local Nix evaluation/fetch cache. It is a build artifact (686 MB of it) that
+# nothing in the configuration references; it must not be committed again.
+.nix-cache/
+
+# Bytecode from the Python scripts this repository carries in system/app/
+# (importing them for a test is enough to create this).
+__pycache__/

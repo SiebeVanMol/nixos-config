@@ -1,7 +1,7 @@
 # Firefox: multi-container, extensions, custom search engines, bookmarks.
 {
   pkgs,
-  username,
+  config,
   ...
 }: {
   home.sessionVariables.BROWSER = "firefox";
@@ -10,7 +10,7 @@
     firefox = {
       enable = true;
 
-      profiles.${username} = {
+      profiles.${config.home.username} = {
         isDefault = true;
 
         extensions = {

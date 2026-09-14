@@ -7,11 +7,10 @@
 #
 # Caelestia OWNS ~/.config/caelestia/shell.json (it writes to it to persist
 # settings), so home-manager must NOT manage that file as a read-only symlink.
-# For the same reason, caelestia may overwrite a custom postHook we seed, so the
-# kitty palette is applied by a systemd path unit that watches scheme.json and
-# regenerates colors.conf + repaints kitty (new windows read it via the include).
+# The kitty palette is applied by a systemd path unit that watches scheme.json
+# and regenerates colors.conf + repaints kitty (new windows read it via the
+# include), not via a postHook in shell.json.
 {
-  username,
   config,
   pkgs,
   lib,
@@ -49,8 +48,6 @@
         fi
         ${pkgs.hyprland}/bin/hyprctl reload || true
   '';
-
-  postHook = "${pkgs.hyprland}/bin/hyprctl reload";
 in {
   imports = [
     # Caelestia desktop shell (Quickshell-based).
@@ -66,7 +63,7 @@ in {
       # at the real wallpaper folder instead of relying on ~/Pictures/Wallpapers.
       # QT_QPA_PLATFORMTHEME=gtk3 makes quickshell read the GTK icon theme (Papirus).
       environment = [
-        "CAELESTIA_WALLPAPERS_DIR=/home/${username}/Pictures/Backgrounds"
+        "CAELESTIA_WALLPAPERS_DIR=${config.home.homeDirectory}/Pictures/Backgrounds"
         "QT_QPA_PLATFORMTHEME=gtk3"
         # Keep the shell's UI consistently Japanese.
         "LC_ALL=ja_JP.UTF-8"
@@ -84,16 +81,16 @@ in {
     Service = {
       Type = "oneshot";
       ExecStart = "${config.programs.caelestia.cli.package}/bin/caelestia wallpaper -r";
-      Environment = ["CAELESTIA_WALLPAPERS_DIR=/home/${username}/Pictures/Backgrounds"];
+      Environment = ["CAELESTIA_WALLPAPERS_DIR=${config.home.homeDirectory}/Pictures/Backgrounds"];
     };
     Install = {WantedBy = ["graphical-session.target"];};
   };
 
   home.activation.seedCaelestiaTheme = lib.hm.dag.entryAfter ["writeBoundary"] ''
         mkdir -p "$HOME/.config/caelestia"
-        ${pkgs.python3}/bin/python3 - "$HOME/.config/caelestia/shell.json" "${postHook}" <<'PY'
+        ${pkgs.python3}/bin/python3 - "$HOME/.config/caelestia/shell.json" <<'PY'
     import json, os, sys
-    p, post = sys.argv[1], sys.argv[2]
+    p = sys.argv[1]
     d = {}
     if os.path.exists(p) or os.path.islink(p):
         try:
@@ -101,23 +98,18 @@ in {
                 d = json.load(f)
         except Exception:
             d = {}
-    theme = d.setdefault('theme', {})
-    for k in ['enableHypr', 'enableTerm', 'enableBtop', 'enableNvtop']:
-        theme[k] = True
-    for k in ['enableDiscord', 'enableSpicetify', 'enablePandora',
-              'enableFuzzel', 'enableHtop', 'enableGtk', 'enableQt',
-              'enableWarp', 'enableChromium', 'enableZed', 'enableCava']:
-        theme[k] = False
-    theme['postHook'] = post
-    theme.pop('iconThemeLight', None)
-    theme.pop('iconThemeDark', None)
+    # The top-level "theme" block is no longer a recognised option for this
+    # caelestia version (it emits `Unknown option "theme"`), and the theme is
+    # applied by the caelestia-theme-apply service watching scheme.json, so it
+    # is intentionally not seeded here.
     # Launch terminal apps (btop, etc.) with kitty instead of the default foot.
     d.setdefault('general', {}).setdefault('apps', {})['terminal'] = ['kitty']
-    # Drop the default 600s "suspendThenHibernate" idle timeout: otherwise the
-    # system powers off (and stops any servers) after ~10 min of idle/lock.
+    # Disable the idle lock: the auto-lock fired mid-game (idle isn't reset by
+    # gamepad input). The entry stays but is marked disabled so the config stays
+    # valid for caelestia (an empty "timeouts" list is an illegal value). hypridle
+    # is removed too, so nothing dims or powers off the display on idle.
     d.setdefault('general', {}).setdefault('idle', {})['timeouts'] = [
-        {"timeout": 120, "idleAction": "lock"},
-        {"timeout": 300, "idleAction": "dpms off", "returnAction": "dpms on"},
+        {"enabled": False, "timeout": 120, "idleAction": "lock"},
     ]
     # Drop any home-manager store symlink so caelestia can write to a real file.
     if os.path.islink(p) or os.path.exists(p):

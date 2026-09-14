@@ -1,8 +1,8 @@
 # Base system configuration shared across all machines.
-# Creates the primary user, sets Nix/SSD/locale defaults, and pulls in the option-defined
-# hardware and security toggle modules.
+# Creates a NixOS account for every user on the host, sets Nix/SSD/locale
+# defaults, and pulls in the option-defined hardware and security toggle modules.
 {
-  username,
+  usernames,
   pkgs,
   lib,
   ...
@@ -13,14 +13,22 @@
     ./security
     ./app
     ./wm
+    # Host-level maintenance: restic backups of the service state and secrets
+    # (backup.nix), and SMART/btrfs/capacity/service monitoring (monitoring.nix).
+    ./backup.nix
+    ./monitoring.nix
   ];
 
-  users.users.${username} = {
+  # Create a normal NixOS user for each user listed on the host. Base group
+  # memberships that every desktop user needs apply to all of them.
+  users.users = lib.genAttrs usernames (username: {
     isNormalUser = true;
     description = username;
+    home = "/home/${username}";
+    createHome = true;
     extraGroups = ["networkmanager" "wheel" "input" "uinput" "video" "render"];
     shell = pkgs.nushell;
-  };
+  });
 
   nix.settings.experimental-features = ["nix-command" "flakes"];
 

@@ -2,7 +2,7 @@
 {
   config,
   lib,
-  username,
+  usernames,
   pkgs,
   ...
 }: {
@@ -12,12 +12,13 @@
     };
 
     environment.systemPackages = [pkgs.ddcutil];
-    # Let the user control external monitors over DDC/CI (used by caelestia's
+    # Let users control external monitors over DDC/CI (used by caelestia's
     # brightness slider via ddcutil). The i2c devices are root-only by default.
     services.udev.extraRules = ''
       KERNEL=="i2c-[0-9]*", GROUP="i2c", MODE="0660"
     '';
     users.groups.i2c = {};
-    users.users.${username}.extraGroups = ["i2c"];
+    # Grant DDC/CI access to every user on the host.
+    users.users = lib.genAttrs usernames (_: {extraGroups = ["i2c"];});
   };
 }

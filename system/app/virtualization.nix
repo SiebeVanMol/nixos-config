@@ -3,7 +3,7 @@
   config,
   lib,
   pkgs,
-  username,
+  usernames,
   ...
 }: {
   config = lib.mkIf config.device.app.virtualization.enable {
@@ -18,7 +18,7 @@
 
     programs.virt-manager.enable = true;
 
-    # Allow the primary user to manage VMs without root.
-    users.users.${username}.extraGroups = ["libvirtd"];
+    # Allow users to manage VMs without root.
+    users.users = lib.genAttrs usernames (_: {extraGroups = ["libvirtd"];});
   };
 }

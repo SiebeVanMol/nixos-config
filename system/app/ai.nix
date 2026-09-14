@@ -8,7 +8,6 @@
   config,
   lib,
   pkgs,
-  username,
   ...
 }: let
   modelsDir = "/Vault/llama/models";
@@ -21,8 +20,12 @@
     #!${lib.getExe pkgs.bash}
     set -euo pipefail
     ${pkgs.coreutils}/bin/mkdir -p "${modelsDir}"
-    ${pkgs.coreutils}/bin/chown ${username}:users "${modelsDir}"
-    ${pkgs.coreutils}/bin/chmod 755 "${modelsDir}"
+    # Models live under /Vault, shared by every desktop user (all members of the
+    # `users` group). Make the directory group-writable and setgid so any desktop
+    # user can fetch models and new files keep the shared group, rather than
+    # chown-ing it to a single user.
+    ${pkgs.coreutils}/bin/chown root:users "${modelsDir}"
+    ${pkgs.coreutils}/bin/chmod 2770 "${modelsDir}"
 
     echo "Downloading Gemma 4 REAP 19B Q4_K_M..."
     ${hfCli} download potto007/gemma-4-19B-A4B-text-REAP-GGUF \

@@ -1,5 +1,8 @@
 # Flake entry point defining all NixOS system configurations and their inputs.
-# Provides three machines: nixos-desktop, nixos-laptop (user: snowyrenard), and alex-desktop (user: alexander).
+# Provides three machines, each carrying one or more users. nixos-desktop and
+# nixos-laptop currently have user snowyrenard; alex-desktop has user alexander.
+# To add more users to a host, extend the `users` list below (each entry needs a
+# matching ./users/<name>/home.nix).
 {
   description = "NixOS configuration";
 
@@ -45,17 +48,25 @@
     llm-agents,
     ...
   }:
-  # Helper to build a system configuration for a given user + host pair.
+  # Helper to build a system configuration for a host with one or more users.
+  #
+  # `users` is a list of usernames, each backed by `./users/<name>/home.nix`.
+  # Per-user Home Manager config is set up for every user, and NixOS account
+  # creation and group memberships apply to every listed user. Nothing in the
+  # configuration assumes a single "primary" user: system services that need a
+  # home or session either discover it at runtime or live under neutral paths.
   let
+    # Plain nixpkgs (no overlays), used for the flake's own outputs: the
+    # formatter, the formatting check and the rebuild wrapper.
+    pkgs = nixpkgs.legacyPackages.x86_64-linux;
+
     buildSystem = {
-      user,
       host,
-    }: let
-      username = user;
-      specialArgs = {inherit username;};
-    in
+      users,
+    }:
       nixpkgs.lib.nixosSystem {
-        inherit specialArgs;
+        # Modules receive the list as `usernames`.
+        specialArgs = {usernames = users;};
         system = "x86_64-linux";
         modules = [
           # Machine-specific NixOS config + generated hardware config.
@@ -65,28 +76,45 @@
           nix-minecraft.nixosModules.minecraft-servers
           vpn-confinement.nixosModules.default
 
+          # Overlays adding packages nixpkgs does not carry. They apply to the
+          # whole system, so they get their own module instead of being folded
+          # into the Home Manager one below.
+          {
+            nixpkgs.overlays = [
+              nur.overlays.default
+              nix-minecraft.overlay
+              llm-agents.overlays.shared-nixpkgs
+              (import ./overlays/amethyst-mod-manager.nix)
+              (import ./overlays/bookshelf.nix)
+              (import ./overlays/kapowarr.nix)
+              (import ./overlays/seerrng.nix)
+              (import ./overlays/shadps4.nix)
+            ];
+          }
+
           # Home Manager: declarative per-user package and dotfile management.
           home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            home-manager.extraSpecialArgs = inputs // specialArgs;
-            home-manager.users.${username} = import ./users/${username}/home.nix;
+            # Only flake inputs are shared globally here. Per-user values like
+            # `username`/`homeDirectory` are derived by Home Manager itself from
+            # each `users.users.<name>`, so they are NOT passed as specialArgs.
+            home-manager.extraSpecialArgs = inputs;
 
-            nixpkgs.overlays = [
-              nur.overlays.default
-              nix-minecraft.overlay
-              llm-agents.overlays.shared-nixpkgs
-            ];
+            # One Home Manager configuration per user on this host.
+            home-manager.users = builtins.listToAttrs (map (username: {
+                name = username;
+                value = import ./users/${username}/home.nix;
+              })
+              users);
           }
         ];
       };
   in {
-    formatter.x86_64-linux = nixpkgs.legacyPackages.x86_64-linux.alejandra;
+    formatter.x86_64-linux = pkgs.alejandra;
 
-    checks.x86_64-linux = let
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
-    in {
+    checks.x86_64-linux = {
       formatting =
         pkgs.runCommand "nix-formatting-check" {
           nativeBuildInputs = [pkgs.alejandra];
@@ -104,7 +132,6 @@
     };
 
     packages.x86_64-linux = let
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
       rebuild = pkgs.writeShellScriptBin "rebuild" ''
         set -euo pipefail
 
@@ -147,16 +174,16 @@
 
     nixosConfigurations = {
       nixos-desktop = buildSystem {
-        user = "snowyrenard";
         host = "nixos-desktop";
+        users = ["snowyrenard"];
       };
       nixos-laptop = buildSystem {
-        user = "snowyrenard";
         host = "nixos-laptop";
+        users = ["snowyrenard"];
       };
       alex-desktop = buildSystem {
-        user = "alexander";
         host = "AlexDesktop";
+        users = ["alexander"];
       };
     };
   };

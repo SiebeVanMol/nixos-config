@@ -1,7 +1,7 @@
 # Zen Browser (Firefox fork): multi-container workspaces, extensions, custom search engines, bookmarks.
 {
   pkgs,
-  username,
+  config,
   zen-browser,
   ...
 }: {
@@ -36,7 +36,7 @@
       };
     };
 
-    profiles.${username} = let
+    profiles.${config.home.username} = let
       containers = {
         Work = {
           color = "blue";

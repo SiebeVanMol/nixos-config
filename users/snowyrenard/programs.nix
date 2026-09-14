@@ -48,6 +48,10 @@
     prismlauncher
     protonup-qt
     lutris
+    amethyst-mod-manager
+    rpcs3
+    shadps4
+    shadps4-qtlauncher
 
     ################
     # Productivity #
@@ -66,6 +70,7 @@
     jetbrains.clion
     jetbrains.pycharm
     jetbrains.rust-rover
+    jetbrains.rider
   ];
 
   home.sessionVariables = {
@@ -83,7 +88,7 @@
   };
 
   services.jellyfin-mpv-shim = {
-    # enable = true;
+    enable = true;
     mpvConfig = {
       target-colorspace-hint = "yes";
       vo = "dmabuf-wayland";
