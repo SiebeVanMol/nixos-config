@@ -15,9 +15,11 @@
     ./server
     ./wm
     # Host-level maintenance: restic backups of the service state and secrets
-    # (backup.nix), and SMART/btrfs/capacity/service monitoring (monitoring.nix).
+    # (backup.nix), SMART/btrfs/capacity/service monitoring (monitoring.nix),
+    # and the periodic disk housekeeping plus its weekly report (reclaim.nix).
     ./backup.nix
     ./monitoring.nix
+    ./reclaim.nix
   ];
 
   # Create a normal NixOS user for each user listed on the host. Base group
