@@ -321,11 +321,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1789717708,
-        "narHash": "sha256-PZYvu2VlOZoj5AuCEvW0LsP7lzBQfyG5R42F8tm9BkI=",
+        "lastModified": 1789719166,
+        "narHash": "sha256-Hvas6Wpnj0GVkIubh/bwUfD+uUX5r/jXkIbWbqi20oY=",
         "ref": "refs/heads/main",
-        "rev": "65c433e7ece2a7339bb3c3310c172e7bc323d4c6",
-        "revCount": 4,
+        "rev": "2e5dafbf011a4c0d541ea077f1da61086a2f378f",
+        "revCount": 5,
         "type": "git",
         "url": "ssh://git@codeberg.org/SnowyRenard/nvim-config.git"
       },
