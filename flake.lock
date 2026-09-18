@@ -314,6 +314,26 @@
         "type": "github"
       }
     },
+    "nvim-config": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1789717708,
+        "narHash": "sha256-PZYvu2VlOZoj5AuCEvW0LsP7lzBQfyG5R42F8tm9BkI=",
+        "ref": "refs/heads/main",
+        "rev": "65c433e7ece2a7339bb3c3310c172e7bc323d4c6",
+        "revCount": 4,
+        "type": "git",
+        "url": "ssh://git@codeberg.org/SnowyRenard/nvim-config.git"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@codeberg.org/SnowyRenard/nvim-config.git"
+      }
+    },
     "quickshell": {
       "inputs": {
         "nixpkgs": [
@@ -343,6 +363,7 @@
         "nix-minecraft": "nix-minecraft",
         "nixpkgs": "nixpkgs_3",
         "nur": "nur",
+        "nvim-config": "nvim-config",
         "vpn-confinement": "vpn-confinement",
         "zen-browser": "zen-browser"
       }
