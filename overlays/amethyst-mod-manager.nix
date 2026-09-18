@@ -18,7 +18,7 @@
 #     the mod's page in the default browser with it.
 # Desktop entries for the nxm:// / ror2mm:// protocol handlers are defined in
 # users/snowyrenard/home.nix and route through this same wrapper.
-final: prev: let
+_final: prev: let
   version = "2.3.0";
   src = prev.fetchurl {
     url = "https://github.com/ChrisDKN/Amethyst-Mod-Manager/releases/download/v${version}/AmethystModManager-${version}-x86_64.AppImage";

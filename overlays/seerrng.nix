@@ -8,7 +8,7 @@
 # stack from upstream Seerr ("upstream Seerr remains the base project"): a
 # pnpm-managed Next.js app with two native modules (bcrypt, sqlite3) that have to
 # be rebuilt against the pinned Node rather than used as prebuilt artifacts.
-final: prev: let
+_final: prev: let
   nodejs-slim = prev.nodejs-slim_22;
   pnpm = prev.pnpm_10.override {inherit nodejs-slim;};
 in {
