@@ -10,6 +10,7 @@ in {
   config = lib.mkIf config.device.app.steam.enable {
     programs.steam = {
       enable = true;
+      protontricks.enable = true;
 
       # Remote Play and LAN game transfers are local-network features, but both
       # flags open their ports on every interface - including the one the router
