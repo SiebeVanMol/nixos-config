@@ -31,6 +31,15 @@
 
     llm-agents.url = "github:numtide/llm-agents.nix";
 
+    # Portable Neovim config, developed as its own repository and checked out
+    # here as a submodule (./nvim). Nix flake inputs cannot recurse into git
+    # submodules, so it is consumed by URL - the submodule is for local
+    # development only. See ./nvim/README.md.
+    nvim-config = {
+      url = "git+ssh://git@codeberg.org/SnowyRenard/nvim-config.git";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Fetched over SSH (uses the user's GitHub SSH key) so GitHub's HTTPS
     # archive/API rate limit can't stall the build.
     caelestia-shell = {
@@ -97,10 +106,12 @@
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            # Only flake inputs are shared globally here. Per-user values like
-            # `username`/`homeDirectory` are derived by Home Manager itself from
-            # each `users.users.<name>`, so they are NOT passed as specialArgs.
-            home-manager.extraSpecialArgs = inputs;
+            # Flake inputs are shared globally here, both individually (as
+            # `nvim-config`, ...) and under `inputs` for modules that want the
+            # whole set. Per-user values like `username`/`homeDirectory` are
+            # derived by Home Manager itself from each `users.users.<name>`, so
+            # they are NOT passed as specialArgs.
+            home-manager.extraSpecialArgs = inputs // {inherit inputs;};
 
             # One Home Manager configuration per user on this host.
             home-manager.users = builtins.listToAttrs (map (username: {
