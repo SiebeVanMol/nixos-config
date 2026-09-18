@@ -16,8 +16,7 @@
 #     the database dumps above already cover those apps, and their compressed
 #     zips would deduplicate badly against each other run after run.
 #   * the root-only secrets in /etc that a rebuild would otherwise have to
-#     recreate by hand: the WireGuard config, Shelfmark's Prowlarr API key and
-#     Kavita's TokenKey.
+#     recreate by hand: the WireGuard config and Kavita's TokenKey.
 #
 # The repository sits on /home, a DIFFERENT physical disk from both /Vault and
 # /, so it survives failure of the vault disk. It does NOT survive losing the
@@ -51,13 +50,10 @@
     "/var/lib/sonarr"
     "/var/lib/radarr"
     "/var/lib/lidarr"
-    "/var/lib/readarr"
     "/var/lib/prowlarr"
     "/var/lib/bazarr"
-    "/var/lib/kapowarr"
     "/var/lib/kavita"
     "/var/lib/seerr"
-    "/var/lib/shelfmark"
   ];
 
   # Copied verbatim (file or directory) when present.
@@ -66,7 +62,6 @@
     "/var/lib/sonarr/config.xml"
     "/var/lib/radarr/config.xml"
     "/var/lib/lidarr/config.xml"
-    "/var/lib/readarr/config.xml"
     "/var/lib/prowlarr/config.xml"
     "/var/lib/kavita/config/appsettings.json"
     "/var/lib/seerr/settings.json"
@@ -82,7 +77,6 @@
     "/var/lib/transmission/.config/transmission-daemon"
     # Secrets. This file is intentionally absent: see the header.
     "/etc/wireguard"
-    "/etc/shelfmark"
     "/etc/kavita"
   ];
 

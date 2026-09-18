@@ -50,15 +50,6 @@
     jellyfin = {
       enable = lib.mkEnableOption "Jellyfin media server";
     };
-    # The ebook/comic acquisition chain (Readarr/bookshelf, Kapowarr, Shelfmark).
-    # Off by default: it is the most fragile part of the media stack - a
-    # hand-built .NET 6 application pinned to two insecure packages, plus a
-    # hand-written unit - and it had produced no files at all. Enable it when
-    # the books and comics libraries are actually wanted; everything else in
-    # the stack is unaffected either way.
-    books = {
-      enable = lib.mkEnableOption "ebook and comic acquisition (Readarr/bookshelf, Kapowarr, Shelfmark)";
-    };
     ai = {
       enable = lib.mkEnableOption "llama.cpp (ROCm) server with Gemma 4 REAP 19B";
     };

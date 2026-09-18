@@ -27,7 +27,7 @@
     valgrind
     rustup
     # Python
-    (python3.withPackages (ps: [ps.mypy ps.flake8]))
+    (python3.withPackages (ps: [ps.mypy ps.flake8 ps.huggingface-hub]))
     # Cargo
     cargo-expand
     cargo-tarpaulin
@@ -36,8 +36,8 @@
     # code tools
     man-pages
     norminette
-    opencode
     llm-agents.dsh
+    llama-cpp-vulkan
 
     #########
     # Games #

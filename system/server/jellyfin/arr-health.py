@@ -25,13 +25,12 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
-# Same ports as the `sites` list in jellyfin.nix. Readarr is only present while
-# the ebook chain is enabled, which is detected by its directory existing.
+# Same ports as the `sites` list in jellyfin.nix, minus the ones that need no
+# health check of their own.
 APPS = {
     "sonarr": {"port": 8989, "dir": "/var/lib/sonarr"},
     "radarr": {"port": 7878, "dir": "/var/lib/radarr"},
     "lidarr": {"port": 8686, "dir": "/var/lib/lidarr"},
-    "readarr": {"port": 8787, "dir": "/var/lib/readarr"},
     "prowlarr": {"port": 9696, "dir": "/var/lib/prowlarr"},
 }
 

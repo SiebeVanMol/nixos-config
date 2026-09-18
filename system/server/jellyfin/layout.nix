@@ -1,7 +1,11 @@
 {
   config,
   lib,
-}: rec {
+}: let
+  # What counts as "inside" for the guard on the LAN vhosts below: the local
+  # network and the Tailscale mesh.
+  internalNetworks = import ../../../lib/internal-networks.nix {inherit lib;};
+in rec {
   # Everything the media stack shares: which services exist, how they are
   # reached, and the hardening helper every one of them uses. This is a plain
   # function rather than a module so each part of the stack can pull in exactly
@@ -16,8 +20,11 @@
   # Services exposed through the reverse proxy: name → local port.
   # `public = true` additionally publishes the service on *.${publicDomain}.
   # Keep ONLY Jellyfin and Seerr public; every other entry here (the *arr suite,
-  # Transmission, FlareSolverr, Kapowarr, Shelfmark, Kavita) is a
-  # sensitive admin/management UI and stays LAN/Tailscale-only.
+  # Transmission, FlareSolverr, Kavita) is a
+  # sensitive admin/management UI and stays LAN/Tailscale-only. That last part is
+  # no longer a matter of discipline: `public` is the only thing that produces a
+  # vhost reachable from the internet, and mkLanVhost below refuses clients that
+  # are not on the local network or the Tailscale mesh.
   sites = [
     # The dashboard is the landing page for the whole stack: one place to look
     # instead of remembering a dozen *.lan names. It is declared as a site like
@@ -42,10 +49,6 @@
     {
       name = "lidarr";
       port = 8686;
-    }
-    {
-      name = "readarr";
-      port = 8787;
     }
     {
       name = "bazarr";
@@ -76,69 +79,64 @@
       port = 8191;
     }
     {
-      name = "kapowarr";
-      port = 5656;
-    }
-    {
-      name = "shelfmark";
-      port = 8084;
-    }
-    {
       name = "kavita";
       port = 5000;
     }
   ];
 
-  # The ebook/comic chain is parked by default: see device.app.books in
-  # options.nix. Its entries stay listed here rather than being deleted, so
-  # flipping the toggle back on restores the vhosts and the .lan names too, but
-  # a parked stack publishes no dead vhosts and adds no dead hosts entries.
-  bookSiteNames = ["readarr" "kapowarr" "shelfmark"];
-
-  booksEnabled = config.device.app.books.enable;
-
-  activeSites = lib.filter (s: booksEnabled || !(lib.elem s.name bookSiteNames)) sites;
+  # Every service in `sites` runs: there is no parked half of the stack any
+  # more, so this is just the table under its published name.
+  activeSites = sites;
 
   publicSites = lib.filter (s: s ? public && s.public) activeSites;
 
-  # One Caddy virtual host per site per domain. LAN hosts are plain HTTP,
-  # public hosts get automatic HTTPS via the HTTP-01 challenge.
-  mkHost = scheme: suffix: site: {
-    name = scheme + site.name + suffix;
-    value = {
-      extraConfig = ''
-        reverse_proxy ${site.host or "127.0.0.1"}:${toString site.port}
-      '';
-    };
+  # Where a vhost sends its traffic. Everything is on the loopback except
+  # Transmission, which answers inside the WireGuard namespace (see the note on
+  # its entry in `sites`).
+  upstream = site: "${site.host or "127.0.0.1"}:${toString site.port}";
+
+  # Public vhosts: a plain reverse proxy, with automatic HTTPS via the HTTP-01
+  # challenge.
+  mkPublicVhost = site: {
+    name = "${site.name}.${config.device.security.reverse-proxy.publicDomain}";
+    value.extraConfig = "reverse_proxy ${upstream site}";
   };
-  mkLanVhost = mkHost "http://" ".lan";
-  mkPublicVhost = mkHost "" ".${config.device.security.reverse-proxy.publicDomain}";
+
+  # LAN vhosts: the same proxy, but only for clients that are really inside.
+  #
+  # Ports 80 and 443 are forwarded from the internet - that is how the public
+  # vhosts obtain their certificates - and Caddy chooses a vhost from the Host
+  # header alone. Unprotected, `curl -H 'Host: flaresolverr.lan' http://<public
+  # ip>/v1` from anywhere in the world reached FlareSolverr, which obligingly
+  # fetched and returned whatever URL it was handed, and the same trick reached
+  # every *arr admin UI. The remote_ip matcher below keeps all *.lan vhosts to
+  # the local network and the Tailscale mesh; anything else is refused before it
+  # reaches a service.
+  mkLanVhost = site: {
+    name = "http://${site.name}.lan";
+    value.extraConfig = ''
+      @internal remote_ip ${lib.concatStringsSep " " internalNetworks.all}
+      handle @internal {
+        reverse_proxy ${upstream site}
+      }
+      handle {
+        respond "This service is only reachable from the local network." 403
+      }
+    '';
+  };
 
   # Derived from `sites` rather than listed again: one place to add a service,
   # and a parked service cannot leave a stale *.lan name behind.
   lanHosts = map (s: s.name + ".lan") activeSites;
 
-  # Metadata service for the bookshelf-backed Readarr instance (see the long
-  # note in books.nix). bookshelf falls back to this value when its own
-  # MetadataSource setting is empty, so it only takes effect on an instance that
-  # has not been given an explicit source in the UI.
-  #
-  #   https://api.bookinfo.pro         Goodreads-derived, works, keeps an
-  #                                    existing Readarr database usable
-  #   https://hardcover.bookinfo.pro   Hardcover, better metadata, needs a
-  #                                    fresh /var/lib/readarr and a new SeerrNG
-  #                                    link
-  readarrMetadataUrl = "https://api.bookinfo.pro";
-
   # Give each service write access only to its own directories on /Vault and
   # make the rest of /Vault read-only, so a compromised app can't touch other
   # users' files. ProtectSystem="full" keeps /var/lib (app config) writable.
   #   - jellyfin:  its own media library
-  #   - sonarr/radarr/lidarr/readarr: ingest downloads, import into the library
+  #   - sonarr/radarr/lidarr: ingest downloads, import into the library
   #   - bazarr:    subtitles next to library media
   #   - transmission: completed downloads
-  #   - kapowarr:  comic library and its own download folder
-  #   - shelfmark: its ingest target and its own download folder
+  #   - kavita:    its own reading-server state
   #   - prowlarr/flaresolverr: no /Vault write access
   vaultRw = writable: {
     ProtectSystem = lib.mkForce "full";

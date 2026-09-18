@@ -94,10 +94,8 @@
               nix-minecraft.overlay
               llm-agents.overlays.shared-nixpkgs
               (import ./overlays/amethyst-mod-manager.nix)
-              (import ./overlays/bookshelf.nix)
-              (import ./overlays/kapowarr.nix)
               (import ./overlays/seerrng.nix)
-              (import ./overlays/shadps4.nix)
+              (import ./overlays/mangohud-workarounds.nix)
             ];
           }
 

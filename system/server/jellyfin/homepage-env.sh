@@ -46,7 +46,7 @@ xml_key() {
   return 1
 }
 
-for app in sonarr radarr lidarr readarr prowlarr; do
+for app in sonarr radarr lidarr prowlarr; do
   [ -d "/var/lib/$app" ] || continue
   var="HOMEPAGE_VAR_$(printf '%s' "$app" | tr '[:lower:]' '[:upper:]')_KEY"
   if key="$(xml_key "/var/lib/$app")"; then

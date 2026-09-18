@@ -5,10 +5,9 @@ settings that would otherwise have to be clicked in six different web UIs:
 
   * Prowlarr: register every *arr as an application, so Prowlarr pushes its
     indexers to them, and add FlareSolverr as an indexer proxy.
-  * Sonarr/Radarr/Lidarr/Readarr: add Transmission as the download client at
+  * Sonarr/Radarr/Lidarr: add Transmission as the download client at
     the VPN namespace address, with the same per-category directory the
     tmpfiles rules already create on /Vault/Downloads.
-  * Readarr: warn when the shared ebook root folder is missing.
 
 Two properties matter and are deliberate:
 
@@ -153,7 +152,7 @@ def probe(port, key):
     accepted the key), "unauthorized" (it answered but rejected the key - a
     config problem that waiting cannot fix) or "down" (nothing answered yet).
 
-    Sonarr/Radarr answer on v3 while Lidarr/Readarr/Prowlarr answer on v1, and
+    Sonarr/Radarr answer on v3 while Lidarr/Prowlarr answer on v1, and
     probing removes the need to hardcode that per application.
     """
     saw_response = False
@@ -633,8 +632,9 @@ def sync_seerr(seerr, apps):
     for service in seerr.get("services", []):
         spec = apps.get(service)
         if spec is None:
-            # Not running (Readarr while the ebook chain is parked), so its link
-            # is left exactly as it is.
+            # A service SeerrNG knows about but this stack does not run (a link
+            # left over from a removed application, say), so its link is left
+            # exactly as it is.
             continue
         sync_seerr_link(service, spec, key, seerr)
 
@@ -670,22 +670,6 @@ def sync_indexer_proxy(prowlarr, host):
     set_field(body, "host", host)
     call(port, version, key, "PUT", f"/indexerproxy/{existing['id']}", body)
     log(f"prowlarr: converged {PROXY_NAME} host")
-
-
-def check_root_folder(spec, wanted):
-    """Report a missing root folder; creating one needs profile ids we do not
-    own, so this only ever warns."""
-    roots = call(spec["port"], spec["version"], spec["key"], "GET", "/rootfolder") or []
-    paths = {os.path.normpath(entry.get("path", "")) for entry in roots}
-    if os.path.normpath(wanted) not in paths:
-        found = ", ".join(sorted(paths)) or "none"
-        warn(
-            f"readarr: no root folder at {wanted} (has: {found}) - add it under "
-            "Settings -> Media Management"
-        )
-        return False
-    log(f"readarr: root folder {wanted} present")
-    return True
 
 
 # ---------------------------------------------------------------------------
@@ -773,7 +757,7 @@ def export_seerr_links():
     if not key:
         print("# SeerrNG: no API key in its settings.json.")
         return
-    for service in ("sonarr", "radarr", "lidarr", "readarr"):
+    for service in ("sonarr", "radarr", "lidarr"):
         try:
             payload = call_seerr(key, f"/api/v1/settings/{service}")
         except ApiError as error:
@@ -900,13 +884,6 @@ def main():
         except ApiError as error:
             warn(f"seerr: {error}")
             failures += 1
-
-    root = config.get("readarr_root_folder")
-    if root and "readarr" in ready:
-        try:
-            check_root_folder(ready["readarr"], root)
-        except ApiError as error:
-            warn(f"readarr: {error}")
 
     if failures:
         log(f"finished with {failures} failure(s)")

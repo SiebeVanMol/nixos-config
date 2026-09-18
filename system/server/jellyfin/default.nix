@@ -9,25 +9,21 @@
 #   reading.nix       Kavita, the reading server (LAN only)
 #   dashboard.nix     Homepage, one landing page for everything above
 #   proxy.nix         the Caddy virtual hosts and the hosts-file entries
-#   books.nix         the ebook/comic acquisition chain, parked by default
 #   servarr-sync.nix  converges the applications' own settings from Nix
 #   recyclarr.nix     applies the TRaSH Guides quality profiles
 #
-# The ebook/comic ACQUISITION chain is parked behind its own
-# device.app.books.enable toggle (off by default) because it had produced no
-# files at all while being the most fragile part of the stack:
-#
-#   Readarr       ebooks - the only backend SeerrNG can hand book requests to
-#   Kapowarr      comics
-#   Shelfmark     ebook/manga acquisition, driven by Prowlarr
-#
-# Note that SeerrNG's book requests stop at the request itself while that chain
-# is parked; movies, TV and music are unaffected.
+# There is deliberately no book/comic ACQUISITION module. Readarr, Kapowarr and
+# Shelfmark were tried and removed: Readarr's line was archived upstream and its
+# metadata provider died with it, so the revival (bookshelf) needed a hand-built
+# .NET 6 application pinned to two insecure packages and a hand-written unit for
+# a project with no NixOS module - and in the end it had produced no files at
+# all. SeerrNG's book requests therefore stop at the request itself; movies, TV
+# and music are unaffected. The books and comics already in the library are read
+# through Kavita and Jellyfin, which is what reading.nix is for.
 #
 # layout.nix holds what all of these share - the service/port table the reverse
-# proxy and the hosts file are built from, the books toggle, and the `vaultRw`
-# hardening helper - and each module pulls it in with
-# `import ./layout.nix {inherit config lib;}`.
+# proxy and the hosts file are built from, and the `vaultRw` hardening helper -
+# and each module pulls it in with `import ./layout.nix {inherit config lib;}`.
 #
 # The parts are listed below rather than globbed by lib/import-dir.nix, which is
 # how system/app does it: layout.nix is a plain function, not a module, so a
@@ -42,7 +38,6 @@
     ./reading.nix
     ./dashboard.nix
     ./proxy.nix
-    ./books.nix
     ./servarr-sync.nix
     ./recyclarr.nix
   ];

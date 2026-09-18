@@ -53,8 +53,8 @@
 # To change profile, take the ids from the matching template in
 # https://github.com/recyclarr/config-templates (each is a few lines), or run
 # `recyclarr config create -t <template>` to see a full config for it. Note
-# that Recyclarr supports Sonarr and Radarr only - Lidarr and Readarr are not
-# covered by the guides, and their profiles stay as they are.
+# that Recyclarr supports Sonarr and Radarr only - Lidarr is not covered by the
+# guides, and its profiles stay as they are.
 {
   config,
   lib,

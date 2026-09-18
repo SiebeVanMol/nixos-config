@@ -1,16 +1,13 @@
 # Declarative settings sync for the Servarr stack (see servarr-sync.py).
 #
 # The rest of this directory declares which services run; this module converges
-# the settings inside them, which until now were a manual checklist. The
-# clearest example is the note on services.readarr in jellyfin.nix:
+# the settings inside them, which until now were a manual checklist: the download
+# client each application uses, the applications Prowlarr pushes its indexers to,
+# the notification target, and SeerrNG's links to all of them.
 #
-#   "In Readarr set: download client = Transmission (via the wg0 namespace
-#    address, as in the `sites` entry above), indexers = Prowlarr, and root
-#    folder = /Vault/Jellyfin/Books/Books."
-#
-# That is three web-UI sessions, replicated across four applications, that
-# silently rot when a container path, port or key changes. Here it is a oneshot
-# that runs after the services come up and every morning afterwards.
+# That is several web-UI sessions, replicated across every application, that
+# silently rot when a path, port or key changes. Here it is a oneshot that runs
+# after the services come up and every morning afterwards.
 #
 # Two things keep this safe to run unattended:
 #
@@ -34,39 +31,26 @@
   # These ports mirror the `sites` list in jellyfin.nix and the per-category
   # download directories mirror the tmpfiles rules there; if either moves, move
   # it in both places.
-  #
-  # Readarr is added only when the ebook/comic chain is enabled: a parked
-  # service that never answers would otherwise make this unit log a warning on
-  # every single run.
-  apps =
-    {
-      sonarr = {
-        port = 8989;
-        dir = "/var/lib/sonarr";
-        implementation = "Sonarr";
-        category = "tv-sonarr";
-      };
-      radarr = {
-        port = 7878;
-        dir = "/var/lib/radarr";
-        implementation = "Radarr";
-        category = "radarr";
-      };
-      lidarr = {
-        port = 8686;
-        dir = "/var/lib/lidarr";
-        implementation = "Lidarr";
-        category = "lidarr";
-      };
-    }
-    // lib.optionalAttrs config.device.app.books.enable {
-      readarr = {
-        port = 8787;
-        dir = "/var/lib/readarr";
-        implementation = "Readarr";
-        category = "readarr";
-      };
+  apps = {
+    sonarr = {
+      port = 8989;
+      dir = "/var/lib/sonarr";
+      implementation = "Sonarr";
+      category = "tv-sonarr";
     };
+    radarr = {
+      port = 7878;
+      dir = "/var/lib/radarr";
+      implementation = "Radarr";
+      category = "radarr";
+    };
+    lidarr = {
+      port = 8686;
+      dir = "/var/lib/lidarr";
+      implementation = "Lidarr";
+      category = "lidarr";
+    };
+  };
 
   prowlarr = {
     port = 9696;
@@ -102,8 +86,8 @@
     {
       name = "Nyaa.si";
       definitionFile = "nyaasi";
-      # First priority on purpose: this is the indexer the anime libraries and
-      # Shelfmark's manga search actually rely on.
+      # First priority on purpose: this is the indexer the anime libraries
+      # actually rely on.
       priority = 1;
       fields = {
         "baseSettings.limitsUnit" = 0;
@@ -147,12 +131,13 @@
     inherit apps prowlarr indexers;
 
     # SeerrNG's own API key and its service links live in one root-only file.
-    # Only the services that actually run are listed: Readarr's link is left
-    # untouched while the ebook chain is parked.
+    # These are the services that exist in the stack; a link left over from a
+    # removed application is not this module's to delete, so SeerrNG's own
+    # settings page is where a stale one goes.
     seerr = {
       port = 5055;
       settings = "/var/lib/seerr/settings.json";
-      services = ["sonarr" "radarr" "lidarr"] ++ lib.optional config.device.app.books.enable "readarr";
+      services = ["sonarr" "radarr" "lidarr"];
     };
     transmission = {
       # Transmission's RPC lives inside the WireGuard namespace, not on the
@@ -165,15 +150,6 @@
       urlBase = "/transmission/";
     };
     flaresolverr_host = "http://127.0.0.1:8191";
-    # Checked, never created: a root folder needs quality and metadata profile
-    # ids that this module does not own, so it only reports a missing one. Null
-    # (not mkIf) because this whole attrset is serialised with toJSON, and only
-    # relevant while the ebook/comic chain is enabled - the script treats null
-    # as "skip this check".
-    readarr_root_folder =
-      if config.device.app.books.enable
-      then "/Vault/Jellyfin/Books/Books"
-      else null;
     # Wait only long enough to cover a cold boot, where the *arr apps write
     # their config.xml (and therefore their API key) a few seconds after start.
     # This used to be 300 seconds, which was a mistake in both directions: it

@@ -24,8 +24,6 @@
   pkgs,
   ...
 }: let
-  booksEnabled = config.device.app.books.enable;
-
   envScript = pkgs.writeShellApplication {
     name = "homepage-env";
     runtimeInputs = [pkgs.coreutils pkgs.gnused pkgs.python3];
@@ -87,17 +85,6 @@
     }
   ];
 
-  bookServices = [
-    {
-      "Readarr" =
-        widget "readarr" 8787 "HOMEPAGE_VAR_READARR_KEY"
-        // {
-          href = "http://readarr.lan";
-          description = "Ebooks";
-        };
-    }
-  ];
-
   libraryServices = [
     {
       "Jellyfin" = {
@@ -139,35 +126,16 @@
     }
   ];
 
-  adminBookmarks =
-    [
-      {
-        "FlareSolverr" = [
-          {
-            abbr = "FS";
-            href = "http://flaresolverr.lan";
-          }
-        ];
-      }
-    ]
-    ++ lib.optionals booksEnabled [
-      {
-        "Kapowarr" = [
-          {
-            abbr = "KP";
-            href = "http://kapowarr.lan";
-          }
-        ];
-      }
-      {
-        "Shelfmark" = [
-          {
-            abbr = "SM";
-            href = "http://shelfmark.lan";
-          }
-        ];
-      }
-    ];
+  adminBookmarks = [
+    {
+      "FlareSolverr" = [
+        {
+          abbr = "FS";
+          href = "http://flaresolverr.lan";
+        }
+      ];
+    }
+  ];
 in {
   config = lib.mkIf config.device.app.jellyfin.enable {
     services.homepage-dashboard = {
@@ -220,7 +188,7 @@ in {
 
       services = [
         {"Library" = libraryServices;}
-        {"Acquisition" = arrServices ++ lib.optionals booksEnabled bookServices;}
+        {"Acquisition" = arrServices;}
         {"Downloads" = downloadServices;}
       ];
 

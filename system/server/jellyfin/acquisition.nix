@@ -58,6 +58,16 @@ in {
       "d /Vault/Downloads/radarr 2775 root users -"
       "d /Vault/Downloads/tv-sonarr 2775 root users -"
       "d /Vault/Downloads/lidarr 2775 root users -"
+
+      # Every *arr app keeps its API key in config.xml inside its data
+      # directory, and that key is a full admin credential - it bypasses the web
+      # login entirely. Sonarr's directory was created 0755 (its siblings are
+      # 0700), which let any local account read the key out of it and take over
+      # the whole app. Pin all three to 0700 so only the app's own user can
+      # traverse into them; `z` leaves the owner and group alone.
+      "z /var/lib/sonarr/.config/NzbDrone 0700 - - -"
+      "z /var/lib/radarr/.config/Radarr 0700 - - -"
+      "z /var/lib/lidarr/.config/Lidarr 0700 - - -"
     ];
   };
 }

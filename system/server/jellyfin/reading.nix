@@ -23,12 +23,12 @@ in {
     # OPDS for e-readers and KOReader/Mihon sync.
     #
     # It reads the SAME files, so nothing else changes: Jellyfin keeps scanning
-    # /Vault/Jellyfin/Books as its Books library and Kapowarr/Shelfmark/Readarr
-    # keep writing into it. In Kavita's UI add two libraries after the first
-    # start:
+    # /Vault/Jellyfin/Books as its Books library. Nothing writes new books into
+    # that tree any more (the acquisition chain was removed - see default.nix),
+    # so in Kavita's UI add two libraries after the first start:
     #
     #   comics -> /Vault/Jellyfin/Books          (Hellboy et al., PDFs)
-    #   ebooks -> /Vault/Jellyfin/Books/Books    (Shelfmark/Readarr target)
+    #   ebooks -> /Vault/Jellyfin/Books/Books    (the ebook tree)
     #
     # Both are Loose-Leaf/Comic or Book libraries respectively; pick "Comic" for
     # the first so Kavita reads the ComicInfo.xml sidecars already sitting next
