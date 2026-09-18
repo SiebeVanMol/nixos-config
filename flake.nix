@@ -95,7 +95,6 @@
               llm-agents.overlays.shared-nixpkgs
               (import ./overlays/amethyst-mod-manager.nix)
               (import ./overlays/seerrng.nix)
-              (import ./overlays/mangohud-workarounds.nix)
             ];
           }
 

@@ -28,11 +28,6 @@
     keymapp
   ];
 
-  home.sessionVariables = {
-    OBS_VKCAPTURE = 1;
-    # FSR4_UPGRADE = 1; # proton-ge overwrite fsr3 to fsr4
-  };
-
   programs = {
     fastfetch = {
       enable = true;
@@ -60,7 +55,6 @@
 
     mangohud = {
       enable = true;
-      enableSessionWide = true;
 
       settings = {
         no_display = true;

@@ -74,7 +74,6 @@
   ];
 
   home.sessionVariables = {
-    OBS_VKCAPTURE = 1;
     PROTON_FSR4_UPGRADE = 1;
   };
 
@@ -132,7 +131,6 @@
 
     mangohud = {
       enable = true;
-      enableSessionWide = true;
 
       settings = {
         no_display = true;
