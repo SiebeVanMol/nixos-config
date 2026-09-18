@@ -31,6 +31,13 @@
 
     llm-agents.url = "github:numtide/llm-agents.nix";
 
+    # AMD ROCm LLM inference daemon. nixpkgs follows this flake so the module's
+    # rocmPackages and the rest of the system come from the same pin.
+    hipfire = {
+      url = "github:warpfront/hipfire";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Portable Neovim config, developed as its own repository and checked out
     # here as a submodule (./nvim). Nix flake inputs cannot recurse into git
     # submodules, so it is consumed by URL - the submodule is for local
@@ -55,6 +62,7 @@
     vpn-confinement,
     nix-minecraft,
     llm-agents,
+    hipfire,
     ...
   }:
   # Helper to build a system configuration for a host with one or more users.
@@ -85,6 +93,9 @@
           nix-minecraft.nixosModules.minecraft-servers
           vpn-confinement.nixosModules.default
 
+          # hipfire inference daemon; enabled per host via device.app.hipfire.
+          hipfire.nixosModules.default
+
           # Overlays adding packages nixpkgs does not carry. They apply to the
           # whole system, so they get their own module instead of being folded
           # into the Home Manager one below.
@@ -93,6 +104,7 @@
               nur.overlays.default
               nix-minecraft.overlay
               llm-agents.overlays.shared-nixpkgs
+              hipfire.overlays.default
               (import ./overlays/amethyst-mod-manager.nix)
               (import ./overlays/seerrng.nix)
             ];

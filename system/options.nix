@@ -1,6 +1,10 @@
 # Custom NixOS option declarations that act as feature toggles.
 # Hosts enable subsets via device.hardware.<name>.enable and device.security.<name>.enable.
-{lib, ...}: {
+{
+  lib,
+  usernames,
+  ...
+}: {
   options.device.hardware = {
     amd = {
       enable = lib.mkEnableOption "AMD GPU powercap udev rules";
@@ -49,6 +53,24 @@
     };
     jellyfin = {
       enable = lib.mkEnableOption "Jellyfin media server";
+    };
+    hipfire = {
+      enable = lib.mkEnableOption "hipfire (ROCm) inference daemon as a per-user service";
+      user = lib.mkOption {
+        type = lib.types.str;
+        default = lib.head usernames;
+        description = "User whose session runs the hipfire daemon and owns its models.";
+      };
+      gpuTargets = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        example = ["gfx1201"];
+        description = ''
+          AMD GPU architectures to compile hipfire kernels for. Must be
+          non-empty when enabled; detect with:
+            grep gfx_target_version /sys/class/kfd/kfd/topology/nodes/*/properties
+        '';
+      };
     };
     ai = {
       enable = lib.mkEnableOption "llama.cpp (ROCm) server with Gemma 4 REAP 19B";
