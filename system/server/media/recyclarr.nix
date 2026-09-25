@@ -102,7 +102,7 @@
       # "UHD Bluray + WEB" - the 2160p equivalent, also without the remux tier,
       # kept for the films that justify 4K. Still 2160p; it just stops ranking
       # a full-bitrate remux above a good encode.
-      trash_id = "64fb5f9858489bdac2af690e27c8c42f";
+      trash_id = "64fb5f9858489bdac2af690e27c8f42f";
       reset_unmatched_scores.enabled = true;
     }
   ];
@@ -178,16 +178,6 @@ in {
               assign_scores_to = [{name = "WEB-1080p";}];
             }
             {
-              # [Optional] Language Profiles, with "Language: Not Original"
-              # excluded. That format is a default member of this group in the
-              # Sonarr guide (unlike the Radarr one, where it is optional), and
-              # it is scored explicitly above so the disallow value is visible in
-              # this file rather than inherited.
-              trash_id = "74aff4168620ed49dcc67e92b2c2a5b4";
-              assign_scores_to = [{name = "WEB-1080p";}];
-              exclude = ["ae575f95ab639ba5d15f663bf019e3e8"]; # Language: Not Original
-            }
-            {
               # [Unwanted] Unwanted Formats - penalises x264, but AV1 is wanted
               # here, so it is excluded and scored above instead.
               trash_id = "59c3af66780d08332fdc64e68297098f";
@@ -256,17 +246,6 @@ in {
               # [Optional] Golden Rule UHD - x265 for the 4K exception profile
               trash_id = "ff204bbcecdd487d1cefcefdbf0c278d";
               assign_scores_to = [{name = "UHD Bluray + WEB";}];
-            }
-            {
-              # [Optional] Language Profiles. "Language: Not Original" is
-              # deliberately NOT selected: it is scored explicitly above, so its
-              # disallow score is visible in this file rather than inherited
-              # from whatever the group's default happens to be.
-              trash_id = "13856622cf7a6c9925d3a83f8812d679";
-              assign_scores_to = [
-                {name = "HD Bluray + WEB";}
-                {name = "UHD Bluray + WEB";}
-              ];
             }
             {
               # [Unwanted] Unwanted Formats - penalises x264, but AV1 is wanted

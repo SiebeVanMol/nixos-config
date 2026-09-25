@@ -98,6 +98,22 @@ in {
         # Also stop seeding if a torrent is idle for 0 minutes.
         "idle-seeding-limit" = 0;
         "idle-seeding-limit-enabled" = true;
+        # No download queue.
+        #
+        # Transmission's default is five concurrent downloads with the rest held
+        # in "download-wait", relying on `queue-stalled-minutes` to rotate the
+        # stalled ones out. That falls apart when stalls are the norm rather
+        # than the exception: with fifty-odd torrents queued behind five that
+        # never found a peer, nothing else ever attempted a connection, and the
+        # whole library looked dead while the client, the tunnel and the
+        # indexers were all working. A control torrent with thousands of
+        # seeders sat in download-wait for ninety seconds without trying; with
+        # this off it completed at 51 MB/s.
+        #
+        # Letting every torrent look for peers at once is the point. What
+        # bounds resource use is Transmission's global peer limit, not the
+        # number of active torrents.
+        "download-queue-enabled" = false;
       };
     };
 
