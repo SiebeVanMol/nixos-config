@@ -26,36 +26,26 @@
   config,
   lib,
   pkgs,
+  media,
   ...
 }: let
-  # These ports mirror the `sites` list in jellyfin.nix and the per-category
-  # download directories mirror the tmpfiles rules there; if either moves, move
-  # it in both places.
-  apps = {
-    sonarr = {
-      port = 8989;
-      dir = "/var/lib/sonarr";
-      implementation = "Sonarr";
-      category = "tv-sonarr";
-    };
-    radarr = {
-      port = 7878;
-      dir = "/var/lib/radarr";
-      implementation = "Radarr";
-      category = "radarr";
-    };
-    lidarr = {
-      port = 8686;
-      dir = "/var/lib/lidarr";
-      implementation = "Lidarr";
-      category = "lidarr";
-    };
-  };
+  # Derived from the registry: each *arr service registers its implementation,
+  # state directory and Transmission category, so this no longer duplicates
+  # them (or the ports and download directories they imply).
+  apps = lib.mapAttrs (_: s: {
+    inherit (s) port;
+    inherit (s.servarr) dir implementation category;
+  }) (lib.filterAttrs (_: s: s.servarr != null) config.device.media.services);
 
   prowlarr = {
-    port = 9696;
+    port = config.device.media.services.prowlarr.port;
     dir = "/var/lib/prowlarr";
   };
+
+  # Where the library lived before the servers became peers of it rather than
+  # tenants of Jellyfin's; see lib/media.nix. Every item each *arr manages still
+  # records an absolute path under here.
+  legacyRoot = "${media.vault}/Jellyfin";
 
   # The indexers Prowlarr searches. These values are not invented: they are
   # exactly what `nix run .#servarr-export` read back from the live instance, so
@@ -130,26 +120,73 @@
   syncConfig = pkgs.writeText "servarr-sync.json" (builtins.toJSON {
     inherit apps prowlarr indexers;
 
+    # Each *arr needs a root folder before it can add anything. The quality
+    # profile a new item gets is NOT set here: Sonarr and Radarr root folders
+    # carry no default profile of their own (only Lidarr's do) and neither app
+    # can update an existing one, so that choice belongs to the import list or
+    # the requesting application.
+    root_folders = {
+      sonarr = media.shows;
+      radarr = media.movies;
+      lidarr = media.musicLibrary;
+    };
+
+    # Moving the library updates the root folder above but NOT the absolute
+    # directory each series, movie and artist stores of itself - those keep
+    # pointing at the tree that no longer exists. That is what the applications
+    # then report as an import failure with an "access denied" message, because
+    # /Vault is mounted read-only for them and only the real root folders are
+    # re-opened for writing. Declaring old -> new prefixes lets the sync
+    # re-point those items; it is a no-op once they have been.
+    library_moves = {
+      sonarr = [
+        {
+          from = "${legacyRoot}/Shows";
+          to = media.shows;
+        }
+      ];
+      radarr = [
+        {
+          from = "${legacyRoot}/Movies";
+          to = media.movies;
+        }
+      ];
+      lidarr = [
+        {
+          from = "${legacyRoot}/Music";
+          to = media.musicLibrary;
+        }
+      ];
+    };
+
     # SeerrNG's own API key and its service links live in one root-only file.
     # These are the services that exist in the stack; a link left over from a
     # removed application is not this module's to delete, so SeerrNG's own
     # settings page is where a stale one goes.
     seerr = {
-      port = 5055;
+      port = config.device.media.services.seerr.port;
       settings = "/var/lib/seerr/settings.json";
-      services = ["sonarr" "radarr" "lidarr"];
+      services = lib.attrNames apps;
+      # The profile SeerrNG asks its applications for when someone requests a
+      # movie or episode. Sonarr and Radarr root folders have no default profile
+      # of their own, so this is where "new items are 1080p" is actually set.
+      # A service absent here (Lidarr) keeps whatever its link already uses.
+      quality_profiles = {
+        sonarr = "Remux + WEB 1080p";
+        radarr = "Remux + WEB 1080p";
+      };
     };
     transmission = {
       # Transmission's RPC lives inside the WireGuard namespace, not on the
       # host: locally generated traffic never traverses PREROUTING, so the
-      # namespace's veth peer is the address that works (the same reason the
-      # Caddy vhost in jellyfin.nix uses it).
+      # namespace's veth peer is the address that works (the same reason its
+      # Caddy vhost is built from the namespace address).
       host = config.vpnNamespaces.wg0.namespaceAddress;
-      port = 9091;
+      port = config.device.media.services.transmission.port;
       # The *arr apps talk to Transmission's RPC endpoint at /transmission/rpc.
       urlBase = "/transmission/";
     };
-    flaresolverr_host = "http://127.0.0.1:8191";
+    flaresolverr_host = "http://127.0.0.1:${toString config.device.media.services.flaresolverr.port}";
     # Wait only long enough to cover a cold boot, where the *arr apps write
     # their config.xml (and therefore their API key) a few seconds after start.
     # This used to be 300 seconds, which was a mistake in both directions: it

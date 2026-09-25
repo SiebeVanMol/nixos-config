@@ -3,11 +3,10 @@
   config,
   lib,
   pkgs,
+  media,
   ...
-}: let
-  stack = import ./layout.nix {inherit config lib;};
-in {
-  config = lib.mkIf stack.enabled {
+}: {
+  config = lib.mkIf config.device.app.jellyfin.enable {
     # The Kavita module creates its own account and group; the account only
     # needs adding to the shared `users` group, because the library tree is
     # 2775 root:users and even a read needs the group bit. It never writes to
@@ -23,12 +22,12 @@ in {
     # OPDS for e-readers and KOReader/Mihon sync.
     #
     # It reads the SAME files, so nothing else changes: Jellyfin keeps scanning
-    # /Vault/Jellyfin/Books as its Books library. Nothing writes new books into
+    # /Vault/Media/Books as its Books library. Nothing writes new books into
     # that tree any more (the acquisition chain was removed - see default.nix),
     # so in Kavita's UI add two libraries after the first start:
     #
-    #   comics -> /Vault/Jellyfin/Books          (Hellboy et al., PDFs)
-    #   ebooks -> /Vault/Jellyfin/Books/Books    (the ebook tree)
+    #   comics -> /Vault/Media/Books          (Hellboy et al., PDFs)
+    #   ebooks -> /Vault/Media/Books/Books    (the ebook tree)
     #
     # Both are Loose-Leaf/Comic or Book libraries respectively; pick "Comic" for
     # the first so Kavita reads the ComicInfo.xml sidecars already sitting next
@@ -37,7 +36,7 @@ in {
     # rather than MOBI/AZW3.
     #
     # LAN-only by convention, exactly like the rest of the stack; add
-    # `public = true` to its entry in layout.nix to read from outside the house
+    # `public = true` to its registry entry below to read from outside the house
     # without Tailscale.
     services.kavita = {
       enable = true;
@@ -55,7 +54,7 @@ in {
     # is the one service here that gets NO /Vault write path - the shared 2775
     # tree plus the `users` group above is enough to scan it. Give it a write
     # path only if you turn that option on.
-    systemd.services.kavita.serviceConfig = stack.vaultRw [];
+    systemd.services.kavita.serviceConfig = media.vaultRw [];
 
     # Kavita signs its auth tokens with a TokenKey secret, so it cannot live in
     # the world-readable Nix store - it belongs in /etc, like the WireGuard
@@ -75,5 +74,20 @@ in {
         ${pkgs.coreutils}/bin/rm -f "$tmp"
       fi
     '';
+
+    device.media.services.kavita = {
+      port = 5000;
+      dashboard = {
+        group = "library";
+        order = 40;
+        title = "Kavita";
+        description = "Read";
+        icon = "kavita.png";
+      };
+      backup = {
+        sqliteRoots = ["/var/lib/kavita"];
+        statePaths = ["/var/lib/kavita/config/appsettings.json"];
+      };
+    };
   };
 }

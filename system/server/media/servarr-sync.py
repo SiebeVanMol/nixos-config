@@ -329,6 +329,124 @@ def sync_download_client(name, spec, transmission):
     log(f"{name}: converged download client field(s): {', '.join(drifted)}")
 
 
+def sync_root_folder(name, spec, path):
+    """Ensure an application has `path` registered as a root folder.
+
+    Lidarr refuses to add an artist until it has somewhere to put it, and an
+    import list - the Spotify playlist that feeds the music stack - is what
+    adds artists. So without a root folder pointing at the shared music
+    library, Soularr has nothing to download for. Only applications that
+    declare a path in the sync config are touched.
+
+    The quality profile a NEW item gets is deliberately not set here: Sonarr
+    and Radarr root folders carry no default profile at all (only Lidarr's do),
+    and neither application exposes a route to update a root folder once it
+    exists. That default belongs to the import list or to the application doing
+    the requesting (Seerr), so it is chosen there.
+    """
+    if not path:
+        return
+
+    port, version, key = spec["port"], spec["version"], spec["key"]
+    wanted = os.path.normpath(path)
+    for folder in call(port, version, key, "GET", "/rootfolder") or []:
+        if os.path.normpath(folder.get("path") or "") == wanted:
+            log(f"{name}: root folder {path} already present")
+            return
+
+    # Creating one still needs both profile ids. Take the first of each rather
+    # than inventing numbers; an install with no profiles cannot add anything
+    # by any route anyway.
+    profiles = call(port, version, key, "GET", "/qualityprofile") or []
+    metadata = call(port, version, key, "GET", "/metadataprofile") or []
+    if not profiles or not metadata:
+        warn(f"{name}: no quality/metadata profile to attach a root folder to yet")
+        return
+
+    call(
+        port,
+        version,
+        key,
+        "POST",
+        "/rootfolder",
+        {
+            "name": os.path.basename(wanted) or wanted,
+            "path": path,
+            "defaultQualityProfileId": profiles[0]["id"],
+            "defaultMetadataProfileId": metadata[0]["id"],
+            "defaultTags": [],
+        },
+    )
+    log(f"{name}: added root folder {path}")
+
+
+# What each application calls the collection of things it manages. The path of
+# one of them is an absolute directory recorded per item, separately from the
+# root folders that contain them.
+LIBRARY_RESOURCES = {
+    "sonarr": "series",
+    "radarr": "movie",
+    "lidarr": "artist",
+}
+
+
+def sync_library_paths(name, spec, moves):
+    """Re-point library items whose folder moved out from under them.
+
+    A root folder and an item's own path are two different things: the root
+    folder says where a library lives, and every series/movie/artist stores its
+    own absolute directory beneath it. Moving the library therefore updates the
+    root folder and leaves every item pointing at the directory that is gone -
+    and the applications report that in a way that reads like a permissions
+    problem:
+
+        Root folder '/Vault/Jellyfin/Shows' was not found
+        Access to the path '/Vault/Jellyfin/Shows/...' is denied
+
+    The second message is systemd rather than Unix: /Vault is mounted read-only
+    for these units and only the real root folders are re-opened for writing, so
+    a write into the abandoned tree is refused.
+
+    `moveFiles` is deliberately false. The files are already in their new home,
+    so this is bookkeeping - asking the application to move them would fail
+    against the very directory being left behind. Only items under a declared
+    old prefix are touched, so a repeat run is a no-op.
+    """
+    resource = LIBRARY_RESOURCES.get((spec["implementation"] or "").lower())
+    if resource is None or not moves:
+        return
+
+    port, version, key = spec["port"], spec["version"], spec["key"]
+    repointed = 0
+    for item in call(port, version, key, "GET", f"/{resource}") or []:
+        path = item.get("path") or ""
+        for move in moves:
+            source = os.path.normpath(move["from"])
+            if not (path == source or path.startswith(source + "/")):
+                continue
+            # The part of the path below the prefix, re-rooted under the new
+            # one: /Vault/Jellyfin/Shows/X -> /Vault/Media/Shows/X.
+            suffix = path[len(source) :]  # noqa: E203 - pycodestyle vs. black
+            target = os.path.normpath(move["to"]) + suffix
+            title = item.get("title") or item.get("artistName") or item.get("id")
+            call(
+                port,
+                version,
+                key,
+                "PUT",
+                f"/{resource}/{item['id']}?moveFiles=false",
+                dict(item, path=target),
+            )
+            log(f"{name}: re-pointed {resource} {title!r} to {target}")
+            repointed += 1
+            break
+
+    if repointed:
+        log(f"{name}: re-pointed {repointed} item(s) left behind by the library move")
+    else:
+        log(f"{name}: library paths already correct")
+
+
 def sync_prowlarr_application(spec, prowlarr):
     """Register an *arr with Prowlarr so indexers reach it automatically."""
     port, version, key = prowlarr["port"], prowlarr["version"], prowlarr["key"]
@@ -557,6 +675,18 @@ def mark_seerr_keys_asserted():
         warn(f"seerr: could not record the key assertion ({error})")
 
 
+def quality_profile_id(port, version, key, name):
+    """The id of the quality profile called `name` in an application, or None.
+
+    Seerr records a profile by numeric id, so the name the sync config uses has
+    to be resolved against the application the link points at.
+    """
+    for profile in call(port, version, key, "GET", "/qualityprofile") or []:
+        if profile.get("name") == name:
+            return profile["id"]
+    return None
+
+
 def sync_seerr_link(service, spec, key, seerr):
     """Keep one SeerrNG service link able to reach its application.
 
@@ -571,8 +701,12 @@ def sync_seerr_link(service, spec, key, seerr):
         to update would have added a duplicate instance,
       * changes only hostname, port, useSsl and apiKey,
       * never creates an instance and never deletes one,
-      * leaves the profile, directory and rule choices alone: those are yours,
-        and they legitimately change (Recyclarr adds profiles, for instance).
+      * converges the quality profile ONLY when the sync config names one for
+        this service, and only through a field the link already exposes. This
+        is the one place a "default profile for new items" really lives for
+        Sonarr and Radarr: their own root folders carry no such field, so the
+        requesting application is what decides. The import directory, 4K flag
+        and rule choices are still left alone - those are yours.
     """
     port = seerr.get("port", SEERR_PORT)
     payload = call_seerr(key, f"/api/v1/settings/{service}", port=port)
@@ -590,6 +724,27 @@ def sync_seerr_link(service, spec, key, seerr):
         "port": spec["port"],
         "useSsl": False,
     }
+
+    # The profile SeerrNG asks for when it creates an item here. Only a field
+    # the link already exposes is touched, so an upstream rename is skipped with
+    # a warning rather than sent back as an unknown property.
+    wanted = (seerr.get("quality_profiles") or {}).get(service)
+    if wanted:
+        id_field = next((f for f in ("activeProfileId", "profileId") if f in target), None)
+        name_field = next((f for f in ("activeProfileName", "profileName") if f in target), None)
+        profile_id = quality_profile_id(spec["port"], spec["version"], spec["key"], wanted)
+        if profile_id is None:
+            warn(
+                f"seerr: {service} has no quality profile named {wanted!r} yet; "
+                f"leaving its profile alone"
+            )
+        elif id_field is None:
+            warn(f"seerr: {service} link exposes no profile field; leaving its profile alone")
+        else:
+            desired[id_field] = profile_id
+            if name_field:
+                desired[name_field] = wanted
+
     asserting = not seerr_keys_asserted()
     if asserting:
         desired["apiKey"] = spec["key"]
@@ -838,6 +993,28 @@ def main():
             sync_notification(name, spec, webhook_url)
         except ApiError as error:
             warn(f"{name}: {error}")
+            failures += 1
+
+    # Root folders are what let an application add anything at all; whichever
+    # ones a stack declares are the ones touched.
+    for name, path in config.get("root_folders", {}).items():
+        if name not in ready:
+            continue
+        try:
+            sync_root_folder(name, ready[name], path)
+        except ApiError as error:
+            warn(f"{name}: root folder: {error}")
+            failures += 1
+
+    # After the root folders, never before: an item can only be re-pointed at a
+    # directory the application already accepts as a library.
+    for name, moves in config.get("library_moves", {}).items():
+        if name not in ready:
+            continue
+        try:
+            sync_library_paths(name, ready[name], moves)
+        except ApiError as error:
+            warn(f"{name}: library paths: {error}")
             failures += 1
 
     if "prowlarr" in ready:

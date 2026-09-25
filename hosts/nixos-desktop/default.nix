@@ -32,6 +32,7 @@
       steam.enable = true;
       gamemode.enable = true;
       jellyfin.enable = true;
+      music.enable = true;
       # ai.enable = true;
       # hipfire runs as a per-user service in snowyrenard's session (see
       # system/app/hipfire.nix). gfx1201 is the RX 9070 XT (Navi 48).

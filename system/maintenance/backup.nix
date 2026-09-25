@@ -16,7 +16,8 @@
 #     the database dumps above already cover those apps, and their compressed
 #     zips would deduplicate badly against each other run after run.
 #   * the root-only secrets in /etc that a rebuild would otherwise have to
-#     recreate by hand: the WireGuard config and Kavita's TokenKey.
+#     recreate by hand: the WireGuard config, Kavita's TokenKey, and slskd's
+#     Soulseek account and web password.
 #
 # The repository sits on /home, a DIFFERENT physical disk from both /Vault and
 # /, so it survives failure of the vault disk. It does NOT survive losing the
@@ -43,42 +44,30 @@
   repoDir = "/home/.backups/restic-state";
   passwordFile = "/etc/nixos-backup/restic-password";
 
-  # Trees scanned recursively for SQLite databases. Extend this when a new
-  # stateful service arrives; a path that does not exist is skipped.
-  sqliteRoots = [
-    "/var/lib/jellyfin"
-    "/var/lib/sonarr"
-    "/var/lib/radarr"
-    "/var/lib/lidarr"
-    "/var/lib/prowlarr"
-    "/var/lib/bazarr"
-    "/var/lib/kavita"
-    "/var/lib/seerr"
-  ];
+  # What each media service says belongs in a backup is collected from the
+  # registry (see system/server/media/options.nix), so a new service declares
+  # its own paths in its own file and this one does not change. A path that
+  # does not exist is skipped by the script below.
+  mediaSqliteRoots = lib.concatLists (
+    lib.mapAttrsToList (_: s: s.backup.sqliteRoots) config.device.media.services
+  );
+  mediaStatePaths = lib.concatLists (
+    lib.mapAttrsToList (_: s: s.backup.statePaths) config.device.media.services
+  );
 
-  # Copied verbatim (file or directory) when present.
-  statePaths = [
-    "/var/lib/jellyfin/config"
-    "/var/lib/sonarr/config.xml"
-    "/var/lib/radarr/config.xml"
-    "/var/lib/lidarr/config.xml"
-    "/var/lib/prowlarr/config.xml"
-    "/var/lib/kavita/config/appsettings.json"
-    "/var/lib/seerr/settings.json"
-    # Bazarr's settings. 1.6 moved them from config.ini to config.yaml, and the
-    # API key the dashboard uses lives in whichever one is current.
-    "/var/lib/bazarr/config"
-    # Caddy's ACME account and issued certificates.
-    "/var/lib/caddy"
-    # Transmission's resume/torrent state ONLY. The daemon's home also holds
-    # .incomplete and Downloads, which currently carry ~3.9 GiB of partial
-    # torrent payload - copying that would dwarf everything else here for no
-    # restore value whatsoever.
-    "/var/lib/transmission/.config/transmission-daemon"
-    # Secrets. This file is intentionally absent: see the header.
-    "/etc/wireguard"
-    "/etc/kavita"
-  ];
+  # Trees scanned recursively for SQLite databases.
+  sqliteRoots = mediaSqliteRoots;
+
+  # Copied verbatim (file or directory) when present: the services' own state,
+  # plus the host-level paths that outlive any one service.
+  statePaths =
+    mediaStatePaths
+    ++ [
+      # Caddy's ACME account and issued certificates.
+      "/var/lib/caddy"
+      # Secrets. The restic password is intentionally absent: see the header.
+      "/etc/wireguard"
+    ];
 
   # Flattens an absolute path into one safe filename, so the staging tree needs
   # no directory structure of its own and a restore is a flat copy.
@@ -165,7 +154,7 @@
     fi
   '';
 in {
-  config = lib.mkIf config.device.app.jellyfin.enable {
+  config = lib.mkIf config.device.media.enabled {
     # The same trick as Kavita's TokenKey: the password cannot live in the
     # world-readable Nix store, and the restic unit fails outright when the file
     # is missing, so generate it once at activation time. The `-s` test keeps it

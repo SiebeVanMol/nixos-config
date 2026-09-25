@@ -6,21 +6,25 @@
   pkgs,
   lib,
   ...
-}: {
-  imports = [
-    ./options.nix
-    ./hardware
-    ./security
-    ./app
-    ./server
-    ./wm
+}: let
+  # Glob a directory of modules instead of giving each one a default.nix that
+  # only forwards to this same helper. `server` is the exception: it imports
+  # subdirectories as well as files, which importDir does not do.
+  importDir = import ../lib/import-dir.nix {inherit lib;};
+in {
+  imports =
+    [
+      ./options.nix
+      ./server
+    ]
     # Host-level maintenance: restic backups of the service state and secrets
     # (backup.nix), SMART/btrfs/capacity/service monitoring (monitoring.nix),
     # and the periodic disk housekeeping plus its weekly report (reclaim.nix).
-    ./backup.nix
-    ./monitoring.nix
-    ./reclaim.nix
-  ];
+    ++ importDir ./maintenance
+    ++ importDir ./hardware
+    ++ importDir ./security
+    ++ importDir ./app
+    ++ importDir ./wm;
 
   # Create a normal NixOS user for each user listed on the host. Base group
   # memberships that every desktop user needs apply to all of them.

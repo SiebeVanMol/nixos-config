@@ -38,7 +38,10 @@
   ...
 }: let
   vault = "/Vault";
-  library = "${vault}/Jellyfin";
+  # The single media tree Jellyfin, Navidrome and Kavita all serve. It holds
+  # the download staging directories too, so the report covers arrivals as
+  # well as the library.
+  library = "${vault}/Media";
 
   # Filesystems the report watches: every btrfs mount, since those hold data
   # rather than firmware.
@@ -173,6 +176,9 @@ in {
     # Transmission does still track one, its next check fails that torrent and
     # the *arr apps' removeFailedDownloads setting clears it away.
     "e ${vault}/Downloads/.incomplete - - - 90d"
+    # Soulseek's incomplete tree, same reasoning and same age as the downloads
+    # above: slskd is the other client that parks partial files on /Vault.
+    "e ${vault}/Media/.incomplete - - - 90d"
     "e /var/lib/transmission/.incomplete - - - 90d"
     # Crash dumps are diagnostic debris, not records: a week is long enough to
     # notice one and read it, and pure disk otherwise.

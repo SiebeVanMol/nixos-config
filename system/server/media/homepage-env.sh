@@ -5,7 +5,7 @@
 # Keys are read at runtime from each application's OWN configuration - the same
 # rule the rest of this repository follows, because /nix/store is world
 # readable and a widget key is as good as a login. That is also why the widget
-# YAML in homepage.nix refers to them as {{HOMEPAGE_VAR_*}} placeholders.
+# YAML in dashboard.nix refers to them as {{HOMEPAGE_VAR_*}} placeholders.
 #
 # Anything not found is reported and skipped: a widget whose key is missing
 # shows an error in the dashboard, it does not break the unit.
@@ -29,27 +29,13 @@ emit() {
   printf 'homepage-env: %s supplied\n' "$name"
 }
 
-# Servarr applications: the key is an <ApiKey> element in config.xml. Where
-# that file lives depends on how the service is started - Prowlarr is launched
-# with -data=/var/lib/prowlarr and keeps it directly there, while Sonarr, Radarr
-# and Lidarr nest it under .config/<Project> - so both are tried.
-xml_key() {
-  local dir="$1" file key
-  for file in "$dir/config.xml" "$dir"/.config/*/config.xml; do
-    [ -f "$file" ] || continue
-    key="$(sed -n 's:.*<ApiKey>\(.*\)</ApiKey>.*:\1:p' "$file" | head -n 1)"
-    if [ -n "$key" ]; then
-      printf '%s' "$key"
-      return 0
-    fi
-  done
-  return 1
-}
-
+# Servarr applications: the key lives in config.xml, and where that file sits
+# depends on how the service runs. The shared arr-api-key helper knows both
+# places, so all this loop does is name the environment variable.
 for app in sonarr radarr lidarr prowlarr; do
   [ -d "/var/lib/$app" ] || continue
   var="HOMEPAGE_VAR_$(printf '%s' "$app" | tr '[:lower:]' '[:upper:]')_KEY"
-  if key="$(xml_key "/var/lib/$app")"; then
+  if key="$(arr-api-key "/var/lib/$app")"; then
     emit "$var" "$key"
   else
     emit "$var" ""

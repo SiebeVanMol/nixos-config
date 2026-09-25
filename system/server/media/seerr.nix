@@ -1,14 +1,12 @@
-# SeerrNG: the request front end, and the only part of this stack that friends
-# and family see.
+# SeerrNG: the request front end, and one of the two parts of this stack that
+# friends and family see.
 {
   config,
   lib,
   pkgs,
   ...
-}: let
-  stack = import ./layout.nix {inherit config lib;};
-in {
-  config = lib.mkIf stack.enabled {
+}: {
+  config = lib.mkIf config.device.app.jellyfin.enable {
     # SeerrNG needs an ordinary (non-dynamic) account so that its state
     # directory is a real path rather than a symlink; see the serviceConfig
     # override below. It needs no /Vault access, so it stays out of the shared
@@ -48,6 +46,25 @@ in {
     systemd.services.seerr.serviceConfig = {
       DynamicUser = lib.mkForce false;
       User = lib.mkForce "seerr";
+    };
+
+    device.media.services.seerr = {
+      port = 5055;
+      public = true;
+      dashboard = {
+        group = "library";
+        order = 30;
+        title = "Seerr";
+        description = "Requests";
+        widget = {
+          type = "seerr";
+          keyVar = "HOMEPAGE_VAR_SEERR_KEY";
+        };
+      };
+      backup = {
+        sqliteRoots = ["/var/lib/seerr"];
+        statePaths = ["/var/lib/seerr/settings.json"];
+      };
     };
   };
 }

@@ -74,16 +74,28 @@
   # home or session either discover it at runtime or live under neutral paths.
   let
     # Plain nixpkgs (no overlays), used for the flake's own outputs: the
-    # formatter, the formatting check and the rebuild wrapper.
-    pkgs = nixpkgs.legacyPackages.x86_64-linux;
+    # formatter, the formatting check, the rebuild wrapper and the media
+    # helpers. allowUnfree mirrors what the hosts already set in
+    # system/default.nix; the output that needs it is the media recoder, whose
+    # AV1 path goes through AMD's AMF runtime - a proprietary binary that is
+    # the only way to reach this card's AV1 encoder.
+    pkgs = import nixpkgs {
+      system = "x86_64-linux";
+      config.allowUnfree = true;
+    };
 
     buildSystem = {
       host,
       users,
     }:
       nixpkgs.lib.nixosSystem {
-        # Modules receive the list as `usernames`.
-        specialArgs = {usernames = users;};
+        # Modules receive the user list as `usernames`, and the shared /Vault
+        # layout plus vaultRw helper as `media` (system/server/media/default.nix
+        # explains why this is a specialArg rather than _module.args).
+        specialArgs = {
+          usernames = users;
+          media = import ./lib/media.nix {lib = nixpkgs.lib;};
+        };
         system = "x86_64-linux";
         modules = [
           # Machine-specific NixOS config + generated hardware config.
@@ -107,6 +119,8 @@
               hipfire.overlays.default
               (import ./overlays/amethyst-mod-manager.nix)
               (import ./overlays/seerrng.nix)
+              (import ./overlays/soularr.nix)
+              (import ./overlays/houndarr.nix)
             ];
           }
 

@@ -1,12 +1,12 @@
 # Brute-force protection for the parts of this stack the whole internet can
 # reach.
 #
-# Jellyfin and Seerr are the only two services published on a public domain, and
-# they are also the only two with a password prompt in front of them, which makes
-# them the only two worth watching. The *arr apps and the rest answer on *.lan
-# only, are unreachable from outside (see the guard in
-# system/server/jellyfin/layout.nix), and are covered by their own login
-# lockout, so no jail is needed for them.
+# Jellyfin, Seerr and Navidrome are the services published on a public domain.
+# The two filters below cover Jellyfin and Seerr endpoints; a service added to
+# the public set gets its own jail here the same way. The *arr apps and the rest
+# answer on *.lan only, are unreachable from outside (see the guard in
+# lib/vhosts.nix), and are covered by their own login lockout, so no jail is
+# needed for them.
 #
 # Both jails read Caddy's access logs rather than the applications' own logs, for
 # two reasons:

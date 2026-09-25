@@ -2,7 +2,7 @@
 # Tailscale mesh. Two very different consumers share the list, which is why it
 # lives on its own rather than inside either of them.
 #
-#   * layout.nix restricts the *.lan admin vhosts to these ranges, so Caddy's
+#   * lib/vhosts.nix restricts the *.lan admin vhosts to these ranges, so Caddy's
 #     public listener on 80/443 cannot be talked into proxying sonarr.lan & co.
 #     by a request that simply sends the right Host header.
 #   * ssh.nix and steam.nix open their ports to these ranges only, through the

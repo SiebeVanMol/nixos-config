@@ -40,7 +40,7 @@
   # Reports what the *arr services say about themselves; see the script.
   arrHealth = pkgs.writers.writePython3Bin "arr-health" {
     flakeIgnore = ["E501"];
-  } (builtins.readFile ./server/jellyfin/arr-health.py);
+  } (builtins.readFile ../server/media/arr-health.py);
 
   healthCheck = pkgs.writeShellApplication {
     name = "nixos-health-check";

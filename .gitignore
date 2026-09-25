@@ -5,6 +5,7 @@ result
 # nothing in the configuration references; it must not be committed again.
 .nix-cache/
 
-# Bytecode from the Python scripts this repository carries in system/app/
-# (importing them for a test is enough to create this).
+# Bytecode from the Python scripts this repository carries alongside their
+# modules (system/server/media/, system/server/minecraft/): importing one for a
+# test is enough to create this.
 __pycache__/

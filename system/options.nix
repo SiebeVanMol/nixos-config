@@ -54,6 +54,9 @@
     jellyfin = {
       enable = lib.mkEnableOption "Jellyfin media server";
     };
+    music = {
+      enable = lib.mkEnableOption "Navidrome music server with slskd (Soulseek) acquisition";
+    };
     hipfire = {
       enable = lib.mkEnableOption "hipfire (ROCm) inference daemon as a per-user service";
       user = lib.mkOption {

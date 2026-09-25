@@ -71,10 +71,15 @@
     jetbrains.pycharm
     jetbrains.rust-rover
     jetbrains.rider
+    mono
+    godot-mono
   ];
 
   home.sessionVariables = {
     PROTON_FSR4_UPGRADE = 1;
+    PROTON_USE_OPTISCALER = 1;
+    PROTON_DISCORD_BRIDGE = 1;
+    PROTON_VKD3D_LOWLATENCY = 1;
   };
 
   # direnv + nix-direnv: loads a project's `use flake` dev shell (from its
