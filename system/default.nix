@@ -56,11 +56,18 @@ in {
   # Allow unfree packages.
   nixpkgs.config.allowUnfree = true;
 
-  # Select internationalisation properties.
+  # Select internationalisation properties. Every locale category that is a
+  # formatting or classification choice is Japanese: dates, numbers, currency,
+  # paper size, addresses, collation and character classes. The one category
+  # deliberately left alone is LC_MESSAGES, which follows i18n.defaultLocale
+  # (en_US.UTF-8), so the UI and tools like `make` speak English. Do not set
+  # LC_MESSAGES here and never set LC_ALL, since either would undo that.
   i18n.defaultLocale = "en_US.UTF-8";
 
   i18n.extraLocaleSettings = {
     LC_ADDRESS = "ja_JP.UTF-8";
+    LC_COLLATE = "ja_JP.UTF-8";
+    LC_CTYPE = "ja_JP.UTF-8";
     LC_IDENTIFICATION = "ja_JP.UTF-8";
     LC_MEASUREMENT = "ja_JP.UTF-8";
     LC_MONETARY = "ja_JP.UTF-8";
@@ -73,5 +80,8 @@ in {
   environment.systemPackages = with pkgs; [
     helix
     git
+    # smartd is already enabled, but its tools were only reachable via the
+    # store path; keep `smartctl` on PATH for checking drive health.
+    smartmontools
   ];
 }

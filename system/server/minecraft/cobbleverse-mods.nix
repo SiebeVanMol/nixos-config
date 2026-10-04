@@ -2,6 +2,16 @@
 # Server-needed mods only: mods whose fabric.mod.json environment is not 'client'.
 # Sources: Modrinth CDN (from packwiz metadata) + CurseForge (Incendium, Nullscape).
 [
+  # Added on top of the stock pack. Lithostitched 1.8.0 (below) fixes a bug where
+  # every world load wrapped the overworld surface_rule in another
+  # terrablender:merged layer until level.dat exceeded the NBT depth limit of 512
+  # and the server could no longer load the world. That fix requires apollib
+  # >= 1.2.0, but Tectonic 3.0.28 only bundles 1.1.6, so provide 1.2.0 here.
+  {
+    file = "apollib-1.2.0-fabric-21.1.jar";
+    url = "https://cdn.modrinth.com/data/VDI2Ytax/versions/mOYBofQG/apollib-1.2.0-fabric-21.1.jar";
+    hash = "sha512-OjaZz5KA+31YlOcPTFhAWpKi0EAly6bZhVu5JlO/cUpb9mZsKfBge7MTfkD8RMJt/2qq+6Nra+Y/uFmrD+UL5Q==";
+  }
   {
     file = "BiomesOPlenty-fabric-1.21.1-21.1.0.14.jar";
     url = "https://cdn.modrinth.com/data/HXF82T3G/versions/fhyqphwv/BiomesOPlenty-fabric-1.21.1-21.1.0.14.jar";
@@ -399,9 +409,9 @@
     hash = "sha512-GCBksA5jFeIlW4V+qrjrdZ5rBC69TMi4Vf8Nk/h1pacYj6xJ+HjXsp1O9+a2NBGQrX9vbzn0ptLGIANGiwjkxg==";
   }
   {
-    file = "lithostitched-1.7.13-fabric-21.1.jar";
-    url = "https://cdn.modrinth.com/data/XaDC71GB/versions/JWtSqSeY/lithostitched-1.7.13-fabric-21.1.jar";
-    hash = "sha512-iVBS2/2+ZVQes6DcEpUNgD3P1wKHJyPcssHYQssSNw8Y55s1Q62eRH5sZsqi2ZVpMp/sQSxWRVRcZpiSPyX1rQ==";
+    file = "lithostitched-1.8.0-fabric-21.1.jar";
+    url = "https://cdn.modrinth.com/data/XaDC71GB/versions/eN30OQaU/lithostitched-1.8.0-fabric-21.1.jar";
+    hash = "sha512-XLapr3FaZGMldUb+7wzq5dDK8QEZZWrE6O98M0l4ZZxdVNK6J22zMeF/ZbVZcSVtYcIgDrWrlEf8h9q38j3MLw==";
   }
   {
     file = "lootr-fabric-1.21.1-1.11.38.123.jar";
@@ -559,9 +569,9 @@
     hash = "sha512-hFmB4oGegLlEkqNgbudUACBQJncTCa/KJhhqQ+ZOFw/Y/8RSa7PepdMeGv8Oj+oBfqvRqUzTtfqgtmjwWnVHdQ==";
   }
   {
-    file = "tectonic-3.0.26-fabric-21.1.jar";
-    url = "https://cdn.modrinth.com/data/lWDHr9jE/versions/L87Phsbl/tectonic-3.0.26-fabric-21.1.jar";
-    hash = "sha512-r8jme+U/AoSoPc2g9y3Q0QY6mbx+NJoE8xNPFcULmFkLP2qqbpHbGpTDhbvE1gP9bSK+3XnEQBJy2Tipt0hLpQ==";
+    file = "tectonic-3.0.28-fabric-21.1.jar";
+    url = "https://cdn.modrinth.com/data/lWDHr9jE/versions/WdDiEKMn/tectonic-3.0.28-fabric-21.1.jar";
+    hash = "sha512-oVqF+1xtE00JZ/o8zWeX+ig0i2mTe2Wyo7zWFzYJ6Erpe9hADrAQExZ87KNDS/lyFuh51LAnfAB/be2nqgdq/Q==";
   }
   {
     file = "timcore-fabric-1.7.3-1.32.0.jar";

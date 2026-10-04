@@ -29,7 +29,7 @@
 
     nix-minecraft.url = "github:Infinidoge/nix-minecraft";
 
-    llm-agents.url = "github:numtide/llm-agents.nix";
+    deepseek-harness.url = "github:moraxyc/deepseek-harness.nix";
 
     # AMD ROCm LLM inference daemon. nixpkgs follows this flake so the module's
     # rocmPackages and the rest of the system come from the same pin.
@@ -61,7 +61,7 @@
     nur,
     vpn-confinement,
     nix-minecraft,
-    llm-agents,
+    deepseek-harness,
     hipfire,
     ...
   }:
@@ -115,8 +115,12 @@
             nixpkgs.overlays = [
               nur.overlays.default
               nix-minecraft.overlay
-              llm-agents.overlays.shared-nixpkgs
+              deepseek-harness.overlays.default
               hipfire.overlays.default
+              # Local fix-ups for the packages the overlays above introduce.
+              # Hipfire's kernel build needs the HSA runtime joined into its
+              # ROCm prefix; see the file for why.
+              (import ./overlays/hipfire.nix)
               (import ./overlays/amethyst-mod-manager.nix)
               (import ./overlays/seerrng.nix)
               (import ./overlays/soularr.nix)
@@ -139,7 +143,12 @@
             # One Home Manager configuration per user on this host.
             home-manager.users = builtins.listToAttrs (map (username: {
                 name = username;
-                value = import ./users/${username}/home.nix;
+                value = {
+                  imports = [
+                    deepseek-harness.homeModules.default
+                    (import ./users/${username}/home.nix)
+                  ];
+                };
               })
               users);
           }

@@ -146,10 +146,14 @@ in {
 
         symlinks = {
           "server-icon.png" = serverIcon;
+          # Symlink rather than copy: `files` entries are re-copied on every start
+          # and deleted on stop, which rewrote ~400 MiB per restart on the
+          # SMR-backed /Vault. Minecraft's symlink check only covers the world
+          # dir, and the mods dir sits at the server root.
+          "mods" = serverMods;
         };
 
         files = {
-          "mods" = serverMods;
           "config" = "${cobbleverseOverrides}/config";
           "config/voxyworldgenv2.json" = voxyworldgenv2Config;
           "datapacks" = "${cobbleverseOverrides}/datapacks";
