@@ -24,7 +24,7 @@
   # Derived from the registry, so the cleanup knows each application's port,
   # state directory, implementation and Transmission category without a second
   # list to keep in step.
-  servarrApps = lib.mapAttrs (name: s: {
+  servarrApps = lib.mapAttrs (_: s: {
     inherit (s) port;
     inherit (s.servarr) category dir implementation;
   }) (lib.filterAttrs (_: s: s.servarr != null) config.device.media.services);

@@ -1,38 +1,75 @@
-# Kitty terminal configuration: Nushell as default shell, Fira Code font, 75% opacity.
-# The theme colors live in a separate colors.conf (included below) that caelestia
-# rewrites when the theme changes, so new kitty windows always inherit the palette.
-{lib, ...}: {
+# Foot terminal: Nushell as the shell, Fira Code Nerd Font Mono.
+#
+# foot runs in server mode: `foot --server` is a systemd user service and every
+# window is a `footclient` process connecting to that one server, so a single
+# foot process owns the Wayland connection, the font cache and the rendering
+# threads. The server is pulled in with the graphical session, so it starts
+# when the session does and is torn down with it.
+#
+# Colouring is deliberately left to foot's built-in palette: in server mode the
+# palette lives in the server process, so a runtime theme would mean rewriting
+# foot.ini and signalling the daemon on every scheme change - not worth the
+# moving parts while the desktop theme is still settling.
+{
+  pkgs,
+  lib,
+  ...
+}: let
+  # The Nerd Font variant carries the glyphs (plain Fira Code does not);
+  # fontconfig reports its family with the spaces removed.
+  font = "FiraCode Nerd Font Mono:size=11";
+
+  # foot launches the shell from the server process, whose environment is the
+  # session's rather than the user profile's, so `nu` is referenced by absolute
+  # path instead of relying on PATH.
+  nushell = lib.getExe pkgs.nushell;
+
+  # Terminal apps (btop, yazi, ...) are launched by caelestia via $TERMINAL.
+  # This is a foot *client*: every window still goes through the server. Its
+  # app-id is "footclient" (see app-id below), which is what window rules on
+  # this machine match on.
+  footclient = lib.getExe' pkgs.foot "footclient";
+in {
   home.sessionVariables = {
-    TERM = "xterm-kitty";
-    TERMINAL = "kitty";
+    TERM = "foot";
+    TERMINAL = footclient;
   };
 
-  programs.kitty = {
+  programs.foot = {
     enable = true;
 
-    settings = {
-      font_family = "Fira Code Nerd Font Mono";
-      font_size = 11;
-      background_opacity = "0.75";
-      shell = "nu";
-      allow_remote_control = "yes";
-      disable_ligatures = "cursor";
+    server = {
+      enable = true;
+      # uwsm (enabled in system/wm/hyprland.nix) brings up
+      # graphical-session.target; the server is pulled in with it.
+      systemdTarget = "graphical-session.target";
     };
 
-    extraConfig = ''
-      include ~/.config/kitty/colors.conf
-    '';
+    settings = {
+      main = {
+        inherit font;
+        shell = nushell;
+        # Start nu as a login shell, so it picks up the session environment
+        # (and its own login.nu) the way the desktop expects.
+        login-shell = "yes";
+        app-id = "footclient";
+      };
+
+      # 75% opacity, matching the rest of the desktop. `alpha-mode=matching`
+      # keeps the window opaque when the compositor cannot blend, so text stays
+      # readable rather than every cell being 25% transparent.
+      colors-dark = {
+        alpha = "0.75";
+        alpha-mode = "matching";
+      };
+
+      scrollback = {
+        lines = 10000;
+      };
+
+      mouse = {
+        hide-when-typing = "yes";
+      };
+    };
   };
-
-  # kitty auto-reloads kitty.conf; make it a writable file so caelestia can
-  # `touch` it after updating colors.conf, triggering a live reload of all windows.
-  xdg.configFile."kitty/kitty.conf".force = true;
-
-  home.activation.makeKittyConfWritable = lib.hm.dag.entryAfter ["writeBoundary"] ''
-    INI="$HOME/.config/kitty/kitty.conf"
-    if [ -L "$INI" ]; then
-      cp -L "$INI" "$INI.tmp" && rm -f "$INI" && mv "$INI.tmp" "$INI"
-    fi
-    chmod u+w "$INI"
-  '';
 }

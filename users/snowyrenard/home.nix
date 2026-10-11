@@ -13,7 +13,7 @@
     enable = true;
     defaultApplications = {
       # Terminal
-      "x-scheme-handler/terminal" = "kitty.desktop";
+      "x-scheme-handler/terminal" = "foot.desktop";
 
       # Browser
       "application/pdf" = "zen-beta.desktop";

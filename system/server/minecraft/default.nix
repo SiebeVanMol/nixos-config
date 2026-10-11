@@ -1,3 +1,6 @@
+# Minecraft server: the Cobbleverse pack, its pinned mods (cobbleverse-mods.nix
+# and voxy.nix), the pack overrides and gamerules, and the systemd hardening.
+# Enabled per host via device.app.minecraft.enable.
 {
   pkgs,
   lib,
@@ -33,8 +36,7 @@
     "mkdir -p $out\n"
     + lib.concatStringsSep "\n" (map (
         m: "cp ${pkgs.fetchurl {
-          url = m.url;
-          hash = m.hash;
+          inherit (m) url hash;
           name = lib.strings.sanitizeDerivationName m.file;
         }} $out/${lib.escapeShellArg m.file}"
       )

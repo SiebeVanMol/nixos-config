@@ -83,7 +83,7 @@ _final: prev: let
     installPhase = "install -Dm644 src/houndarr/static/css/app.built.css $out/app.built.css";
   });
 in {
-  houndarr = prev.python3Packages.buildPythonApplication (finalAttrs: {
+  houndarr = prev.python3Packages.buildPythonApplication (_: {
     pname = "houndarr";
     inherit version src;
 

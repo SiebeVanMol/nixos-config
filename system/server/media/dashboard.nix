@@ -25,7 +25,7 @@
 
   mkTile = name: s: let
     d = s.dashboard;
-    widget = d.widget;
+    inherit (d) widget;
     title =
       if d.title != null
       then d.title
@@ -37,7 +37,7 @@
           if d.href != null
           then d.href
           else "http://${name}.lan";
-        description = d.description;
+        inherit (d) description;
       }
       // lib.optionalAttrs (d.icon != null) {inherit (d) icon;}
       // lib.optionalAttrs (widget != null) {

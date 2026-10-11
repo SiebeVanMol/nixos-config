@@ -1,6 +1,7 @@
 # User-level Hyprland configuration: keybindings, animations, hyprlock, xdg-desktop-portal.
 {
   pkgs,
+  lib,
   config,
   ...
 }: {
@@ -19,8 +20,17 @@
       lua
       */
       ''
-        local terminal = os.getenv("TERMINAL")
         local browser = os.getenv("BROWSER")
+        -- $TERMINAL is baked in when Hyprland starts, and home-manager only
+        -- updates the session environment on the *next* login (hm-session-vars.sh
+        -- is read by PAM). A switch that changes the terminal therefore left the
+        -- running session pointing at the old binary: the keybind exec'd the bare
+        -- name and died with "command not found" (kitty, after foot replaced it).
+        -- The keybind now re-reads the freshly generated value at launch time and
+        -- falls back to footclient's store path if even that is missing.
+        -- $TERMINAL is a foot *client*, so the window still goes through the
+        -- foot server (see ./shell/terminals.nix).
+        local terminal = "sh -c 'TERMINAL=''${TERMINAL:-${lib.getExe' pkgs.foot "footclient"}}; exec $TERMINAL'"
         -- Caelestia's launcher ("run menu") replaces rofi.
         local drun = "${config.programs.caelestia.cli.package}/bin/caelestia shell drawers toggle launcher"
 

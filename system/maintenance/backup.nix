@@ -178,7 +178,7 @@ in {
     services.restic.backups.media-state = {
       initialize = true;
       repository = "local:${repoDir}";
-      passwordFile = passwordFile;
+      inherit passwordFile;
 
       # The prepare command builds the staging tree; the cleanup command drops
       # it again so nothing stale survives into the next run.

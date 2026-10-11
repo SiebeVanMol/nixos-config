@@ -1,4 +1,4 @@
-# Cobbleverse 1.7.42 server mods
+# Cobbleverse 1.7.42 server mods.
 # Server-needed mods only: mods whose fabric.mod.json environment is not 'client'.
 # Sources: Modrinth CDN (from packwiz metadata) + CurseForge (Incendium, Nullscape).
 [

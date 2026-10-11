@@ -121,20 +121,20 @@
             findings+=("largest items under ${library}:")
             while IFS= read -r line; do
               findings+=("  $line")
-            # $1 is the size and everything after it is the path: taking only $2
-      # truncates every name at its first space, which turned "Shows/Doctor Who"
-      # into "Shows/Doctor".
-      done < <(du -x -m --max-depth=2 ${library} 2>/dev/null | sort -rn | head -12 \
-        | awk '{size = $1; sub(/^[^[:space:]]+[[:space:]]+/, ""); printf "%7.1f GB  %s\n", size/1024, $0}')
+              # $1 is the size and everything after it is the path: taking only $2
+              # truncates every name at its first space, which turned "Shows/Doctor Who"
+              # into "Shows/Doctor".
+            done < <(du -x -m --max-depth=2 ${library} 2>/dev/null | sort -rn | head -12 \
+              | awk '{size = $1; sub(/^[^[:space:]]+[[:space:]]+/, ""); printf "%7.1f GB  %s\n", size/1024, $0}')
 
             findings+=("")
             findings+=("journal: $(journalctl --disk-usage 2>/dev/null | tail -n 1); capped at 1G")
             findings+=("coredumps: $(du -sh /var/lib/systemd/coredump 2>/dev/null | cut -f1); older than a week are removed")
             generations=0
-      for profile in /nix/var/nix/profiles/system-*-link; do
-        [ -e "$profile" ] && generations=$((generations + 1))
-      done
-      findings+=("system generations: ''${generations}; all but the newest ${toString keepGenerations} are pruned monthly")
+            for profile in /nix/var/nix/profiles/system-*-link; do
+              [ -e "$profile" ] && generations=$((generations + 1))
+            done
+            findings+=("system generations: ''${generations}; all but the newest ${toString keepGenerations} are pruned monthly")
             fragmented="$(du -x -sm ${vault}/Downloads/.incomplete /var/lib/transmission/.incomplete 2>/dev/null | awk '{t+=$1} END {printf "%.1f", t/1024}')"
             findings+=("unfinished download fragments: ''${fragmented:-0} GB; those older than 90 days are removed")
             findings+=("$(btrfs filesystem usage ${vault} 2>/dev/null | grep -E 'Free \(estimated\)' | sed 's/^ *//')")

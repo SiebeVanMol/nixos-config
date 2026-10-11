@@ -2,14 +2,13 @@
 # wallpaper rotation unit. Everything shell-specific lives here so core.nix stays
 # a generic base that every user imports regardless of which shell they run.
 #
-# Seed caelestia's theme settings into its runtime config, and push the palette
-# into kitty (the terminal) so all kitty windows inherit it.
+# Seed caelestia's runtime settings and re-apply the desktop theme (Hyprland
+# borders, via caelestia's own scheme/current.lua) whenever caelestia writes a
+# new colour scheme. The terminal is NOT themed from here: foot runs in server
+# mode (see ./shell/terminals.nix) and keeps its own palette.
 #
 # Caelestia OWNS ~/.config/caelestia/shell.json (it writes to it to persist
 # settings), so home-manager must NOT manage that file as a read-only symlink.
-# The kitty palette is applied by a systemd path unit that watches scheme.json
-# and regenerates colors.conf + repaints kitty (new windows read it via the
-# include), not via a postHook in shell.json.
 {
   config,
   pkgs,
@@ -17,36 +16,8 @@
   caelestia-shell,
   ...
 }: let
-  kittyColorsPy = ''
-    import json, sys
-    scheme, out = sys.argv[1], sys.argv[2]
-    d = json.load(open(scheme))
-    c = d.get('colours', {})
-    def hx(k, default='000000'):
-        v = c.get(k)
-        return '#' + v if v else '#' + default
-    def term(i):
-        v = c.get('term%d' % i)
-        return '#' + v if v else '#000000'
-    L = ['background ' + hx('background'), 'foreground ' + hx('onBackground')]
-    for i in range(16):
-        L.append('color%d %s' % (i, term(i)))
-    open(out, 'w').write('\n'.join(L) + '\n')
-  '';
-
   themeApplyScript = pkgs.writeShellScript "caelestia-theme-apply" ''
-        SCHEME="$HOME/.local/state/caelestia/scheme.json"
-        COLORS="$HOME/.config/kitty/colors.conf"
-        if [ -f "$SCHEME" ]; then
-          mkdir -p "$HOME/.config/kitty"
-          ${pkgs.python3}/bin/python3 - "$SCHEME" "$COLORS" <<'PY'
-    ${kittyColorsPy}
-    PY
-          # kitty auto-reloads kitty.conf on change; touch it so it re-reads colors.conf
-          # and repaints all running (and future) windows.
-          touch "$HOME/.config/kitty/kitty.conf" 2>/dev/null || true
-        fi
-        ${pkgs.hyprland}/bin/hyprctl reload || true
+    ${pkgs.hyprland}/bin/hyprctl reload || true
   '';
 in {
   imports = [
@@ -100,8 +71,9 @@ in {
     # caelestia version (it emits `Unknown option "theme"`), and the theme is
     # applied by the caelestia-theme-apply service watching scheme.json, so it
     # is intentionally not seeded here.
-    # Launch terminal apps (btop, etc.) with kitty instead of the default foot.
-    d.setdefault('general', {}).setdefault('apps', {})['terminal'] = ['kitty']
+    # Launch terminal apps (btop, etc.) with foot's client, which hands the
+    # window to the foot server (see ./shell/terminals.nix).
+    d.setdefault('general', {}).setdefault('apps', {})['terminal'] = ['${lib.getExe' pkgs.foot "footclient"}']
     # Disable the idle lock: the auto-lock fired mid-game (idle isn't reset by
     # gamepad input). The entry stays but is marked disabled so the config stays
     # valid for caelestia (an empty "timeouts" list is an illegal value). hypridle
@@ -117,22 +89,11 @@ in {
     PY
   '';
 
-  # Write the initial kitty palette so terminals are themed before the first apply.
-  home.activation.writeKittyColors = lib.hm.dag.entryAfter ["writeBoundary"] ''
-        SCHEME="$HOME/.local/state/caelestia/scheme.json"
-        if [ -f "$SCHEME" ]; then
-          mkdir -p "$HOME/.config/kitty"
-          ${pkgs.python3}/bin/python3 - "$SCHEME" "$HOME/.config/kitty/colors.conf" <<'PY'
-    ${kittyColorsPy}
-    PY
-        fi
-  '';
-
-  # Reliably re-apply the theme (kitty colors + hyprland borders) whenever
-  # caelestia writes a new scheme, regardless of caelestia's own postHook.
+  # Re-apply Hyprland's borders whenever caelestia writes a new scheme,
+  # regardless of caelestia's own postHook.
   systemd.user.services.caelestia-theme-apply = {
     Unit = {
-      Description = "Apply caelestia theme to kitty and hyprland";
+      Description = "Apply caelestia theme to hyprland";
       After = ["graphical-session.target"];
       PartOf = ["graphical-session.target"];
     };

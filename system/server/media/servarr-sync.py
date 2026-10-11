@@ -847,8 +847,8 @@ SEERR_SETTINGS = "/var/lib/seerr/settings.json"
 SEERR_KEY_MARKER = "/run/servarr-sync/seerr-keys-asserted"
 
 # Export mode is also runnable on its own (`nix run .#servarr-export`), where no
-# unit environment exists, so it falls back to these. They mirror the `sites`
-# list in jellyfin.nix.
+# unit environment exists, so it falls back to these. They mirror the
+# `device.media.services` registry (system/server/media/options.nix).
 EXPORT_DEFAULTS = {"prowlarr": {"port": 9696, "dir": "/var/lib/prowlarr"}}
 
 

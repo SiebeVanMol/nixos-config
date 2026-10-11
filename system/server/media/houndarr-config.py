@@ -44,8 +44,9 @@ from cryptography.fernet import Fernet, InvalidToken
 
 TAG = "[houndarr-config]"
 
-# The instance types Houndarr's schema accepts, mapped to the search-mode column
-# each one uses for its missing pass and its upgrade pass.
+# The instance types Houndarr's schema accepts, mapped to the (missing, upgrade)
+# search-mode column pair each one uses. radarr maps to None: it has neither
+# column, so its modes come from Houndarr's own defaults.
 INSTANCE_TYPES = {
     "radarr": None,
     "sonarr": ("sonarr_search_mode", "upgrade_sonarr_search_mode"),

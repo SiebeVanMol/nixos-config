@@ -26,5 +26,4 @@ for host in "${HOSTS[@]}"; do
 done
 echo "  all hosts evaluate OK"
 
-
 echo "All checks passed."

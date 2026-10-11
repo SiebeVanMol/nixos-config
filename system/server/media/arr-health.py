@@ -25,8 +25,8 @@ import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 
-# Same ports as the `sites` list in jellyfin.nix, minus the ones that need no
-# health check of their own.
+# Same ports as the `device.media.services` registry (system/server/media/options.nix),
+# minus the services that need no health check of their own.
 APPS = {
     "sonarr": {"port": 8989, "dir": "/var/lib/sonarr"},
     "radarr": {"port": 7878, "dir": "/var/lib/radarr"},

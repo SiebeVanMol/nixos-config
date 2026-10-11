@@ -1,3 +1,5 @@
+# overlays/amethyst-mod-manager.nix
+#
 # Overlay providing Amethyst Mod Manager (https://github.com/ChrisDKN/Amethyst-Mod-Manager).
 # A Linux native mod manager for a variety of games.
 #
@@ -19,10 +21,10 @@
 # Desktop entries for the nxm:// / ror2mm:// protocol handlers are defined in
 # users/snowyrenard/home.nix and route through this same wrapper.
 _final: prev: let
-  version = "2.3.0";
+  version = "2.5.3";
   src = prev.fetchurl {
     url = "https://github.com/ChrisDKN/Amethyst-Mod-Manager/releases/download/v${version}/AmethystModManager-${version}-x86_64.AppImage";
-    hash = "sha256-8ztyvLXEonHY0RTTt+shOVCkvVg7J1u1qm1eB1VL+1Y=";
+    hash = "sha256-trg9t3qzln7RTOjDyYA7UzpBlc+eZ+skpPlLgaQNPsg=";
   };
 
   unpacked = prev.runCommand "amethyst-mod-manager-${version}-unpacked" {} ''

@@ -23,8 +23,8 @@ It is deliberately a HOLDING MEASURE, not the destination:
     is the part that matters and the part to check first: an application ranks
     releases by quality tier, NOT by size, so if it still believes the item is a
     remux it will reject a native WEB-DL as a downgrade and the temporary file
-    becomes permanent. See README-style notes in the module and run the
-    single-file trial before committing the whole tail.
+    becomes permanent. See the Audio and Safety notes at the top of this file,
+    and run one file with --limit 1 --apply before committing the whole tail.
 
 Safety, in order of importance:
 
@@ -41,7 +41,7 @@ Safety, in order of importance:
     application tracks never changes.
   * Owner, group and mode are copied from the original onto the replacement, so
     the next service in the chain can still write it.
-  * Only the video stream is always left alone in shape. Audio, subtitles,
+  * Video is the only stream that is re-encoded. Audio, subtitles,
     fonts/attachments, chapters and metadata are copied as they are unless
     --audio asks for lossless tracks to be re-encoded; see the audio note below.
 
@@ -905,6 +905,9 @@ def main():
         if args.encoder.endswith("_vaapi"):
             log("decode: on the GPU too (-hwaccel vaapi), falling back to software decode "
                 "if the engine refuses a source")
+        elif args.encoder.endswith("_amf"):
+            log("decode: on the GPU too (hwdownload for AMF), falling back to software "
+                "decode if the engine refuses a source")
         else:
             log("decode: software (this encoder is software only)")
         # A same-resolution re-encode of a remux lands around a quarter to a

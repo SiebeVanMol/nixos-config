@@ -257,7 +257,7 @@ def main():
             f"{'would remove' if dry_run else 'removing'} {candidate['hash'][:8]} "
             f"{candidate['name'][:64]} ({candidate['percent']:.0f}%, "
             f"{candidate['seeders']} seeder(s), idle {candidate['age']:.1f}d, "
-            f"{candidate['size'] / 2**20:.0f} MiB) [{origin}]"
+            f"{candidate['size'] / 1024 ** 2:.0f} MiB) [{origin}]"
         )
         if not dry_run:
             transmission.call(
