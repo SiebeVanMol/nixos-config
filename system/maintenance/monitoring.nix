@@ -181,7 +181,13 @@ in {
   # report damage, but reporting it early is the difference between restoring
   # one file from restic and discovering the loss later. Metadata is DUP, so
   # that part is genuinely repaired.
-  services.btrfs.autoScrub = {
+  #
+  # Only where there is a filesystem to scrub. nixpkgs derives the list from
+  # config.fileSystems and asserts when autoScrub is on with nothing to point
+  # at, which is what a host with an ext4 root hits - alex-desktop, whose own
+  # hardware config is ext4. The list is deliberately left to nixpkgs rather
+  # than written out here, so that assertion keeps its teeth.
+  services.btrfs.autoScrub = lib.mkIf (btrfsMounts != []) {
     enable = true;
     interval = "weekly";
   };
