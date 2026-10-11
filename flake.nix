@@ -31,24 +31,13 @@
 
     deepseek-harness.url = "github:moraxyc/deepseek-harness.nix";
 
-    # Portable Neovim config, developed as its own repository and checked out
-    # here as a submodule (./nvim). Nix flake inputs cannot recurse into git
-    # submodules, so it is consumed by URL - the submodule is for local
-    # development only. See ./nvim/README.md.
-    #
-    # This and caelestia-shell below are fetched with git over HTTPS rather than
-    # SSH. Both repositories are public, and an input that needs a key only
-    # builds on a machine whose user owns one: alex-desktop has no GitHub or
-    # Codeberg key, so the SSH fetch died there with `Permission denied
-    # (publickey)` before the configuration was evaluated at all. `git+https`
-    # speaks the git protocol, unlike `github:`, which goes through the archive
-    # API - so the anonymous rate limit that stalls tarball fetches does not
-    # apply to it either.
-    nvim-config = {
-      url = "git+https://codeberg.org/SnowyRenard/nvim-config.git";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
+    # Fetched with git over HTTPS rather than SSH. The repository is public, and
+    # an input that needs a key only builds on a machine whose user owns one:
+    # alex-desktop has no GitHub key, so an SSH fetch died there with
+    # `Permission denied (publickey)` before the configuration was evaluated at
+    # all. `git+https` speaks the git protocol, unlike `github:`, which goes
+    # through the archive API - so the anonymous rate limit that stalls tarball
+    # fetches does not apply to it either.
     caelestia-shell = {
       url = "git+https://github.com/caelestia-dots/shell";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -126,8 +115,8 @@
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
             # Flake inputs are shared globally here, both individually (as
-            # `nvim-config`, ...) and under `inputs` for modules that want the
-            # whole set. Per-user values like `username`/`homeDirectory` are
+            # `caelestia-shell`, ...) and under `inputs` for modules that want
+            # the whole set. Per-user values like `username`/`homeDirectory` are
             # derived by Home Manager itself from each `users.users.<name>`, so
             # they are NOT passed as specialArgs.
             home-manager.extraSpecialArgs = inputs // {inherit inputs;};

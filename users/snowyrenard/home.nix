@@ -4,7 +4,6 @@
     ../../home/core.nix
 
     ./editor.nix
-    ./neovim.nix
     ./browser.nix
     ./programs.nix
   ];

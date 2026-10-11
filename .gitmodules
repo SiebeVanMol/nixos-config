@@ -1,3 +1,0 @@
-[submodule "nvim"]
-	path = nvim
-	url = ssh://git@codeberg.org/SnowyRenard/nvim-config.git
