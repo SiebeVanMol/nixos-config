@@ -35,15 +35,22 @@
     # here as a submodule (./nvim). Nix flake inputs cannot recurse into git
     # submodules, so it is consumed by URL - the submodule is for local
     # development only. See ./nvim/README.md.
+    #
+    # This and caelestia-shell below are fetched with git over HTTPS rather than
+    # SSH. Both repositories are public, and an input that needs a key only
+    # builds on a machine whose user owns one: alex-desktop has no GitHub or
+    # Codeberg key, so the SSH fetch died there with `Permission denied
+    # (publickey)` before the configuration was evaluated at all. `git+https`
+    # speaks the git protocol, unlike `github:`, which goes through the archive
+    # API - so the anonymous rate limit that stalls tarball fetches does not
+    # apply to it either.
     nvim-config = {
-      url = "git+ssh://git@codeberg.org/SnowyRenard/nvim-config.git";
+      url = "git+https://codeberg.org/SnowyRenard/nvim-config.git";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Fetched over SSH (uses the user's GitHub SSH key) so GitHub's HTTPS
-    # archive/API rate limit can't stall the build.
     caelestia-shell = {
-      url = "git+ssh://git@github.com/caelestia-dots/shell";
+      url = "git+https://github.com/caelestia-dots/shell";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

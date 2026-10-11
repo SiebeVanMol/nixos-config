@@ -40,11 +40,11 @@
         "rev": "6f7ce62b7a6ff9e37b66526065643ca6e9d65783",
         "revCount": 2675,
         "type": "git",
-        "url": "ssh://git@github.com/caelestia-dots/shell"
+        "url": "https://github.com/caelestia-dots/shell"
       },
       "original": {
         "type": "git",
-        "url": "ssh://git@github.com/caelestia-dots/shell"
+        "url": "https://github.com/caelestia-dots/shell"
       }
     },
     "deepseek-harness": {
@@ -291,11 +291,11 @@
         "rev": "b802f3c4c89cb5c51050a5109ec09d81514c2aa5",
         "revCount": 6,
         "type": "git",
-        "url": "ssh://git@codeberg.org/SnowyRenard/nvim-config.git"
+        "url": "https://codeberg.org/SnowyRenard/nvim-config.git"
       },
       "original": {
         "type": "git",
-        "url": "ssh://git@codeberg.org/SnowyRenard/nvim-config.git"
+        "url": "https://codeberg.org/SnowyRenard/nvim-config.git"
       }
     },
     "quickshell": {
