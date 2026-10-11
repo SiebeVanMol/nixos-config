@@ -54,10 +54,15 @@
   #
   # If one of these turns out to be slow from Tokyo, measure before reordering
   # rather than guessing - mirrors.ustc.edu.cn is the other one worth trying.
-  # Any store path maps to <cache>/<basename>.narinfo:
-  #   P=$(ls -d /nix/store/*-bash-interactive-* | head -1)
-  #   curl -so /dev/null -w '%{speed_download} B/s\n' \
-  #     "https://mirror.sjtu.edu.cn/nix-channels/store/$(basename "$P").narinfo"
+  # A narinfo is a few hundred bytes, so fetching one measures latency, not the
+  # bandwidth that matters here; follow the URL it names instead:
+  #   B=$(basename "$(ls -d /nix/store/*-bash-interactive-* | head -1)")
+  #   for m in https://mirror.sjtu.edu.cn/nix-channels/store \
+  #            https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store \
+  #            https://cache.nixos.org; do
+  #     U=$(curl -s "$m/$B.narinfo" | sed -n 's/^URL: //p')
+  #     curl -so /dev/null -w "$m %{speed_download} B/s\n" "$m/$U"
+  #   done
   nix.settings = {
     substituters = [
       "https://mirror.sjtu.edu.cn/nix-channels/store"
