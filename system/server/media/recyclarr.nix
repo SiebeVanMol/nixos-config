@@ -1,72 +1,16 @@
-# TRaSH Guides quality profiles, applied by Recyclarr.
+# TRaSH Guides quality profiles, applied by Recyclarr. Profiles are added, never
+# assigned: which profile a film uses stays a per-film choice in Radarr's UI.
 #
-# Without this, "quality profile" means whatever the applications defaulted to
-# when they were first set up, and the only feedback loop is noticing that a
-# 1080p film arrived as an 80 GB remux. Recyclarr keeps the profiles, custom
-# formats and per-quality size limits in sync with the TRaSH Guides, which is
-# what makes grabs predictable instead of a source of manual searching.
+# Keys live in /etc/recyclarr, regenerated from each app's config.xml on every
+# activation and injected as systemd credentials - nothing secret in the store.
 #
-# The nixpkgs module does the hard part: the configuration below lives in the
-# Nix store with `_secret` placeholders, and the real API keys are injected at
-# service start through systemd credentials loaded from /etc/recyclarr. Nothing
-# secret is ever written to the store.
-#
-# Those credential files are regenerated from each application's own config.xml
-# on every activation (not only when missing): an application that regenerates
-# its key would otherwise leave Recyclarr authenticating with a stale one.
-#
-# WHAT IT CHANGES, and why this configuration is deliberately conservative:
-#
-#   * Quality profiles are *added*, not assigned. A new profile named exactly
-#     as TRaSH names it appears in Sonarr/Radarr; whether your existing series
-#     and films use it is your decision, made one dropdown at a time. Nothing
-#     already in the library is rewritten by this  module.
-#   * Custom format scores DO apply immediately to future grabs, which is what
-#     makes release selection predictable.
-#   * media_management sets propers_and_repacks to do_not_prefer, which is what
-#     the guides ask for: repack/proper handling then follows the custom format
-#     scores instead of an unconditional "prefer and upgrade".
-#
-#   * media_naming is deliberately absent, and this is NOT a preference: Recyclarr
-#     8.7.1 rejects every naming format with "Invalid ... naming format", including
-#     the guides' own recommended strings copied verbatim out of
-#     docs/json/sonarr/naming/sonarr-naming.json - even a plain "{Series Title} -
-#     S{season:00}E{episode:00}" is refused. Shipping it would put an ERR line in
-#     the journal on every run for no benefit. Naming therefore stays as it is in
-#     both applications; change it in their UIs, or converge it directly through
-#     Sonarr/Radarr's own /api/v3/config/naming endpoint if it ever needs to be
-#     reproducible.
-#   * The app-wide per-quality SIZE LIMITS (`quality_definition`) are
-#     deliberately NOT synced. This Sonarr already carries a curated TRaSH
-#     setup of its own - 25 custom formats including the Anime BD tiers, and an
-#     "Anime" profile - and a Recyclarr preview reported every single quality
-#     definition as different, i.e. it would have overwritten those limits
-#     across the whole application. Add a `quality_definition` block below if
-#     you want the guides to own them as well.
-#
-# The ids below are the stable TRaSH identifiers, copied from the official
-# config templates:
-#
-#   Radarr "HD Bluray + WEB"   radarr/templates/hd-bluray-web.yml
-#   Radarr "UHD Bluray + WEB"  radarr/templates/uhd-bluray-web.yml
-#
-# Both are the guides' NON-REMUX variants. The previous pair ("Remux + WEB")
-# allowed the Remux tier, which sits at the very top of Radarr's quality order -
-# so a 58 GiB remux was the ceiling of the profile and NOTHING smaller could
-# ever be accepted as an upgrade. That is why the library is full of 40-90 Mbps
-# files that no search will ever replace. Dropping the tier is what makes a
-# well-encoded HEVC/AV1 release count as an improvement.
-#
-# To change profile, take the ids from the matching template in
-# https://github.com/recyclarr/config-templates (each is a few lines), or run
-# `recyclarr config create -t <template>` to see a full config for it. Note
-# that Recyclarr supports Sonarr and Radarr only - Lidarr is not covered by the
-# guides, and its profiles stay as they are.
-#
-# THIS DOES NOT REASSIGN ANYTHING. Recyclarr adds and updates profiles; which
-# profile a film uses is per-film data, set in Radarr's own UI. An existing
-# remux keeps its old profile until it is moved to one of these, and while it
-# keeps it, deleting its file just downloads another remux.
+# Deliberately NOT synced: media_naming (Recyclarr 8.7.1 rejects every naming
+# format, including the guides' own, and would only add an ERR line per run) and
+# quality_definition (it would overwrite Sonarr's curated per-quality size limits
+# application-wide). The ids below are the guides' non-remux variants: the Remux
+# tier was the ceiling of the old profiles, which is why nothing smaller was ever
+# accepted as an upgrade. Ids come from
+# https://github.com/recyclarr/config-templates; Sonarr and Radarr only.
 {
   config,
   lib,
@@ -79,12 +23,8 @@
 
   sonarrProfiles = [
     {
-      # "WEB-1080p". Note there is no Sonarr equivalent of Radarr's "HD Bluray +
-      # WEB": the guides go straight from "Remux + WEB" to WEB-only for TV, so
-      # dropping the Remux tier means dropping the Bluray tier with it. That is
-      # why the reassignment is scoped to series still sitting on a Remux
-      # profile - the anime series belong on their own "Anime" profile, where
-      # BD sourcing still matters, and they are left alone.
+      # "WEB-1080p". The guides have no Sonarr "HD Bluray + WEB", so dropping the
+      # remux tier drops Bluray with it; anime keeps its own profile.
       trash_id = "72dae194fc92bf828f32cde7744e51a1";
       reset_unmatched_scores.enabled = true;
     }
@@ -92,16 +32,12 @@
 
   radarrProfiles = [
     {
-      # "HD Bluray + WEB" - the default target for new movies, and the
-      # replacement for "Remux + WEB 1080p": Bluray and WEB-DL encodes, no
-      # remux tier.
+      # "HD Bluray + WEB": Bluray and WEB-DL encodes, no remux tier.
       trash_id = "d1d67249d3890e49bc12e275d989a7e9";
       reset_unmatched_scores.enabled = true;
     }
     {
-      # "UHD Bluray + WEB" - the 2160p equivalent, also without the remux tier,
-      # kept for the films that justify 4K. Still 2160p; it just stops ranking
-      # a full-bitrate remux above a good encode.
+      # "UHD Bluray + WEB": the 2160p equivalent, also without the remux tier.
       trash_id = "64fb5f9858489bdac2af690e27c8f42f";
       reset_unmatched_scores.enabled = true;
     }
@@ -117,8 +53,8 @@ in {
           ${pkgs.coreutils}/bin/install -m 0600 "$tmp" "${credentialDir}/$app-api_key"
           ${pkgs.coreutils}/bin/rm -f "$tmp"
         else
-          # Not an error on a host where the service has never started: the
-          # application writes config.xml (and therefore its key) on first run.
+          # Not an error when the service has never started: config.xml (and the
+          # key) appears on first run.
           echo "recyclarr: no API key found for $app yet; skipping" >&2
         fi
       done
@@ -126,8 +62,7 @@ in {
 
     services.recyclarr = {
       enable = true;
-      # Weekly is the guide's own cadence; the profiles change rarely and a
-      # sync is a handful of API calls.
+      # Weekly matches the guides' own cadence.
       schedule = "weekly";
       configuration = {
         sonarr.series = {
@@ -136,10 +71,8 @@ in {
           quality_profiles = sonarrProfiles;
           media_management.propers_and_repacks = "do_not_prefer";
 
-          # Prefer the modern codecs over H.264. The Golden Rule group scores
-          # x265 positively for this profile; AV1 ships parked in TRaSH's
-          # "Unwanted Formats" group, so it is pulled out of there below and
-          # scored on its own instead.
+          # Prefer modern codecs: x265 scores via the Golden Rule group below,
+          # and AV1 is pulled out of "Unwanted Formats" and scored on its own.
           custom_formats = [
             {
               trash_ids = ["15a05bc7c1a36e2b57fd628f8977e2fc"]; # AV1
@@ -151,17 +84,9 @@ in {
               ];
             }
             {
-              # Language: Not Original, DISALLOWED rather than merely penalised.
-              # In the SONARR guide this format is a DEFAULT member of the
-              # Language Profiles group, so it has to be excluded from that group
-              # below for this score to be the one that applies - otherwise the
-              # group would set it and this entry would be a duplicate.
-              #
-              # -10000 puts the release far below every TRaSH profile's minimum
-              # custom format score, so a release advertising a dub is rejected
-              # outright rather than merely losing to a better-scoring one. The
-              # language formats match markers in the release title, so this is
-              # best-effort.
+              # "Language: Not Original" DISALLOWED (-10000). Excluded from the
+              # Language Profiles group below so this score is the one that
+              # applies. It matches title markers, so it is best-effort.
               trash_ids = ["ae575f95ab639ba5d15f663bf019e3e8"];
               assign_scores_to = [
                 {
@@ -191,10 +116,9 @@ in {
           quality_profiles = radarrProfiles;
           media_management.propers_and_repacks = "do_not_prefer";
 
-          # As for Sonarr: prefer AV1 and x265 over H.264. AV1 gets its own
-          # score; x265 comes through the Golden Rule groups below; and
-          # "Language: Not Original" is scored explicitly so its disallow value
-          # is visible here rather than inherited from a group default.
+          # As for Sonarr: prefer AV1 and x265. AV1 gets its own score, x265 comes
+          # through the Golden Rule groups, and "Language: Not Original" is scored
+          # explicitly so the disallow value is visible here.
           custom_formats = [
             {
               trash_ids = ["cae4ca30163749b891686f95532519bd"]; # AV1
@@ -210,19 +134,11 @@ in {
               ];
             }
             {
-              # Language: Not Original, DISALLOWED rather than merely penalised.
-              #
-              # Every TRaSH profile is grabbed against a minimum custom format
-              # score, and -10000 is the magnitude the guides use for "unwanted":
-              # the release lands far below that floor, so it is rejected
-              # outright instead of merely losing to a better-scoring release.
-              # The language formats match markers in the release title, so this
-              # is best-effort - it stops releases that ADVERTISE a dub, not one
-              # that carries a dub silently.
-              #
-              # Scored here rather than by selecting it in the Language Profiles
-              # group below, so the value that does the disallowing is in this
-              # file and cannot be replaced by a group default.
+              # "Language: Not Original" DISALLOWED (-10000). Scored here rather
+              # than by the Language Profiles group below, so the disallowing
+              # value cannot be replaced by a group default. It matches markers in
+              # the release title, so it stops releases that ADVERTISE a dub, not
+              # one carrying a dub silently.
               trash_ids = ["d6e9318c875905d6cfb5bee961afcea9"];
               assign_scores_to = [
                 {
@@ -248,8 +164,7 @@ in {
               assign_scores_to = [{name = "UHD Bluray + WEB";}];
             }
             {
-              # [Unwanted] Unwanted Formats - penalises x264, but AV1 is wanted
-              # here, so it is excluded and scored above instead.
+              # [Unwanted] Unwanted Formats: penalises x264, but AV1 is wanted.
               trash_id = "a3ac6af01d78e4f21fcb75f601ac96df";
               exclude = ["cae4ca30163749b891686f95532519bd"];
             }
@@ -258,17 +173,11 @@ in {
       };
     };
 
-    # The upstream module drives Recyclarr ONLY from its weekly timer, so a
-    # change to the profiles above stays invisible for up to seven days after a
-    # switch. That is not hypothetical: removing the Remux tier left Radarr
-    # ranking remuxes at the top of the profile, and because the new profiles
-    # did not exist yet the reassignment could not run either - so the searches
-    # simply re-acquired the remuxes that had just been deleted.
-    #
-    # Pulling the unit in by multi-user.target makes it also sync at boot and
-    # whenever its definition changes, which is what "I changed the profile and
-    # rebuilt" ought to mean. Ordered after the applications because it talks to
-    # their APIs; if it does lose a boot race, the weekly timer still catches up.
+    # The upstream module runs Recyclarr ONLY from its weekly timer, so a profile
+    # change would stay invisible for up to seven days - once enough to re-grab
+    # the remuxes that had just been deleted. Wanted by multi-user.target so it
+    # also syncs at boot and whenever this unit changes; ordered after the apps
+    # because it talks to their APIs.
     systemd.services.recyclarr = {
       wantedBy = ["multi-user.target"];
       wants = ["sonarr.service" "radarr.service" "network-online.target"];

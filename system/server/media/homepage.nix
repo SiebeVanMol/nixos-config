@@ -1,15 +1,9 @@
 # Homepage itself, and the API-key collector that feeds its widgets.
 #
-# This file owns the application: the unit, its environment file, and the
-# helper that reads each service's key at runtime. The tiles are built from the
-# registry in dashboard.nix, so adding a service does not touch this file.
-#
-# Secrets: Homepage's widget configuration wants an API key per application, and
-# its config lives in the world-readable Nix store. So the generated YAML
-# contains only {{HOMEPAGE_VAR_*}} placeholders, and homepage-env.sh reads the
-# real keys out of each application's own configuration at runtime into a
-# root-only environment file. Losing that file costs nothing but a warning in
-# the journal; it is regenerated on every start of the unit.
+# This file owns the application (unit, environment file, key reader); the tiles
+# come from the registry in dashboard.nix. Widget keys are read at runtime from
+# each application's own config into a root-only environment file, so the
+# world-readable store YAML holds only {{HOMEPAGE_VAR_*}} placeholders.
 {
   config,
   lib,
@@ -51,21 +45,18 @@ in {
     };
 
     # The unit fails outright when EnvironmentFile is missing, so this must run
-    # first - and systemd's tmpfiles pre-creates the file for the case where the
-    # script itself cannot (the dashboard then starts with widgets reporting
-    # missing keys rather than not starting at all).
+    # first; tmpfiles pre-creates it for the case where the script itself cannot
+    # (the dashboard then starts with widgets reporting missing keys).
     systemd.tmpfiles.rules = [
       "d /run/homepage-dashboard 0700 root root -"
       "f /run/homepage-dashboard/env 0600 root root -"
     ];
 
-    # systemd reads EnvironmentFile once, at start: a dashboard that is already
-    # running never notices regenerated keys. Rather than have one unit restart
-    # another (which deadlocks - see the note on homepage-env above), the unit
-    # definition itself is made to depend on the collector: this variable holds
-    # the collector's store path, so whenever that script changes, the
-    # dashboard's unit changes with it and the switch restarts the dashboard
-    # for us. That covers exactly the case that caused the stale Prowlarr key.
+    # systemd reads EnvironmentFile once at start, so a running dashboard never
+    # notices regenerated keys. Rather than have one unit restart another (which
+    # deadlocks - see the note on homepage-env below), the unit definition is made
+    # to depend on the collector: this variable holds its store path, so when the
+    # script changes the dashboard's unit changes and the switch restarts it.
     systemd.services.homepage-dashboard.environment.HOMEPAGE_ENV_REV = "${envScript}";
 
     systemd.services.homepage-env = {
@@ -78,22 +69,15 @@ in {
         User = "root";
         ExecStart = lib.getExe envScript;
         # A oneshot's default start timeout is INFINITE, so anything that hangs
-        # in this unit hangs `nixos-rebuild switch` with it - which is precisely
-        # how the deadlock above presented. The collector is a few file reads
-        # and one write; if it cannot finish in a minute something is wrong, and
-        # a bounded failure is far better than a rebuild that never returns.
+        # here hangs `nixos-rebuild switch` with it. The collector is a few file
+        # reads and one write; a bounded failure beats a rebuild that never returns.
         TimeoutStartSec = "60s";
       };
 
-      # NOTE: this unit must never restart homepage-dashboard itself. That was
-      # tried, and it deadlocks the whole switch: this unit is ordered Before
-      # the dashboard, so the dashboard's start job waits for this unit to
-      # finish, while an ExecStartPost here doing `systemctl try-restart
-      # homepage-dashboard` waits for that very job. A oneshot has no start
-      # timeout, so both hang until something external intervenes.
-      #
-      # Freshness is handled the other way round instead - see the
-      # HOMEPAGE_ENV_REV environment variable on the dashboard above.
+      # Do NOT restart homepage-dashboard from here: this unit is ordered Before
+      # the dashboard, so an ExecStartPost try-restart deadlocks the switch (the
+      # dashboard's start job waits on this unit, which waits on that job).
+      # Freshness is handled by HOMEPAGE_ENV_REV on the dashboard instead.
     };
   };
 }

@@ -1,21 +1,16 @@
 # overlays/amethyst-mod-manager.nix
 #
-# Overlay providing Amethyst Mod Manager (https://github.com/ChrisDKN/Amethyst-Mod-Manager),
-# a Linux-native mod manager for a variety of games.
+# Amethyst Mod Manager (https://github.com/ChrisDKN/Amethyst-Mod-Manager), a
+# Linux-native game mod manager, not in nixpkgs.
 #
-# Upstream only ships an AppImage. nixpkgs' appimageTools.extract can't unpack
-# it (it uses a sharun layout the e_shoff offset heuristic misses), so we unpack
-# via the AppImage's own --appimage-extract instead.
+# Upstream only ships an AppImage, and appimageTools.extract cannot unpack it (a
+# sharun layout the e_shoff heuristic misses), so it is unpacked with the
+# AppImage's own --appimage-extract. It is launched through `steam-run`, whose
+# FHS runtime supplies the 32-bit FreeType, glibc, Vulkan loader and X11 client
+# libraries Wine needs; a custom buildFHSEnv was tried first but did not reliably
+# expose libfreetype.so.6 to Wine, making the VC++ installer exit 130.
 #
-# The app is launched through `steam-run`, which drops it into Steam's FHS
-# runtime. That runtime supplies the 32-bit FreeType, glibc, Vulkan loader,
-# and X11 client libraries that Wine's 32-bit processes need. A custom
-# buildFHSEnv was tried first but its multiPkgs/multiArch wiring does not
-# reliably expose libfreetype.so.6 to Wine on this nixpkgs revision, causing
-# the VC++ redistributable installer to exit with code 130.
-#
-# Desktop entries for the nxm:// / ror2mm:// protocol handlers are defined in
-# users/snowyrenard/home.nix and route through this same wrapper.
+# The nxm:// / ror2mm:// desktop entries live in users/snowyrenard/home.nix.
 _final: prev: let
   version = "2.5.3";
   src = prev.fetchurl {

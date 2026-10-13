@@ -1,13 +1,12 @@
 # overlays/seerrng.nix
 #
-# SeerrNG (https://github.com/snapetech/seerrng): a fork of Seerr that extends the
-# familiar request/approval workflow beyond movies and TV to music, ebooks and
-# audiobooks. It is not packaged in nixpkgs, so it is built here.
+# SeerrNG (https://github.com/snapetech/seerrng), a fork of Seerr extending the
+# request/approval workflow to music, ebooks and audiobooks. Not in nixpkgs.
 #
-# The build mirrors nixpkgs' own `seerr` derivation, because SeerrNG inherits its
-# stack from upstream Seerr ("upstream Seerr remains the base project"): a
-# pnpm-managed Next.js app with two native modules (bcrypt, sqlite3) that have to
-# be rebuilt against the pinned Node rather than used as prebuilt artifacts.
+# The build mirrors nixpkgs' own `seerr` derivation, since SeerrNG inherits its
+# stack from upstream: a pnpm-managed Next.js app with two native modules
+# (bcrypt, sqlite3) that must be rebuilt against the pinned Node rather than
+# used as prebuilt artifacts.
 _final: prev: let
   nodejs-slim = prev.nodejs-slim_22;
   pnpm = prev.pnpm_10.override {inherit nodejs-slim;};

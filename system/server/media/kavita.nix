@@ -13,31 +13,17 @@
     # /Vault (see its serviceConfig below), so that is the whole of its access.
     users.users.kavita.extraGroups = ["users"];
 
-    # Reading server over the same library tree Jellyfin serves. Jellyfin's
-    # book support is a video server's side feature: its EPUB, PDF and comic
-    # readers are web-client plugins with no series management, no per-page
-    # progress sync and no OPDS feed, and a PDF comic is rasterised client-side
-    # by pdf.js on every zoom. Kavita's readers are the point of the product -
-    # RTL/manga and webtoon modes, fit modes, reading lists, per-page progress,
-    # OPDS for e-readers and KOReader/Mihon sync.
+    # Reading server over the same library tree Jellyfin serves. Jellyfin's book
+    # support is a video server's side feature; Kavita has RTL/manga and webtoon
+    # modes, reading lists, per-page progress, OPDS and KOReader/Mihon sync.
     #
-    # It reads the SAME files, so nothing else changes: Jellyfin keeps scanning
-    # /Vault/Media/Books as its Books library. Nothing writes new books into
-    # that tree any more (the acquisition chain was removed - see default.nix),
-    # so in Kavita's UI add two libraries after the first start:
-    #
-    #   comics -> /Vault/Media/Books          (Hellboy et al., PDFs)
-    #   ebooks -> /Vault/Media/Books/Books    (the ebook tree)
-    #
-    # Both are Loose-Leaf/Comic or Book libraries respectively; pick "Comic" for
-    # the first so Kavita reads the ComicInfo.xml sidecars already sitting next
-    # to each PDF. Kavita takes PDFs, but CBZ/EPUB give the better reader, so it
-    # is worth converting the PDFs (kcc) and having the ebook side fetch EPUB
-    # rather than MOBI/AZW3.
-    #
-    # LAN-only by convention, exactly like the rest of the stack; add
-    # `public = true` to its registry entry below to read from outside the house
-    # without Tailscale.
+    # It reads the same files, so nothing else changes. Add two libraries after
+    # the first start (nothing writes new books any more - the acquisition chain
+    # was removed, see default.nix):
+    #   comics -> /Vault/Media/Books        (pick "Comic" for ComicInfo.xml)
+    #   ebooks -> /Vault/Media/Books/Books
+    # CBZ/EPUB give a better reader than PDF, so converting is worthwhile.
+    # LAN-only like the rest of the stack; add `public = true` to go wider.
     services.kavita = {
       enable = true;
       tokenKeyFile = "/etc/kavita/token.key";
@@ -56,15 +42,10 @@
     # path only if you turn that option on.
     systemd.services.kavita.serviceConfig = media.vaultRw [];
 
-    # Kavita signs its auth tokens with a TokenKey secret, so it cannot live in
-    # the world-readable Nix store - it belongs in /etc, like the WireGuard
-    # config. The module consumes it through LoadCredential, which FAILS the
-    # unit when the source file is missing (there is no "-" prefix as there is
-    # on EnvironmentFile elsewhere), so it is generated once here rather than
-    # requiring a hand-made file before the first switch. 64 random bytes are
-    # exactly the 512 bits the module option asks for, and the `-s` test keeps
-    # the existing key across rebuilds - regenerating it would invalidate every
-    # logged-in Kavita session.
+    # Kavita's TokenKey cannot live in the world-readable store, so it is
+    # generated once here (the `-s` test keeps it across rebuilds - regenerating
+    # would invalidate every session) and consumed via LoadCredential, which
+    # fails the unit if the file is missing.
     system.activationScripts.kavita-token-key.text = ''
       if [ ! -s /etc/kavita/token.key ]; then
         ${pkgs.coreutils}/bin/install -d -m 0700 /etc/kavita

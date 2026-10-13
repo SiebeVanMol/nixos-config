@@ -1,13 +1,9 @@
 # The shared directories on /Vault, created once from the registry.
 #
-# Centralised for the same reason the registry exists: every path here was
-# previously spelled out in whichever service happened to need it first, so
-# adding a service meant remembering to add its directory too, and a missing
-# setgid bit showed up much later as an EACCES three services down the chain.
-#
-# The per-application download directories are derived from the registry
-# rather than listed: a *arr module says `category = "tv-sonarr"` and the
-# directory appears, so a new application needs no edit here.
+# Centralised because every path used to be spelled out by whichever service
+# needed it first, so a missing setgid bit showed up later as an EACCES three
+# services down the chain. Per-application download directories are derived from
+# each service's `category`, so a new app needs no edit here.
 {
   config,
   lib,
@@ -46,13 +42,10 @@ in {
       ]
       ++ map (category: "d ${media.downloads}/${category} 2775 root users -") servarrCategories;
 
-    # tmpfiles only ever sets the mode of the directories it creates. A file
-    # written inside one keeps whatever group and mode the writing process had,
-    # so a service that ran with a different primary group or a umask of 0077
-    # leaves something the next service in the chain is refused access to - and
-    # the refusal is reported as "Access to the path ... is denied", which reads
-    # like a bug in the reader. This is the sweep that repairs those, so the
-    # invariant is enforced rather than merely documented.
+    # tmpfiles only sets the mode of directories it creates, so a file written by
+    # a service with a different group or umask 0077 stays unreadable to the next
+    # service in the chain (reported as "Access to the path ... is denied"). This
+    # sweep repairs that, enforcing the invariant rather than documenting it.
     systemd.services.media-permissions = {
       description = "Keep the media library readable and writable by the shared `users` group";
       # Also on every boot, not only on the timer's schedule: the walk is over

@@ -1,19 +1,11 @@
 # The media stack's service registry.
 #
-# Every service module in this directory (except the concern modules: proxy,
-# dashboard, vpn, paths, options, default) registers itself here once, with
-# everything the shared consumers need to know: the port the reverse proxy
-# reaches it on, whether it is public, how it appears on the dashboard, whether
-# it is a Servarr application, and what state belongs in the backup.
-#
-# The point is that adding a service touches ONE file. Before this, a new
-# service meant editing layout.nix (the port table), dashboard.nix (the tiles),
-# backup.nix (the state paths), proxy.nix and default.nix - five edits whose
-# only guarantee was that you would forget one. Now the consumers below read
-# the registry, so the single service file is the whole change.
-#
-# Registration is gated by each module's own `lib.mkIf`, so a disabled service
-# simply does not exist here and no consumer has to know about it.
+# Every service module registers itself once here with what the shared consumers
+# need: port, whether it is public, its dashboard entry, whether it is a Servarr
+# app, and its backup state. Adding a service therefore touches ONE file instead
+# of the five (layout, dashboard, backup, proxy, default) it used to.
+# Registration is gated by each module's own lib.mkIf, so a disabled service
+# simply does not exist here.
 {
   config,
   lib,

@@ -1,37 +1,27 @@
 # Restic backups of the state on this host that cannot be re-downloaded.
 #
-# The media itself is deliberately NOT backed up: 3.6 TiB of films and shows
-# are re-acquirable, while the databases and configuration that describe them
-# are months of clicking. What is captured instead:
-#
+# The media is deliberately NOT backed up (3.6 TiB, re-acquirable); what is
+# captured is the databases and configuration that describe it:
 #   * every SQLite database under the service state directories, dumped with
-#     `sqlite3 .backup` - never copied live. A live copy of a WAL database can
-#     be torn and restore as corrupt, where `.backup` uses SQLite's own online
-#     backup API and is safe while the service keeps running.
-#   * the small configuration each service needs to come back: the *arr
-#     config.xml files, Jellyfin's config directory, Kavita's appsettings.json,
-#     SeerrNG's settings.json, Caddy's certificates (re-issuing those hits
-#     Let's Encrypt rate limits) and Transmission's resume data.
-#   * the *arr apps' own scheduled backup archives are deliberately NOT copied:
-#     the database dumps above already cover those apps, and their compressed
-#     zips would deduplicate badly against each other run after run.
-#   * the root-only secrets in /etc that a rebuild would otherwise have to
-#     recreate by hand: the WireGuard config, Kavita's TokenKey, and slskd's
-#     Soulseek account and web password.
+#     `sqlite3 .backup` - a live WAL copy can be torn and restore corrupt.
+#   * the small per-service config needed to come back: *arr config.xml files,
+#     Jellyfin's config dir, Kavita's appsettings.json, SeerrNG's settings.json,
+#     Caddy's certificates (re-issuing hits Let's Encrypt limits) and
+#     Transmission's resume data.
+#   * the *arr apps' own scheduled backup archives are NOT copied - the database
+#     dumps cover them and the zips deduplicate badly.
+#   * root-only secrets in /etc a rebuild would otherwise need by hand: the
+#     WireGuard config, Kavita's TokenKey, slskd's Soulseek account and password.
 #
-# The repository sits on /home, a DIFFERENT physical disk from both /Vault and
-# /, so it survives failure of the vault disk. It does NOT survive losing the
-# machine: point `repository` at an offsite target (rclone/B2/S3, or a NAS) for
-# that, and keep the restic password in a password manager either way - without
-# it the repository is unreadable, so it is deliberately NOT stored inside the
-# repository it protects.
+# The repository sits on /home, a different physical disk from /Vault and /, so
+# it survives losing the vault disk - but not the machine. Point `repository` at
+# an offsite target for that, and keep the restic password in a password manager:
+# without it the repository is unreadable, which is why it is NOT stored inside
+# the thing it protects.
 #
-# Restoring, roughly:
-#   restic-media-state snapshots            # generated on PATH by the module
-#   restic restore latest --target /tmp/restore
-#   systemctl stop <service>; copy the database/config back; systemctl start
-# A snapshot holds a curated staging tree rather than the original paths, and
-# each snapshot's MANIFEST.txt lists exactly what was captured.
+# Restoring: `restic-media-state snapshots`, then `restic restore latest
+# --target /tmp/restore`, stop the service, copy back, start. A snapshot holds a
+# curated staging tree, and MANIFEST.txt lists exactly what was captured.
 {
   config,
   lib,
@@ -45,9 +35,8 @@
   passwordFile = "/etc/nixos-backup/restic-password";
 
   # What each media service says belongs in a backup is collected from the
-  # registry (see system/server/media/options.nix), so a new service declares
-  # its own paths in its own file and this one does not change. A path that
-  # does not exist is skipped by the script below.
+  # registry (system/server/media/options.nix), so a new service declares its own
+  # paths and this file does not change. Missing paths are skipped.
   mediaSqliteRoots = lib.concatLists (
     lib.mapAttrsToList (_: s: s.backup.sqliteRoots) config.device.media.services
   );

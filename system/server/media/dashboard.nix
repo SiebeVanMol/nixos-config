@@ -1,16 +1,9 @@
 # The dashboard tiles, built from the service registry.
 #
-# This file contains no service names. Homepage itself is configured in
-# homepage.nix; everything here is derived from device.media.services, so a
-# service that registers a `dashboard` entry appears automatically and one that
-# does not (like the dashboard) stays off the page.
-#
-# Which apps get a live widget and which only a link is decided by the service
-# module: it sets `dashboard.widget` when its API key is obtainable without a
-# human (the *arr family, Bazarr, Seerr, Transmission keep theirs in their own
-# config files), and leaves it null otherwise (Jellyfin and Kavita mint theirs
-# in their web UIs; create a key there and promote the service to a widget by
-# adding one line to its registry entry).
+# No service names live here: Homepage itself is in homepage.nix, and everything
+# else is derived from device.media.services, so a service with a `dashboard`
+# entry appears automatically. Each service module decides whether it gets a live
+# widget (its API key is obtainable without a human) or just a link.
 {
   config,
   lib,

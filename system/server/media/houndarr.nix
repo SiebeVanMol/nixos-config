@@ -1,40 +1,17 @@
 # Houndarr: the search scheduler that keeps hunting for upgrades.
 #
-# The *arr applications only search when something asks them to: a new release,
-# the RSS sync, or a human pressing "search". That is fine for new acquisitions,
-# but it means a library full of H.264 files never notices that an HEVC or AV1
-# release of the same film appeared years later - there is no new release to
-# trigger on, only a better existing one.
+# The *arr apps only search on a new release, the RSS sync, or a manual press, so
+# a library full of H.264 never notices a later HEVC/AV1 release of the same
+# film. On a schedule Houndarr reads each app's wanted/cutoff-unmet list and
+# triggers a small, rate-limited batch of searches; the apps do the searching and
+# evaluation, which keeps the indexers happy. It runs unprivileged with no /Vault
+# access - only its SQLite state and four HTTP APIs.
 #
-# Houndarr closes that gap. On a schedule it asks each *arr application for its
-# wanted/cutoff-unmet list and triggers a small, rate-limited batch of searches.
-# The applications do the searching and the upgrade evaluation against the
-# quality profile Recyclarr installed; Houndarr only decides when and how many,
-# which is what keeps the indexers happy.
-#
-# It runs as an unprivileged user with no /Vault access at all - its whole
-# world is its own SQLite state and four HTTP APIs.
-#
-# The one awkward part is the address. Houndarr's SSRF guard (see
-# services/url_validation.py upstream) refuses to save an instance whose host is
-# loopback, link-local or unspecified, and refuses `localhost` outright - it is
-# written for a container talking to apps on the same Docker network, where
-# `127.0.0.1` means "the container", never "the host". Private RFC1918 ranges,
-# though, are explicitly allowed, because that is the normal self-hosted case.
-#
-# Every *arr app here listens on `*` and every `*.lan` name resolves to
-# 127.0.0.1, so none of the obvious addresses can be entered. What the host does
-# already have is a second, stable, private address: the media VPN bridge
-# (see vpn.nix, and note it is gated on the same device.media.enabled expression
-# that brings Houndarr up, so it is always present when Houndarr is). It is a
-# local address, so traffic to it is routed over `lo` and never touches an
-# interface or the firewall - it is purely a way to spell "this host" in a form
-# the guard accepts.
-#
-# The `instanceHost` alias below gives that address a name (`media-host`), so
-# the URL stored in Houndarr's database survives the address changing: it is
-# derived from the namespace subnet, and the hosts entry is regenerated from the
-# same value on every rebuild.
+# The awkward part is the address: Houndarr's SSRF guard rejects loopback,
+# link-local, unspecified and `localhost`, but allows RFC1918. So it is given the
+# media VPN bridge address (see vpn.nix, gated on the same device.media.enabled
+# expression), reached over `lo`. The `instanceHost` alias names it `media-host`
+# so the URL stored in Houndarr's database survives the address changing.
 {
   config,
   lib,
@@ -61,22 +38,15 @@
 
   arrUnits = map (name: "${name}.service") (lib.attrNames apps);
 
-  # The search controls, declared once and written to every instance. The
-  # numeric choices are reasoned about below rather than copied from the form
-  # defaults, because "what is polite" depends on how big the library is.
-  #
-  # The sizing, measured on this host: 192 films, 39 series, 8 artists, and the
-  # *arr applications' own wanted lists are small (6 films, 33 episodes, 1
-  # album) because the RSS sync already chases new releases.
+  # The search controls, declared once and written to every instance. The numbers
+  # below are reasoned about, not copied from the form defaults: "polite" depends
+  # on library size (here 192 films, 39 series, 8 artists).
   tuning = {
     enabled = true;
 
-    # Missing keeps Houndarr's defaults - this is the pass with the least left
-    # to do - except for the hot-retry window. That exception matters: without
-    # it, a missing item skipped for "the release is too new" waits the full
-    # 14-day cooldown before it is looked for again, so an episode that aired
-    # yesterday and had no release yet stays missing for a fortnight. With it,
-    # the item is retried every six hours for the next two days.
+    # Missing keeps the defaults except for the hot-retry window: without it a
+    # "release too new" skip waits the full 14-day cooldown, so an episode that
+    # aired yesterday with no release yet stays missing a fortnight.
     missing_enabled = true;
     batch_size = 2;
     sleep_interval_mins = 30;
@@ -86,29 +56,24 @@
     missing_hot_retry_window_hrs = 48;
     missing_hot_retry_interval_hrs = 6;
 
-    # Stop searching while the application already has this many downloads
-    # queued. Houndarr's default is 0, which disables the gate entirely: it will
-    # happily search for 24 more things while 30 are still downloading and
-    # importing. Five is high enough not to starve the pass and low enough to
-    # hold it back when the queue is the actual bottleneck.
+    # Stop searching while the application already has this many queued.
+    # Houndarr's default 0 disables the gate entirely; five holds the pass back
+    # only when the queue is the real bottleneck.
     queue_limit = 5;
 
-    # Cutoff is the pass that matters here: it is the files whose existing copy
-    # sits below the profile's cutoff, which with Recyclarr's profiles is the
-    # H.264 library that has an HEVC or AV1 counterpart. 192 films and 39
-    # series against a 21-day cooldown needs about 11 searches a day to keep
-    # up, so Houndarr's single search an hour is already enough; two gives
-    # headroom without leaving the cooldown as the only thing pacing indexers.
+    # Cutoff is the pass that matters: the files below the profile's cutoff, which
+    # with Recyclarr's profiles is the H.264 library that has an HEVC/AV1
+    # counterpart. 192 films and 39 series against a 21-day cooldown is ~11
+    # searches a day, so two an hour has headroom without indexers bearing the
+    # whole load.
     cutoff_enabled = true;
     cutoff_batch_size = 2;
     cutoff_cooldown_days = 21;
     cutoff_hourly_cap = 2;
 
-    # Upgrade is the library-wide hunt, walked a window of items at a time.
-    # Deliberately left at Houndarr's pace: ~240 top-level items against a
-    # 90-day cooldown needs about three searches a day, so one an hour is
-    # already nine times more than the cooldown requires. Raising it would
-    # spend indexer goodwill for nothing.
+    # Upgrade is the library-wide hunt, one item at a time. Left at Houndarr's
+    # pace on purpose: ~240 items against a 90-day cooldown needs ~3 searches a
+    # day, so one an hour is already nine times what the cooldown requires.
     upgrade_enabled = true;
     upgrade_batch_size = 1;
     upgrade_cooldown_days = 90;
@@ -125,10 +90,10 @@
     tag_filter_include = "";
     tag_filter_exclude = "";
 
-    # An episode/album is the precise and cheapest search. The alternative -
-    # "season_context"/"artist_context" - widens a fruitless search to the
-    # parent, which is how a batch release gets found; that is the knob to
-    # reach for if anime season packs start being missed.
+    # An episode/album is the cheapest precise search. The alternative
+    # ("season_context"/"artist_context") widens a fruitless search to the parent,
+    # which is how a batch release gets found - reach for it if anime season packs
+    # start being missed.
     search_modes = {
       sonarr = "episode";
       lidarr = "album";
@@ -180,14 +145,9 @@ in {
         Type = "simple";
         User = "houndarr";
         Group = "houndarr";
-        # /var/lib/houndarr holds the SQLite database and the master key that
-        # encrypts the API keys stored in it.
-        #
-        # The mode matters for more than the keys: the database also carries the
-        # web password hash and the secret sessions are signed with, so a
-        # world-readable one would let any local user mint an admin session.
-        # UMask covers the files Houndarr creates itself (the database and its
-        # WAL siblings), which systemd's directory mode cannot reach.
+        # /var/lib/houndarr holds the SQLite database, the master key for the
+        # stored API keys, the web password hash and the session secret, so
+        # StateDirectoryMode/UMask must stay 0700/0077.
         StateDirectory = "houndarr";
         StateDirectoryMode = "0700";
         UMask = "0077";
@@ -213,25 +173,21 @@ in {
       };
     };
 
-    # The state directory is created by systemd when the service starts, which
-    # is after tmpfiles has already run, so an install predating
-    # StateDirectoryMode keeps whatever mode it had. `d` adjusts the mode of an
-    # existing directory as well as creating a missing one, which is what closes
-    # that gap; everything inside it is then unreachable by path.
+    # StateDirectory is created by systemd on first start, after tmpfiles has
+    # run, so an install predating StateDirectoryMode keeps its old mode. `d`
+    # fixes the mode of an existing directory too.
     systemd.tmpfiles.rules = ["d /var/lib/houndarr 0700 houndarr houndarr -"];
 
-    # Houndarr has no configuration file and no environment variable for its
-    # instances - they live in its SQLite database behind a session-authenticated
-    # web UI - so this is the only way to make the setup reproducible rather than
-    # a set of clicks that a rebuilt host would lose. See houndarr-config.py.
+    # Houndarr has no config file or environment variable for its instances - they
+    # live in its SQLite database behind a session-authenticated web UI - so this
+    # is the only way to make the setup reproducible. See houndarr-config.py.
     systemd.services.houndarr-config = {
       description = "Converge Houndarr's instances and search settings from the media registry";
 
-      # Ordered after the applications because it reads each one's API key out
-      # of the config.xml that application writes for itself; the script polls
-      # for the ones that are not there yet rather than assuming. Type="exec",
-      # like servarr-sync, so a convergence run is never on the boot path that
-      # `nixos-rebuild switch` waits for.
+      # Ordered after the applications because it reads each one's API key out of
+      # the config.xml that app writes for itself; the script polls for the ones
+      # that are not there yet. Type="exec" so convergence is never on the boot
+      # path `nixos-rebuild switch` waits for.
       after = ["houndarr.service"] ++ arrUnits;
       wants = ["houndarr.service"] ++ arrUnits;
       wantedBy = ["multi-user.target"];

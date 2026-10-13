@@ -1,16 +1,14 @@
 # overlays/soularr.nix
 #
-# Soularr (https://github.com/mrusse/soularr): a Python bridge between Lidarr
-# and slskd. It reads Lidarr's wanted and missing albums, asks the
+# Soularr (https://github.com/mrusse/soularr), a Python bridge between Lidarr and
+# slskd, not in nixpkgs. It reads Lidarr's wanted/missing albums, asks the
 # VPN-confined slskd to search Soulseek and download them, then tells Lidarr to
-# import the finished files. Lidarr has no Soulseek support of its own, so this
-# is what lets one UI (Lidarr) drive music acquisition while the peer traffic
-# stays inside the wg0 namespace.
+# import the results - which is how one UI drives music acquisition while the
+# peer traffic stays in wg0.
 #
-# Neither Soularr nor its `slskd-api` dependency is in nixpkgs. `slskd-api` is
-# a pure-Python wheel; Soularr is a bare script with no setup.py, so it is
-# wrapped around a Python environment rather than installed as a package. Only
-# the CLI is packaged - the optional web frontend is not used.
+# `slskd-api` is a pure-Python wheel; Soularr is a bare script with no setup.py,
+# so it is wrapped around a Python environment rather than installed as a
+# package. Only the CLI is packaged - the optional web frontend is not used.
 _final: prev: let
   slskd-api = prev.python3Packages.buildPythonPackage rec {
     pname = "slskd-api";

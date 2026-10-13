@@ -1,15 +1,14 @@
 # overlays/houndarr.nix
 #
-# Houndarr (https://github.com/av1155/houndarr): a search scheduler for the *arr
-# applications. It asks Radarr/Sonarr/Lidarr to search their wanted lists in
-# small, rate-limited batches, which is what makes "go and find an HEVC/AV1 copy
-# of what you already have" safe to point at public indexers - the applications
-# do the searching and evaluating, Houndarr only decides when and how many.
+# Houndarr (https://github.com/av1155/houndarr), a search scheduler for the *arr
+# applications, not in nixpkgs. It asks Radarr/Sonarr/Lidarr to search their
+# wanted lists in small rate-limited batches, which makes "find an HEVC/AV1 copy
+# of what you have" safe against public indexers - the apps do the searching, it
+# only decides when and how many.
 #
-# It is not in nixpkgs. The application is Python (FastAPI), but its stylesheet
-# is a Tailwind v4 build, so the CSS is compiled in its own pnpm derivation and
-# copied into the Python source before packaging. That keeps Node and pnpm
-# entirely out of the Python build.
+# The application is Python (FastAPI) but its stylesheet is a Tailwind v4 build,
+# so the CSS is compiled in its own pnpm derivation and copied into the Python
+# source before packaging, keeping Node and pnpm out of the Python build.
 _final: prev: let
   # aiosqlite 0.22.1 and aiosqlitepool are newer than, or absent from, nixpkgs.
   aiosqlite = prev.python3Packages.buildPythonPackage rec {

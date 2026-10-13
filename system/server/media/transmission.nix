@@ -1,11 +1,8 @@
 # Torrenting: Transmission, confined to the WireGuard namespace so its traffic
-# cannot leave except through the VPN.
-#
-# The namespace itself is declared once in vpn.nix and shared with slskd; this
-# file only contributes Transmission's own port mapping. The RPC vhost and the
-# *arr download clients both point at the namespace's veth address rather than
-# 127.0.0.1, since locally generated traffic never traverses PREROUTING and so
-# cannot reach the forwarded loopback port.
+# cannot leave except through the VPN. The namespace is declared in vpn.nix and
+# shared with slskd; this file only adds Transmission's port mapping. The RPC
+# vhost and the *arr download clients point at the veth address, not 127.0.0.1,
+# because locally generated traffic never traverses PREROUTING.
 {
   config,
   lib,
@@ -38,15 +35,12 @@ in {
       }
     ];
 
-    # Let peers connect *in*, not just out. The namespace's INPUT policy DROPs
-    # everything, so without this a torrent with plenty of seeders can still sit
-    # at "stalled, 0 peers" forever - which is exactly what the queue showed.
-    # The port is opened on the tunnel interface, so it is only reachable
-    # through the VPN.
+    # Let peers connect *in*. The namespace INPUT policy DROPs everything, so
+    # without this a well-seeded torrent can sit at "stalled, 0 peers" forever.
+    # The port is opened on the tunnel interface, so only via the VPN.
     #
     # ProtonVPN hands out its forwarded port dynamically (NAT-PMP), so this only
-    # becomes fully useful once `peerPort` matches the port the VPN reports for
-    # the current session; see the note in the settings below.
+    # fully works once `peerPort` matches the VPN's port for the session.
     vpnNamespaces.wg0.openVPNPorts = [
       {
         port = peerPort;
@@ -66,21 +60,14 @@ in {
         umask = "002";
         rpc-bind-address = "0.0.0.0";
         rpc-whitelist-enabled = false;
-        # Transmission 4 refuses any request whose Host header it does not
-        # recognise, answering 421 Misdirected Request. That protection exists
-        # to stop DNS rebinding, and it is separate from the rpc-whitelist
-        # above: disabling the IP whitelist does NOT let a hostname through.
+        # Transmission 4 answers 421 to any Host header it does not recognise.
+        # That DNS-rebinding guard is separate from rpc-whitelist: disabling the
+        # IP whitelist does NOT let a hostname through. Leaving it unset is
+        # confusing - Caddy serves the UI fine but every RPC behind it fails, so
+        # the page looks broken rather than forbidden.
         #
-        # The consequence of leaving it alone is confusing, because the web UI
-        # is served by Caddy and loads perfectly - it is every RPC call behind
-        # it that fails, so the page comes up empty and looks broken rather than
-        # forbidden. The reverse-proxy name therefore has to be listed here.
-        #
-        # COMMA-SEPARATED STRING, not a list. Transmission's own rewritten
-        # settings.json shows "rpc-whitelist": "127.0.0.1,::1", and feeding it a
-        # JSON array does not error - it silently drops the value back to "" and
-        # keeps rejecting every hostname, which looks exactly like the setting
-        # never having been applied.
+        # COMMA-SEPARATED STRING, not a list: a JSON array is silently dropped
+        # back to "" and every hostname keeps being rejected.
         rpc-host-whitelist-enabled = true;
         rpc-host-whitelist = "transmission.lan,127.0.0.1,localhost";
         # The peer port opened on the VPN interface above. Fixed rather than
@@ -98,21 +85,12 @@ in {
         # Also stop seeding if a torrent is idle for 0 minutes.
         "idle-seeding-limit" = 0;
         "idle-seeding-limit-enabled" = true;
-        # No download queue.
-        #
-        # Transmission's default is five concurrent downloads with the rest held
-        # in "download-wait", relying on `queue-stalled-minutes` to rotate the
-        # stalled ones out. That falls apart when stalls are the norm rather
-        # than the exception: with fifty-odd torrents queued behind five that
-        # never found a peer, nothing else ever attempted a connection, and the
-        # whole library looked dead while the client, the tunnel and the
-        # indexers were all working. A control torrent with thousands of
-        # seeders sat in download-wait for ninety seconds without trying; with
-        # this off it completed at 51 MB/s.
-        #
-        # Letting every torrent look for peers at once is the point. What
-        # bounds resource use is Transmission's global peer limit, not the
-        # number of active torrents.
+        # No download queue: the default of five concurrent downloads with the
+        # rest in download-wait relies on queue-stalled-minutes, which falls apart
+        # when stalls are the norm - fifty torrents queued behind five that never
+        # found a peer, while a well-seeded control sat in download-wait for
+        # ninety seconds. With this off it completed at 51 MB/s. Resource use is
+        # bounded by the global peer limit, not the active torrent count.
         "download-queue-enabled" = false;
       };
     };

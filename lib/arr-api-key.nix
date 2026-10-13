@@ -1,17 +1,11 @@
 # Reads the API key an *arr application keeps in its own config.xml.
 #
-# The key is a full admin credential, so it is never copied into the Nix store;
-# the three places that need one (the Homepage widget collector, Recyclarr's
-# credential files and Soularr's config) all shell out to this instead of each
-# re-implementing the same sed.
-#
-# WHERE config.xml lives depends on how the service is started: Prowlarr is
-# launched with -data=/var/lib/prowlarr and keeps it directly there, while
-# Sonarr, Radarr and Lidarr nest it under .config/<Project>. Both are tried, so
-# callers only pass the state directory.
-#
-# Prints the key (no trailing newline) and exits 0 when found, exits 1 when not:
-# a host where the application has never started simply has no key yet.
+# The key is a full admin credential, so it is never copied into the store; the
+# Homepage collector, Recyclarr's credentials and Soularr's config all shell out
+# to this rather than re-implementing the same sed. config.xml's location depends
+# on how the service starts: Prowlarr is launched with -data=/var/lib/prowlarr
+# and keeps it there, while Sonarr/Radarr/Lidarr nest it under .config/<Project>.
+# Both are tried. Prints the key (no trailing newline), exit 0 found / 1 not.
 {pkgs}:
 pkgs.writeShellApplication {
   name = "arr-api-key";

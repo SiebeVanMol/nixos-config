@@ -40,12 +40,12 @@ in {
   nix.settings.experimental-features = ["nix-command" "flakes"];
 
   # Do garbage collection weekly to keep disk usage low.
-  nix.gc = {
-    automatic = lib.mkDefault true;
-    dates = lib.mkDefault "weekly";
-    options = lib.mkDefault "--delete-older-than 7d";
-  };
   nix.settings.auto-optimise-store = true;
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 7d";
+  };
 
   # Prevent editing boot parameters at boot.
   boot.loader.systemd-boot.editor = false;
@@ -56,12 +56,10 @@ in {
   # Allow unfree packages.
   nixpkgs.config.allowUnfree = true;
 
-  # Select internationalisation properties. Every locale category that is a
-  # formatting or classification choice is Japanese: dates, numbers, currency,
-  # paper size, addresses, collation and character classes. The one category
-  # deliberately left alone is LC_MESSAGES, which follows i18n.defaultLocale
-  # (en_US.UTF-8), so the UI and tools like `make` speak English. Do not set
-  # LC_MESSAGES here and never set LC_ALL, since either would undo that.
+  # Every locale category that is a formatting or classification choice is
+  # Japanese. LC_MESSAGES deliberately follows i18n.defaultLocale (en_US.UTF-8) so
+  # the UI and tools like `make` speak English: do not set LC_MESSAGES here and
+  # never set LC_ALL, since either would undo that.
   i18n.defaultLocale = "en_US.UTF-8";
 
   i18n.extraLocaleSettings = {

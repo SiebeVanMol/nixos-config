@@ -1,27 +1,16 @@
 # Soulseek: slskd, confined to the ProtonVPN namespace.
 #
-# Soulseek is a peer-to-peer network, and a client on it is not a passive
-# thing: it announces the host's address to every peer, keeps a long-lived
-# connection to the directory servers, and downloads files from strangers. So
-# it gets the same treatment as any other download client - the `wg0`
-# namespace, where the only way out is the tunnel - and for the same reasons:
-# no traffic and no real address leaks if the VPN drops.
-#
-# The namespace itself is declared once in vpn.nix and shared with Transmission;
-# this file only contributes what is specific to slskd. The namespace's INPUT
-# policy DROPs everything, so two exceptions are made explicitly:
-#
-#   * openVPNPorts opens the Soulseek listen port on the tunnel interface, so
-#     peers can reach us. Without it slskd can still download outbound but can
-#     never be uploaded from, which most of the network punishes.
-#   * a port mapping opens the web UI on the veth peer, which is how Caddy on
-#     the host reaches it (localhost cannot: locally generated traffic never
-#     traverses PREROUTING, see lib/vhosts.nix).
-#
-# ProtonVPN only forwards an inbound port on some servers, announced through
-# NAT-PMP; run `natpmpc` (or the ProtonVPN app) after connecting and set
-# listenPort below to the port it reports. It changes per session, so an
-# update here plus `nixos-rebuild switch` is the price of being connectable.
+# Peer-to-peer: it announces the host's address to every peer and downloads from
+# strangers, so it gets the same wg0 namespace as any download client - no
+# traffic or real address leaks if the VPN drops. The namespace itself is in
+# vpn.nix, shared with Transmission; this file adds what is specific to slskd.
+# The namespace INPUT policy DROPs everything, so two exceptions:
+#   * openVPNPorts opens the Soulseek listen port on the tunnel, so peers can
+#     reach us - without it slskd downloads but can never be uploaded from.
+#   * a port mapping opens the web UI on the veth peer, which is how Caddy
+#     reaches it (localhost cannot - locally generated traffic skips PREROUTING).
+# ProtonVPN only forwards an inbound port on some servers (NAT-PMP); set
+# listenPort below to the port natpmpc reports. It changes per session.
 {
   config,
   lib,

@@ -15,14 +15,9 @@
       pkgs.rocmPackages.clr.icd
     ];
 
-    # Jellyfin is reachable only through the Caddy reverse proxy (ports 80/443),
-    # so no direct firewall port is opened here.
-    #
-    # `group = "users"` rather than Jellyfin's own group: every other service in
-    # the stack runs in `users` and writes into the same tree, and the module's
-    # default group made Jellyfin's metadata (.nfo, images, subtitles) readable
-    # only by Jellyfin itself. With the shared group plus vaultRw's UMask=0002,
-    # everything it creates is group-readable and writable by the rest.
+    # Reachable only through the Caddy reverse proxy (80/443), so no direct
+    # firewall port. `group = "users"` because every service writes into the same
+    # tree; the module default made Jellyfin's metadata readable only by itself.
     services.jellyfin = {
       enable = true;
       group = "users";

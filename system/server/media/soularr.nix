@@ -1,19 +1,11 @@
 # Soularr: the bridge that lets Lidarr acquire from Soulseek.
 #
-# Lidarr has no Soulseek support of its own, so without this the slskd
-# downloads bypass it entirely. Soularr reads Lidarr's wanted and missing
-# albums, drives slskd's API to search Soulseek and download them (slskd does
-# the peer traffic, inside the VPN namespace), then asks Lidarr to import the
-# finished files into the shared music library.
-#
-# It is deliberately NOT confined to wg0: it never talks to the Soulseek
-# network itself, only to slskd over the namespace's veth address and to Lidarr
-# on loopback, so it has no traffic to leak.
-#
-# A oneshot on a timer, like servarr-sync: it converges Lidarr's wanted list
-# rather than running a daemon. Its config holds two API keys, so it is
-# generated into /etc at activation from the services that own them and is
-# never written to the world-readable Nix store.
+# Lidarr has no Soulseek support, so without this slskd downloads bypass it.
+# Soularr reads Lidarr's wanted/missing albums, drives slskd's API to search and
+# download, then asks Lidarr to import the finished files. It is deliberately NOT
+# confined to wg0: it only talks to slskd over the namespace veth and to Lidarr
+# on loopback. A oneshot on a timer, like servarr-sync; its config holds two API
+# keys, so it is generated into /etc at activation, never the store.
 {
   config,
   lib,

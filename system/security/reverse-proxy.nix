@@ -1,8 +1,7 @@
 # Caddy reverse proxy for LAN (plain HTTP) and public HTTPS services.
 # Virtual hosts are declared by the stacks that publish through it: the media
-# stack derives them from its service registry (system/server/media/proxy.nix)
-# and the AI stack declares its own (system/server/ai.nix). This module just
-# enables the Caddy service itself.
+# stack derives them from its service registry (system/server/media/proxy.nix).
+# This module just enables the Caddy service itself.
 {
   config,
   lib,

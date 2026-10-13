@@ -1,14 +1,12 @@
 # Caelestia desktop shell (Quickshell-based), its theme integration, and the
 # wallpaper rotation unit. Everything shell-specific lives here so core.nix stays
-# a generic base that every user imports regardless of which shell they run.
+# a generic base every user imports.
 #
-# Seed caelestia's runtime settings and re-apply the desktop theme (Hyprland
+# Seeds caelestia's runtime settings and re-applies the desktop theme (Hyprland
 # borders, via caelestia's own scheme/current.lua) whenever caelestia writes a
-# new colour scheme. The terminal is NOT themed from here: foot runs in server
-# mode (see ./shell/terminals.nix) and keeps its own palette.
-#
-# Caelestia OWNS ~/.config/caelestia/shell.json (it writes to it to persist
-# settings), so home-manager must NOT manage that file as a read-only symlink.
+# new scheme. The terminal is NOT themed from here: foot runs in server mode and
+# keeps its own palette. Caelestia OWNS ~/.config/caelestia/shell.json, so
+# home-manager must not manage it as a read-only symlink.
 {
   config,
   pkgs,
@@ -67,17 +65,14 @@ in {
                 d = json.load(f)
         except Exception:
             d = {}
-    # The top-level "theme" block is no longer a recognised option for this
-    # caelestia version (it emits `Unknown option "theme"`), and the theme is
-    # applied by the caelestia-theme-apply service watching scheme.json, so it
-    # is intentionally not seeded here.
-    # Launch terminal apps (btop, etc.) with foot's client, which hands the
-    # window to the foot server (see ./shell/terminals.nix).
+    # The top-level "theme" block is no longer recognised by this caelestia
+    # version (it emits `Unknown option "theme"`); the theme is applied by the
+    # caelestia-theme-apply service watching scheme.json instead.
+    # Launch terminal apps via foot's client (see ./shell/terminals.nix).
     d.setdefault('general', {}).setdefault('apps', {})['terminal'] = ['${lib.getExe' pkgs.foot "footclient"}']
-    # Disable the idle lock: the auto-lock fired mid-game (idle isn't reset by
-    # gamepad input). The entry stays but is marked disabled so the config stays
-    # valid for caelestia (an empty "timeouts" list is an illegal value). hypridle
-    # is removed too, so nothing dims or powers off the display on idle.
+    # Idle lock disabled: the auto-lock fired mid-game (gamepad input does not
+    # reset idle). The entry stays but disabled, because an empty "timeouts" list
+    # is illegal. hypridle is removed too.
     d.setdefault('general', {}).setdefault('idle', {})['timeouts'] = [
         {"enabled": False, "timeout": 120, "idleAction": "lock"},
     ]

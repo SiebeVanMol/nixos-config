@@ -1,8 +1,6 @@
-# Flake entry point defining all NixOS system configurations and their inputs.
-# Provides three machines, each carrying one or more users. nixos-desktop and
-# nixos-laptop currently have user snowyrenard; alex-desktop has user alexander.
-# To add more users to a host, extend the `users` list below (each entry needs a
-# matching ./users/<name>/home.nix).
+# Flake entry point: inputs, hosts, and where each piece lives. Three machines,
+# each with one or more users; to add a user to a host, extend its `users` list
+# (each entry needs a matching ./users/<name>/home.nix).
 {
   description = "NixOS configuration";
 
@@ -31,13 +29,10 @@
 
     deepseek-harness.url = "github:moraxyc/deepseek-harness.nix";
 
-    # Fetched with git over HTTPS rather than SSH. The repository is public, and
-    # an input that needs a key only builds on a machine whose user owns one:
-    # alex-desktop has no GitHub key, so an SSH fetch died there with
-    # `Permission denied (publickey)` before the configuration was evaluated at
-    # all. `git+https` speaks the git protocol, unlike `github:`, which goes
-    # through the archive API - so the anonymous rate limit that stalls tarball
-    # fetches does not apply to it either.
+    # Fetched over HTTPS rather than SSH: the repository is public, and an input
+    # needing a key only builds on a machine whose user has one (alex-desktop does
+    # not, so an SSH fetch died before evaluation). `git+https` also speaks the git
+    # protocol, so the archive API's anonymous rate limit does not apply.
     caelestia-shell = {
       url = "git+https://github.com/caelestia-dots/shell";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -53,20 +48,14 @@
     deepseek-harness,
     ...
   }:
-  # Helper to build a system configuration for a host with one or more users.
-  #
-  # `users` is a list of usernames, each backed by `./users/<name>/home.nix`.
-  # Per-user Home Manager config is set up for every user, and NixOS account
-  # creation and group memberships apply to every listed user. Nothing in the
-  # configuration assumes a single "primary" user: system services that need a
-  # home or session either discover it at runtime or live under neutral paths.
+  # Build a system configuration for a host with one or more users. `users` is a
+  # list of usernames, each backed by ./users/<name>/home.nix; nothing assumes a
+  # single "primary" user, since services needing a home discover it at runtime
+  # or live under neutral paths.
   let
-    # Plain nixpkgs (no overlays), used for the flake's own outputs: the
-    # formatter, the formatting check, the rebuild wrapper and the media
-    # helpers. allowUnfree mirrors what the hosts already set in
-    # system/default.nix; the output that needs it is the media recoder, whose
-    # AV1 path goes through AMD's AMF runtime - a proprietary binary that is
-    # the only way to reach this card's AV1 encoder.
+    # Plain nixpkgs (no overlays) for the flake's own outputs. allowUnfree
+    # mirrors the hosts because the media recoder's AV1 path goes through AMD's
+    # proprietary AMF runtime, the only way to reach this card's AV1 encoder.
     pkgs = import nixpkgs {
       system = "x86_64-linux";
       config.allowUnfree = true;
@@ -114,11 +103,9 @@
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            # Flake inputs are shared globally here, both individually (as
-            # `caelestia-shell`, ...) and under `inputs` for modules that want
-            # the whole set. Per-user values like `username`/`homeDirectory` are
-            # derived by Home Manager itself from each `users.users.<name>`, so
-            # they are NOT passed as specialArgs.
+            # Flake inputs are shared globally here, individually and under
+            # `inputs`. Per-user values are derived by Home Manager from each
+            # users.users.<name>, so they are NOT passed as specialArgs.
             home-manager.extraSpecialArgs = inputs // {inherit inputs;};
 
             # One Home Manager configuration per user on this host.

@@ -1,32 +1,20 @@
 # System-wide USB / removable storage automount via udev + systemd-mount.
 #
-# Unlike the session-based devmon/GVFS/udisks2 stack, this mounts USB storage
-# straight from udev, so it works without any logged-in desktop session (headless,
-# SSH-only, GDM-less machines).
+# Unlike the session-based devmon/GVFS/udisks2 stack, this mounts straight from
+# udev, so it works with no logged-in session (headless, SSH-only, GDM-less).
 #
-# Robustness comes from delegating the actual mount to systemd-mount instead of
-# running a hand-rolled `mount` helper:
+# Robustness comes from delegating the mount to systemd-mount rather than a
+# hand-rolled helper: it schedules a real transient .mount/.automount unit
+# (pulling in parent mounts and fsck), and in single-argument removable mode
+# mounts under /run/media/system/<label> with the automount bound to the device's
+# lifetime and a 1s idle timeout - so unplugging cleans it up with no registry or
+# separate remove rule. FAT-family filesystems get uid/gid options so the
+# logged-in desktop user can write them.
 #
-#   * systemd-mount schedules the mount through the systemd job queue as a real
-#     transient .mount/.automount unit (pulling in parent mounts / fsck), rather
-#     than a raw mount(2) call in a shell script.
-#   * In single-argument (removable-device) mode it probes the device and mounts
-#     it under /run/media/system/<label>.
-#   * Because the device is removable, systemd makes the automount *bound to the
-#     backing device's lifetime* with a 1s idle timeout: it unmounts when idle
-#     and is removed automatically when the device is unplugged — so there is no
-#     manual lifecycle registry and no separate remove rule.
-#
-# FAT-family filesystems additionally get uid/gid mount options so whoever is
-# logged into a desktop session can read and write them.
-#
-# On plug-in a desktop notification is also sent (via notify-send) to every
-# logged-in desktop session — caelestia (Quickshell) provides the
-# org.freedesktop.Notifications daemon. Headless/SSH sessions get no pop-up.
-#
-# Neither behaviour hard-codes a single owner: the scripts discover logged-in
-# users at runtime by scanning their session buses under /run/user/<uid>/bus, so
-# the module works on hosts with any number of users.
+# On plug-in a notification goes to every logged-in session bus (caelestia
+# provides org.freedesktop.Notifications); headless sessions get none. Neither
+# behaviour hard-codes an owner - the scripts discover logged-in users by
+# scanning /run/user/<uid>/bus.
 {
   config,
   lib,

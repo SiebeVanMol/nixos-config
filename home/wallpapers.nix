@@ -1,9 +1,7 @@
-# Aggregate the user's wallpapers into ~/Pictures/Wallpapers by symlinking
-# ~/Pictures/Backgrounds into it, for anything that looks there. Caelestia does
-# NOT: it is pointed straight at ~/Pictures/Backgrounds in ./caelestia.nix
-# because its FileSystemModel does not follow symlinks. The existence check
-# happens at activation time (pure flake evaluation forbids reading ~ at eval
-# time), so users without that folder are unaffected.
+# Symlink ~/Pictures/Backgrounds into ~/Pictures/Wallpapers for anything that
+# looks there. Caelestia does NOT: it points straight at Backgrounds
+# (./caelestia.nix) because its FileSystemModel does not follow symlinks. The
+# existence check runs at activation time, so users without the folder are fine.
 {lib, ...}: {
   home.activation.createWallpaperLinks = lib.hm.dag.entryAfter ["writeBoundary"] ''
     WAL="$HOME/Pictures/Wallpapers"

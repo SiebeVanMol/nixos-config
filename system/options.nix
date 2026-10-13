@@ -53,9 +53,6 @@
     music = {
       enable = lib.mkEnableOption "Navidrome music server with slskd (Soulseek) acquisition";
     };
-    ai = {
-      enable = lib.mkEnableOption "llama.cpp (ROCm) server with Gemma 4 REAP 19B";
-    };
     minecraft = {
       enable = lib.mkEnableOption "Minecraft server";
     };
@@ -78,7 +75,7 @@
       enable = lib.mkEnableOption "Tailscale VPN";
     };
     proton-vpn = {
-      enable = lib.mkEnableOption "ProtonVPN CLI tools";
+      enable = lib.mkEnableOption "WireGuard tools for the ProtonVPN tunnel";
     };
     reverse-proxy = {
       enable = lib.mkEnableOption "Caddy reverse proxy for LAN services";

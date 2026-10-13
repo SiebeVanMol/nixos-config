@@ -21,12 +21,10 @@
       "x-scheme-handler/about" = "zen-beta.desktop";
       "x-scheme-handler/unknown" = "zen-beta.desktop";
 
-      # Game mod manager protocol handlers. The generated mimeapps.list is
-      # read-only (managed by home-manager), so Amethyst can't register these
-      # itself; without them Nexus's "Mod Manager Download" (nxm://) and
-      # Thunderstore's ror2mm:// buttons do nothing. They route to the
-      # dedicated .desktop entries below, which run the app through the
-      # `amethyst-mod-manager` launcher so $APPDIR is set.
+      # The generated mimeapps.list is read-only (managed by home-manager), so
+      # Amethyst cannot register these itself. Without them Nexus's nxm:// and
+      # Thunderstore's ror2mm:// buttons do nothing; they route to the .desktop
+      # entries below, which run through the launcher so $APPDIR is set.
       "x-scheme-handler/nxm" = "amethyst-nxm.desktop";
       "x-scheme-handler/ror2mm" = "amethyst-ror2mm.desktop";
 

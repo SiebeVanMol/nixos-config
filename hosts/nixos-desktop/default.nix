@@ -33,7 +33,6 @@
       gamemode.enable = true;
       jellyfin.enable = true;
       music.enable = true;
-      # ai.enable = true;
       minecraft.enable = true;
       virtualization.enable = true;
     };

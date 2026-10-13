@@ -27,7 +27,7 @@
     valgrind
     rustup
     # Python
-    (python3.withPackages (ps: [ps.mypy ps.flake8 ps.huggingface-hub]))
+    (python3.withPackages (ps: [ps.mypy ps.flake8]))
     # Cargo
     cargo-expand
     cargo-tarpaulin
@@ -36,7 +36,6 @@
     # Code tools
     man-pages
     norminette
-    llama-cpp-vulkan
 
     #########
     # Games #
@@ -179,17 +178,15 @@
             base
             web-app
           ])
-          # @neptune810/dsh-model-router, packaged in overlays/dsh-model-router.nix.
-          # It varies the DeepSeek thinking level per agent step (low for
-          # trivial/standard work, high for engineering, with `max` opt-in) and
-          # can hold a model pool. Its own cordis.patch.yml inserts the
-          # `model-router` row, so nothing has to be declared here for it.
+          # @neptune810/dsh-model-router (overlays/dsh-model-router.nix) varies the
+          # DeepSeek thinking level per step and can hold a model pool. Its own
+          # cordis.patch.yml inserts the `model-router` row, so nothing is declared
+          # here for it.
           ++ [pkgs.dsh-model-router];
 
-        # This profile is `mode = "managed"`, so every activation restores
-        # cordis.patch.yml from here and anything the Settings UI writes to it
-        # at runtime is lost on the next switch. The rows that matter are
-        # therefore declared: the welcome notice and the default model.
+        # `mode = "managed"`, so every activation restores cordis.patch.yml and
+        # anything the Settings UI writes at runtime is lost: the rows that matter
+        # (welcome notice, default model) are therefore declared here.
         patch = [
           {
             id = "ui-settings-general";

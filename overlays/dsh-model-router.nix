@@ -2,22 +2,18 @@
 #
 # @neptune810/dsh-model-router (https://github.com/Neptune810/dsh-model-router):
 # a DeepSeek Harness plugin that keeps a pool of models and routes every agent
-# step to one of them with its reasoning effort set. On the default single-model
-# pool it leaves the model alone (deepseek-flash, i.e. V4.1 Flash) and drives the
-# thinking level per step: trivial/standard -> low, engineering/hard -> high,
-# with `max` opt-in.
+# step to one, setting its reasoning effort (trivial/standard -> low,
+# engineering/hard -> high, `max` opt-in). On the default single-model pool it
+# leaves the model alone and only drives the thinking level.
 #
-# It is packaged as a dsh *bundle* rather than installed at runtime with
-# `dsh plugin add`, because the nix-web profile is materialized in `managed`
-# mode: activation restores package.json, pnpm-workspace.yaml and
-# cordis.patch.yml, so a runtime install would be reverted on the next switch.
-#
-# The published tarball already contains built JavaScript and declares no
-# dependencies, so there is nothing to fetch or build with npm. What the bundle
-# protocol needs is the package installed under its real npm name (the bundle
-# resolver reads it back out of the output path) with its package.json and
-# cordis.patch.yml intact. `linkKernelNodeModules` is what lets the plugin's
-# client half resolve the @deepseek-ai/* peers it injects.
+# Packaged as a dsh *bundle* rather than installed with `dsh plugin add`, because
+# the nix-web profile is materialized in `managed` mode and activation restores
+# package.json, pnpm-workspace.yaml and cordis.patch.yml, so a runtime install
+# would be reverted. The published tarball already contains built JavaScript and
+# declares no dependencies, so nothing is fetched or built with npm; the bundle
+# resolver just needs it installed under its real npm name with its package.json
+# and cordis.patch.yml intact, and `linkKernelNodeModules` lets its client half
+# resolve the @deepseek-ai/* peers it injects.
 _final: prev: {
   dsh-model-router = prev.dsh.buildDshBundle (finalAttrs: {
     pname = "dsh-model-router";

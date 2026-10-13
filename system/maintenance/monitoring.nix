@@ -1,27 +1,20 @@
 # Host-level health monitoring: SMART, btrfs scrub, and one daily pass that
 # checks the things nobody notices until they bite.
 #
-# Nothing here existed before, which mattered because /Vault is a single 3.6 TiB
-# disk holding the whole library and it has been running at 98% full. The three
-# failure modes worth catching early:
+# /Vault is a single 3.6 TiB disk holding the whole library and runs near-full,
+# so the three failures worth catching early are a disk dying (SMART plus btrfs
+# per-device error counters - data ratio is 1.00, so btrfs can DETECT bitrot but
+# never repair it; backups are the only protection), a filesystem filling until
+# imports fail with ENOSPC or it flips read-only, and a service that died days
+# ago and took its dependants with it.
 #
-#   * a disk quietly dying (SMART, and btrfs per-device error counters - note
-#     that the vault's data ratio is 1.00, so btrfs can DETECT bitrot but can
-#     never repair it; backups are the only real protection, see backup.nix),
-#   * a filesystem filling up far enough that imports start failing with
-#     ENOSPC or the filesystem flips read-only,
-#   * a service that died days ago and took its dependants with it.
-#
-# The daily check reports to the journal and, if configured, to a webhook:
-#
+# The daily check logs to the journal and, if configured, to a webhook:
 #   install -d -m 0755 /etc/nixos-alerts
-#   printf 'ALERT_WEBHOOK_URL=%s\n' 'https://discord.com/api/webhooks/...' \
-#     > /etc/nixos-alerts/webhook.env
+#   printf 'ALERT_WEBHOOK_URL=%s\n' '...' > /etc/nixos-alerts/webhook.env
 #   chmod 0600 /etc/nixos-alerts/webhook.env
-#
-# The file is optional; without it the check still logs and still fails its
-# unit, which is what makes problems visible in `systemctl --failed`. The check
-# excludes itself from that list so this does not cascade.
+# Optional; without it the check still logs and still fails its unit, which is
+# what makes it visible in `systemctl --failed`. It excludes itself from that
+# list so this does not cascade.
 {
   config,
   lib,
@@ -60,11 +53,10 @@
             findings=()
             critical=0
             note() { findings+=("$1"); }
-            # A critical finding is one where something is already broken or about
-            # to be: the unit fails so it shows up in `systemctl --failed`.
-            # Warnings are reported and sent to the webhook but leave the unit
-            # green, because a check that turns red every day for something
-            # merely worth knowing is a check nobody reads.
+            # A critical finding is something already broken or about to be: the
+            # unit fails, so it shows in `systemctl --failed`. Warnings log and
+            # webhook but leave the unit green, because a check that turns red
+            # daily for something merely worth knowing is one nobody reads.
             note_critical() {
               note "$1"
               critical=1
@@ -178,15 +170,11 @@ in {
   };
 
   # Weekly scrub of every btrfs filesystem. On single-copy data this can only
-  # report damage, but reporting it early is the difference between restoring
-  # one file from restic and discovering the loss later. Metadata is DUP, so
-  # that part is genuinely repaired.
-  #
-  # Only where there is a filesystem to scrub. nixpkgs derives the list from
-  # config.fileSystems and asserts when autoScrub is on with nothing to point
-  # at, which is what a host with an ext4 root hits - alex-desktop, whose own
-  # hardware config is ext4. The list is deliberately left to nixpkgs rather
-  # than written out here, so that assertion keeps its teeth.
+  # report damage, but early reporting is the difference between restoring one
+  # file from restic and discovering the loss later; metadata is DUP and is
+  # genuinely repaired. The list is derived by nixpkgs from config.fileSystems,
+  # which also asserts when autoScrub is on with nothing to scrub - what a host
+  # with an ext4 root hits (alex-desktop).
   services.btrfs.autoScrub = lib.mkIf (btrfsMounts != []) {
     enable = true;
     interval = "weekly";

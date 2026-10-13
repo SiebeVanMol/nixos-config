@@ -1,14 +1,10 @@
 # The networks this configuration treats as "inside": the local network and the
-# Tailscale mesh. Two very different consumers share the list, which is why it
-# lives on its own rather than inside either of them.
-#
+# Tailscale mesh. Shared by two different consumers:
 #   * lib/vhosts.nix restricts the *.lan admin vhosts to these ranges, so Caddy's
-#     public listener on 80/443 cannot be talked into proxying sonarr.lan & co.
-#     by a request that simply sends the right Host header.
-#   * ssh.nix and steam.nix open their ports to these ranges only, through the
-#     `localOnly` helper below, instead of to every interface.
-#
-# Add a network here once and both follow; no caller has to know the list.
+#     public listener cannot be talked into proxying sonarr.lan & co. by a
+#     request that sends the right Host header.
+#   * ssh.nix and steam.nix open their ports to these ranges only, via
+#     `localOnly` below, instead of to every interface.
 {lib}: rec {
   ipv4 = [
     "127.0.0.0/8" # loopback
@@ -29,17 +25,15 @@
   all = ipv4 ++ ipv6;
 
   # iptables commands that accept the given ports from the IPv4 networks above
-  # and from nowhere else. Meant for networking.firewall.extraCommands, which
-  # NixOS runs immediately before the firewall's final reject rule - so these
-  # rules are the only thing letting the port through, and the caller must drop
-  # the blanket allowedTCPPorts/allowedUDPPorts entry that would have opened it
-  # everywhere.
+  # and nowhere else. Meant for networking.firewall.extraCommands, which runs
+  # immediately before the final reject rule - so these rules are the only thing
+  # letting the port through, and the caller must drop the blanket
+  # allowedTCPPorts/allowedUDPPorts entry.
   #
-  # Port specs go straight to `-m multiport --dports`, so a range is written the
-  # iptables way: "27031:27035". Loopback is skipped because the firewall
-  # already trusts the `lo` interface. The IPv6 half is deliberately not covered
-  # here: Tailscale traffic arrives on tailscale0 and is allowed with an
-  # interface rule instead, and no globally routed IPv6 prefix is ever accepted.
+  # Ports go straight to `-m multiport --dports`, so ranges use the iptables form
+  # "27031:27035". Loopback is skipped (the firewall already trusts `lo`). IPv6
+  # is deliberately not covered: Tailscale arrives on tailscale0 and is allowed
+  # with an interface rule, and no globally routed IPv6 prefix is accepted.
   localOnly = {
     tcp ? [],
     udp ? [],

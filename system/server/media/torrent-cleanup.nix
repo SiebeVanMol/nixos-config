@@ -1,15 +1,10 @@
 # Torrent cleanup: remove downloads that have stalled for good, and ask the
 # application that wanted them to search again.
 #
-# Transmission never gives up on a torrent and the *arr applications do not
-# treat "stalled with no peers" as a failure - a download is only "failed" when
-# the client says so - so a dead torrent sits in .incomplete forever, holding
-# disk space and occupying the queue. This sweeps those out and triggers a fresh
-# search for the affected episode, movie or album.
-#
-# It runs as root only because the API keys it needs live in each application's
-# own config.xml, which is root-only; everything else is HTTP over loopback (and
-# the wg0 veth for Transmission). The logic lives in torrent-cleanup.py.
+# Transmission never gives up and the *arr apps do not treat "stalled with no
+# peers" as failure, so a dead torrent sits in .incomplete forever. Runs as root
+# only because the API keys live in each app's root-only config.xml. The logic is
+# in torrent-cleanup.py.
 {
   config,
   lib,

@@ -1,36 +1,25 @@
-# Periodic care for the disks: everything that can be reclaimed without
-# deciding that some particular file is no longer wanted.
+# Periodic care for the disks: everything that can be reclaimed without deciding
+# that some particular file is no longer wanted.
 #
-# Nothing here deletes media. What it removes is debris that regenerates or has
-# no owner: journal entries beyond a size cap, Jellyfin's scratch transcodes,
-# unfinished download fragments nobody has touched for three months, crash
-# dumps, and old system generations that exist only to pin packages the store
-# could otherwise free.
+# Nothing here deletes media. What it removes regenerates or has no owner:
+# journal entries beyond a size cap, Jellyfin's scratch transcodes, unfinished
+# download fragments untouched for three months, crash dumps, and old system
+# generations that only pin packages the store could otherwise free.
 #
-# How this divides the work with the rest of the configuration:
+# Division of labour: this file does journald, caches, debris and the weekly
+# report; monitoring.nix does smartd, btrfs scrub and capacity alerting;
+# system/default.nix does weekly GC and SSD trim; backup.nix does restic.
 #
-#   * this file            - journald, caches and debris, plus a weekly report
-#   * monitoring.nix       - smartd, weekly btrfs scrub, capacity alerting
-#   * system/default.nix   - weekly store garbage collection, SSD trim
-#   * backup.nix           - restic snapshots and their retention
+# Deliberately NOT done: `btrfs balance` (no allocation slack to reclaim - 3.64
+# TiB allocated against 3.56 TiB used, so it would move terabytes for nothing),
+# and anything inside the media library, because deleting a film is a policy
+# decision; the weekly report names the biggest items instead.
 #
-# Deliberately NOT done here, and why:
-#   * `btrfs balance` - the vault has no allocation slack to reclaim (3.64 TiB
-#     allocated against 3.56 TiB used), so a balance would move terabytes across
-#     a cached spinning disk for nothing.
-#   * anything inside the media library - deleting a film needs a decision about
-#     what may be thrown away, and that is a policy, not a chore. The weekly
-#     report names the biggest items instead.
-#
-# `systemd-tmpfiles-clean.timer` already runs daily on this host, so the age
-# based rules below only have to name a directory and an age.
-#
-# One property of those `e` rules is worth knowing, because it is what makes
-# them safe to leave running: systemd compares every timestamp a file has -
-# access, change, modify and birth - and only removes it when ALL of them are
-# older than the age. A transfer still writing to a `.part` file touches its
-# change time continuously, so a live download can never be swept no matter how
-# long it has existed; only files that nothing has touched survive into range.
+# systemd-tmpfiles-clean.timer already runs daily, so the age rules only name a
+# directory and an age. Those rules are safe to leave running because systemd
+# compares every timestamp a file has and removes it only when ALL are older than
+# the age: a transfer still writing touches its ctime continuously, so a live
+# download can never be swept.
 {
   config,
   lib,

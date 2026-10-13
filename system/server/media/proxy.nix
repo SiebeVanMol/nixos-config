@@ -1,10 +1,8 @@
 # The reverse proxy surface: one Caddy virtual host per registered service, and
-# the hosts-file entries that make the *.lan names resolve here.
-#
-# Nothing is listed by hand any more. A service that registers itself in
-# device.media.services gets a *.lan vhost (and, with `public = true`, a HTTPS
-# one on the public domain) without this file changing. The LAN-only guard
-# itself lives in lib/vhosts.nix so it cannot drift from any other stack's.
+# the hosts-file entries that make the *.lan names resolve here. Nothing is
+# listed by hand: a service that registers in device.media.services gets a *.lan
+# vhost (and, with `public = true`, an HTTPS one) without this file changing.
+# The LAN-only guard lives in lib/vhosts.nix so it cannot drift.
 {
   config,
   lib,

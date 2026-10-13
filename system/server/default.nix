@@ -1,13 +1,10 @@
-# Server-side application stacks. Each one is a self-contained folder with a
-# default.nix that names its parts (see media/default.nix for the shape).
+# Server-side application stacks, one self-contained folder each.
 #
-# `server` is separate from `app` for the same reason the two are separate
-# directories at all: what lives here is a service other machines talk to, not
-# something a desktop session drives. app/ holds the desktop applications.
+# Separate from app/ because what lives here is a service other machines talk to,
+# not something driven by a desktop session.
 {
   imports = [
     ./media
     ./minecraft
-    ./ai.nix
   ];
 }

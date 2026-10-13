@@ -1,15 +1,13 @@
 # Foot terminal: Nushell as the shell, Fira Code Nerd Font Mono.
 #
 # foot runs in server mode: `foot --server` is a systemd user service and every
-# window is a `footclient` process connecting to that one server, so a single
-# foot process owns the Wayland connection, the font cache and the rendering
-# threads. The server is pulled in with the graphical session, so it starts
-# when the session does and is torn down with it.
+# window is a `footclient` connecting to it, so one process owns the Wayland
+# connection, font cache and rendering threads. The server is pulled in with the
+# graphical session.
 #
-# Colouring is deliberately left to foot's built-in palette: in server mode the
-# palette lives in the server process, so a runtime theme would mean rewriting
-# foot.ini and signalling the daemon on every scheme change - not worth the
-# moving parts while the desktop theme is still settling.
+# Colouring is left to foot's built-in palette: in server mode the palette lives
+# in the server process, so a runtime theme would mean rewriting foot.ini and
+# signalling the daemon on every scheme change.
 {
   pkgs,
   lib,
@@ -25,9 +23,8 @@
   nushell = lib.getExe pkgs.nushell;
 
   # Terminal apps (btop, yazi, ...) are launched by caelestia via $TERMINAL.
-  # This is a foot *client*: every window still goes through the server. Its
-  # app-id is "footclient" (see app-id below), which is what window rules on
-  # this machine match on.
+  # This is a foot *client*: every window still goes through the server, and its
+  # app-id is "footclient" (see app-id below), which window rules match on.
   footclient = lib.getExe' pkgs.foot "footclient";
 in {
   home.sessionVariables = {

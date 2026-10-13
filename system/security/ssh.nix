@@ -8,26 +8,17 @@
 }: let
   internalNetworks = import ../../lib/internal-networks.nix {inherit lib;};
 
-  # nixpkgs writes two `Include` lines into ssh_config, one pointing into the
-  # libvirt store path and one into systemd's. OpenSSH refuses to read a config
-  # file owned by neither root nor the invoking user, and inside a user
-  # namespace - which is where the DeepSeek Harness sandbox runs every command -
-  # the host's uid 0 is not mapped, so those root-owned store files appear to be
-  # owned by `nobody` and every ssh invocation dies before it connects:
+  # nixpkgs writes two `Include` lines into ssh_config (libvirt's and systemd's).
+  # OpenSSH refuses a config file owned by neither root nor the invoking user, and
+  # inside a user namespace - where the DeepSeek Harness sandbox runs every
+  # command - the host's uid 0 is unmapped, so those store files appear owned by
+  # `nobody` and every ssh invocation dies with "Bad owner or permissions".
   #
-  #   Bad owner or permissions on
-  #     /nix/store/...-libvirt-.../etc/ssh/ssh_config.d/30-libvirt-ssh-proxy.conf
-  #
-  # Both fragments are short and self-contained (neither has Includes of its
-  # own), so their text is emitted inline instead of being Included by path. The
-  # directives are identical; they just arrive as part of a file OpenSSH does
-  # not ownership-check, which makes ssh work the same in and out of a
-  # namespace. Keeping the settings rather than dropping them matters: the
-  # libvirt fragment is what makes `ssh qemu:///system/<vm>` reach a guest, and
-  # systemd's is what makes `.host`, `machine/*` and `unix/*` resolve.
-  #
-  # Both readFiles are lazy, so on a host without virtualisation the libvirt
-  # fragment is never evaluated and libvirt stays out of that host's closure.
+  # Both fragments are short and self-contained, so their text is emitted inline
+  # instead; keeping the settings matters, because libvirt's is what makes
+  # `ssh qemu:///system/<vm>` reach a guest and systemd's resolves `.host`,
+  # `machine/*` and `unix/*`. Both readFiles are lazy, so a host without
+  # virtualisation never evaluates the libvirt one and keeps it out of closure.
   libvirtSshProxy = builtins.readFile "${config.virtualisation.libvirtd.package}/etc/ssh/ssh_config.d/30-libvirt-ssh-proxy.conf";
   systemdSshProxy = builtins.readFile "${config.systemd.package}/lib/systemd/ssh_config.d/20-systemd-ssh-proxy.conf";
 in {
@@ -51,11 +42,10 @@ in {
         enable = true;
         startWhenNeeded = true;
 
-        # The module's default would open port 22 on every interface. The router
-        # does not forward it today, but a router configuration change or a stray
-        # UPnP request should not be able to put an SSH daemon on the internet:
-        # the rules below open it to the local network and the Tailscale mesh
-        # only, which is also how this host is meant to be reached from outside.
+        # The default opens port 22 on every interface. The router does not
+        # forward it today, but a router change or a stray UPnP request should not
+        # be able to expose sshd: the rules below open it to the LAN and the
+        # Tailscale mesh only, which is how this host is reached from outside.
         openFirewall = false;
 
         settings = {
@@ -75,10 +65,9 @@ in {
         };
       };
 
-      # SSH from the local network, plus anything arriving over Tailscale, which
-      # the interface rule covers for both address families. Together with
-      # `openFirewall = false` above that makes port 22 unreachable from the
-      # internet.
+      # SSH from the local network, plus anything over Tailscale (the interface
+      # rule covers both families). With `openFirewall = false` above, port 22 is
+      # unreachable from the internet.
       networking.firewall.interfaces."tailscale0".allowedTCPPorts = [22];
       networking.firewall.extraCommands = internalNetworks.localOnly {
         tcp = ["22"];

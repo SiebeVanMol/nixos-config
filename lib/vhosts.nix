@@ -11,10 +11,9 @@
 }: rec {
   internalNetworks = import ./internal-networks.nix {inherit lib;};
 
-  # Where a vhost sends its traffic. A service on the host leaves `host` unset
-  # and lands on loopback; one confined to a VPN namespace sets `host` to the
-  # namespace's veth address, because locally generated traffic never traverses
-  # PREROUTING and so cannot reach a forwarded loopback port.
+  # Where a vhost sends its traffic: unset lands on loopback, while a service in
+  # a VPN namespace sets the namespace's veth address, because locally generated
+  # traffic never traverses PREROUTING and cannot reach a forwarded loopback port.
   upstream = site: let
     host =
       if site.host != null
@@ -31,13 +30,11 @@
 
   # LAN vhost: the same proxy, but only for clients that are really inside.
   #
-  # Ports 80 and 443 are forwarded from the internet - that is how the public
-  # vhosts obtain their certificates - and Caddy chooses a vhost from the Host
-  # header alone. Unprotected, `curl -H 'Host: flaresolverr.lan' http://<public
-  # ip>/v1` from anywhere in the world reaches FlareSolverr, and the same trick
-  # reaches every admin UI. The remote_ip matcher keeps all *.lan vhosts to the
-  # local network and the Tailscale mesh; anything else is refused before it
-  # reaches a service.
+  # Ports 80/443 are forwarded from the internet - that is how the public vhosts
+  # get certificates - and Caddy picks a vhost from the Host header alone, so
+  # unprotected `curl -H 'Host: flaresolverr.lan' http://<public ip>/v1` reaches
+  # it from anywhere. remote_ip keeps all *.lan vhosts to the local network and
+  # the Tailscale mesh; anything else is refused before reaching a service.
   mkLanVhost = site: {
     name = "http://${site.name}.lan";
     value.extraConfig = ''
