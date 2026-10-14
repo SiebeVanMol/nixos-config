@@ -33,8 +33,9 @@
   library = "${vault}/Media";
 
   # Filesystems the report watches: every btrfs mount, since those hold data
-  # rather than firmware.
-  mounts = lib.attrNames (lib.filterAttrs (_: f: (f.fsType or "") == "btrfs") config.fileSystems);
+  # rather than firmware. One entry per backing device, so /home and /nix - two
+  # subvolumes of one device - do not produce two identical capacity lines.
+  mounts = import ../../lib/btrfs-mounts.nix {inherit lib;} config.fileSystems;
 
   # Generations kept for rollback. Five gives days of "that update broke
   # something, boot the previous one" without pinning months of old packages.

@@ -49,6 +49,15 @@
 
   powerManagement.cpuFreqGovernor = "performance";
 
+  # Nix builds get their own private, capped tmpfs. systemd creates it when the
+  # daemon starts, tears it down with the daemon, and the rest of the system
+  # never sees it. Build scratch is the one genuinely unbounded /tmp consumer on
+  # this machine, so this keeps it out of the btrfs pool that /home shares with
+  # /nix, and turns a runaway build into a failed build (ENOSPC) rather than an
+  # OOM kill - there is no swap here. 16 GiB against 62 GiB of RAM; raise it if
+  # a large build hits ENOSPC.
+  systemd.services.nix-daemon.serviceConfig.TemporaryFileSystem = ["/tmp:size=16G,mode=1777"];
+
   time.timeZone = "Europe/Brussels";
 
   system.stateVersion = "25.05";

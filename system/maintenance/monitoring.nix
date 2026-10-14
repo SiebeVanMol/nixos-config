@@ -23,10 +23,11 @@
 }: let
   # Every filesystem declared as btrfs is checked; that is where all the data
   # lives (/Vault, /home, /nix, /). FAT /boot is deliberately not watched, as
-  # its constant high usage is normal and only adds noise.
-  btrfsMounts =
-    lib.mapAttrsToList (mountPoint: _: mountPoint)
-    (lib.filterAttrs (_: fs: (fs.fsType or "") == "btrfs") config.fileSystems);
+  # its constant high usage is normal and only adds noise. Each backing device
+  # is checked once even when it is mounted at several points: /home and /nix
+  # are subvolumes of the same 990 PRO, so capacity and `btrfs device stats`
+  # would otherwise be reported twice.
+  btrfsMounts = import ../../lib/btrfs-mounts.nix {inherit lib;} config.fileSystems;
 
   mountsArg = lib.concatStringsSep " " (map lib.escapeShellArg btrfsMounts);
 

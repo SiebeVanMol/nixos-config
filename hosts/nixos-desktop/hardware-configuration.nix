@@ -23,8 +23,9 @@
   };
 
   fileSystems."/nix" = {
-    device = "/dev/disk/by-uuid/eebd6d88-08aa-48fe-9307-a1e9a122e1a0";
+    device = "/dev/disk/by-uuid/b78dca76-0b68-4373-98b0-ec5f9c8f08f9";
     fsType = "btrfs";
+    options = ["subvol=@nix" "noatime"];
   };
 
   fileSystems."/boot" = {
@@ -36,6 +37,32 @@
   fileSystems."/home" = {
     device = "/dev/disk/by-uuid/b78dca76-0b68-4373-98b0-ec5f9c8f08f9";
     fsType = "btrfs";
+  };
+
+  fileSystems."/tmp" = {
+    device = "/dev/disk/by-uuid/b78dca76-0b68-4373-98b0-ec5f9c8f08f9";
+    fsType = "btrfs";
+    options = ["subvol=@tmp" "noatime"];
+  };
+
+  fileSystems."/var/tmp" = {
+    device = "/dev/disk/by-uuid/b78dca76-0b68-4373-98b0-ec5f9c8f08f9";
+    fsType = "btrfs";
+    options = ["subvol=@var-tmp" "noatime"];
+  };
+
+  # Jellyfin's cache - transcode scratch and segments - is the last write-heavy
+  # path that was on the 32 GiB root filesystem, where a few concurrent 4K
+  # transcodes could fill the filesystem the machine is running from. Its
+  # encoding.xml pins TranscodingTempPath to /var/cache/jellyfin/transcodes, so
+  # mounting a subvolume here relocates the scratch without editing that file,
+  # while the jellyfin module's RequiresMountsFor keeps the service ordered
+  # after it. Jellyfin is enabled only on this host; the subvolume is created by
+  # migrate-jellyfin-cache.sh.
+  fileSystems."/var/cache/jellyfin" = {
+    device = "/dev/disk/by-uuid/b78dca76-0b68-4373-98b0-ec5f9c8f08f9";
+    fsType = "btrfs";
+    options = ["subvol=@jellyfin-cache" "noatime"];
   };
 
   fileSystems."/Vault" = {

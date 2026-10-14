@@ -23,6 +23,20 @@
       group = "users";
     };
 
+    # Deliberately NOT setting services.jellyfin.forceEncodingConfig. The
+    # module's generated encoding.xml covers only about 19 of the ~45 elements
+    # the server writes, so enabling it would replace the working file and
+    # silently drop TranscodingTempPath, the tone-mapping algorithm/mode/range,
+    # EncoderPreset, the deinterlace method and the segment/seek timings.
+    # Transcoding is tuned through the dashboard instead, and encoding.xml is
+    # captured by the restic backup below (backup.statePaths contains
+    # /var/lib/jellyfin/config), which is what makes that tolerable.
+    #
+    # Jellyfin's cache - including the transcode scratch that encoding.xml pins
+    # to /var/cache/jellyfin/transcodes - is mounted from the 990 PRO rather
+    # than left on the root filesystem; see that entry in the nixos-desktop
+    # hardware configuration.
+
     # The whole media tree, because Jellyfin presents all of it (films, shows,
     # books, manga, music) and writes metadata and images beside the files.
     systemd.services.jellyfin.serviceConfig = media.vaultRw [media.mediaRoot];
