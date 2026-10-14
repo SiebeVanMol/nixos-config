@@ -33,7 +33,7 @@
       gamemode.enable = true;
       jellyfin.enable = true;
       music.enable = true;
-      minecraft.enable = true;
+      minecraft.enable = false;
       virtualization.enable = true;
     };
     wm.hyprland.enable = true;
