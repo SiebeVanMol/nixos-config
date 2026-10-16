@@ -16,7 +16,9 @@ nix run "$ROOT#formatter.x86_64-linux" -- --check "$ROOT"
 
 echo ""
 echo "=== flake check ==="
-nix flake check --no-build --print-build-logs
+# Without --no-build: the flake's checks are the Python lint and the formatter,
+# and `--no-build` only evaluated them, so a lint failure never surfaced here.
+nix flake check --print-build-logs
 
 echo ""
 echo "=== eval check: all hosts ==="

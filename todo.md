@@ -11,32 +11,7 @@ syntax-checked the Python it touched. It could not rebuild or switch anything
 **read-verified, not measured**: re-check the named lines before acting, and
 treat every "after the change" claim as something to test.
 
-## 1. The *arr UIs hand out their API keys to anyone on the LAN
-
-`initialize.json` answers an unauthenticated request with the application's own
-API key, and Caddy is the one asking: through a `*.lan` vhost the request arrives
-from 127.0.0.1, which the *arr apps count as local. Verified from a shell with no
-credentials at all:
-
-    curl -H 'Host: sonarr.lan' http://127.0.0.1/initialize.json   -> 200, apiKey present
-
-and the same for radarr, lidarr, prowlarr and bazarr (`/api/*` correctly answers
-401; it is the UI bootstrap that hands the key over). `web-jails.nix:1-5` assumes
-these applications "have their own lockout" - true only once authentication is
-enabled, and the default, `DisabledForLocalAddresses`, is not. The guard in
-`lib/vhosts.nix:31-49` keeps the internet out but counts the LAN and the Tailscale
-mesh as inside, so any peer there gets full admin on the acquisition stack plus
-the keys themselves.
-
-Fix: enable Forms authentication with "Enabled" for *all* addresses (not
-"external", which still trusts a request that looks local) in all five. The
-password belongs in a runtime secret, generated at activation the way
-`backup.nix` generates the restic one; the *arr scripts are unaffected either
-way, because they authenticate with the API key rather than the UI login.
-`servarr-sync.py` could converge `/api/<v>/config/host` the same way it converges
-everything else.
-
-## 2. Fork nixpkgs' seerr instead of copying it
+## 1. Fork nixpkgs' seerr instead of copying it
 
 `overlays/seerrng.nix:14-88` is line-for-line nixpkgs' `seerr` derivation
 (pnpmDeps, preBuild, prune, installPhase, makeWrapper) with only pname, version,
@@ -45,7 +20,7 @@ src, hash and the wrapper bin differing, so upstream recipe fixes never arrive.
 `postInstall` wrapper and inheriting upstream's bump cadence.
 `system/server/media/seerr.nix:28` needs no change.
 
-## 3. Narrow the overlay surface
+## 2. Narrow the overlay surface
 
 `flake.nix:99` applies five third-party overlays to every host, but
 `alex-desktop` never enables jellyfin (`hosts/AlexDesktop/default.nix:25-28`,
@@ -55,7 +30,7 @@ means re-evaluating all three hosts afterwards: any shared module naming
 `flake.nix:31-34` already argues the per-user pattern for agent software, which
 is also how hermes is imported.
 
-## 4. One report-delivery path
+## 3. One report-delivery path
 
 `monitoring.nix:143-145` and `reclaim.nix:146-147` each hand-roll the same
 Discord post: the same `${report:0:1800}` truncation against Discord's
@@ -65,7 +40,7 @@ fix to the cap or the failure handling in one leaves the other wrong. Extract
 one helper (a `lib/` function emitting the shell fragment, or a
 `writeShellApplication` reading the report on stdin).
 
-## 5. Traps in the (currently disabled) Minecraft tree
+## 4. Traps in the (currently disabled) Minecraft tree
 
 No host enables it, so these matter on the day it is re-enabled:
 
@@ -83,7 +58,7 @@ No host enables it, so these matter on the day it is re-enabled:
   placeholders), no generator in the tree, and the pack-bump note at
   `default.nix:14-16` covers only the URL and hash.
 
-## 6. Alex's git identity
+## 5. Alex's git identity
 
 `users/alexander/programs.nix:66-72` sets `git.settings.user` to Snowy Renard /
 snowyrenard@gmail.com, so every commit made on that machine is authored as
@@ -92,7 +67,7 @@ Snowy. It dates from the initial copy of the user directory and survived the
 out from the repo, but nothing says so - and authorship is painful to correct
 after it is pushed.
 
-## 7. Smaller
+## 6. Smaller
 
 - Browser search engines and bookmarks are written out in full in both users'
   modules (`users/snowyrenard/browser.nix:96-291`,
@@ -104,13 +79,6 @@ after it is pushed.
 - `system/hardware/usb-automount.nix:38-48` and `:73-80` each scan
   `/run/user/*/bus` to find logged-in sessions, with only one copy handling the
   `getent` failure.
-- `/etc/soularr/config.ini` is `0640 root:users` and holds the Lidarr and slskd
-  keys in plaintext, and the generator that writes it receives both keys as
-  arguments - so they appear in `/proc/<pid>/cmdline` for the length of the
-  activation. A narrower group plus stdin (or the environment, which only root
-  can read from another process) removes both. The same review is worth doing for
-  `/etc/recyclarr` and `/etc/kavita`, which already use 0600 files under 0700
-  directories.
 - Nothing lints the shell the modules carry (`homepage-env.sh` and friends):
   the flake checks Nix formatting and Python, but no `shellcheck`. They do pass
   `bash -n`, so this is a gap, not a breakage.
@@ -130,7 +98,9 @@ after it is pushed.
 
 ## Notes
 
-- `test.sh` is the repo's single entry point: format check, `nix flake check`,
+- `test.sh` is the repo's single entry point: everything `nix flake check`
+  runs (formatter and Python lint - it builds them rather than only evaluating
+  them, which is what it used to do),
   then evaluation of every host with its hostname assertion. It reads the host
   list from `nixosConfigurations`, so a new host is covered without an edit. The
   eval step forces each host's toplevel derivation, which is what walks unit text
@@ -215,6 +185,25 @@ after it is pushed.
   every user, and Snowy's `dsh` / `services.dsh` configuration. `nix flake lock`
   dropped the input and its three sub-inputs from the lock, and all three hosts
   still evaluate without it.
+- Every media web UI requires a login. `initialize.json` handed the
+  application's API key to anything it counted as local, and behind the proxy
+  that is every LAN and Tailscale request: `servarr-sync` now converges
+  `authenticationMethod = forms` with `authenticationRequired = enabled` (only
+  while that is not already right, and reading the value back afterwards), with
+  the password generated at activation into `/etc/servarr/ui-password` under
+  `lib/arr-apps.nix:uiAuth` - never in the store. Bazarr gets it through its own
+  module's `_secret` mechanism, which hands the unit the password as a systemd
+  credential, because its API has nowhere to put it. The API keys the scripts use
+  are untouched: `X-Api-Key` bypasses the UI login by design.
+  Verified against a fake *arr server, since the real one needs root: the put
+  carries the three fields with the password read from the file, a second run is
+  a no-op, a method set by hand (`basic`) is left alone, an API that ignores the
+  change is reported by the read-back rather than assumed, and a missing password
+  file leaves the UI open and says so.
+- Soularr's two API keys no longer travel as command-line arguments (a root
+  process's environment is readable only by root, its argv by every local user),
+  and its `config.ini` is owned by the service account at 0400 instead of being
+  readable by the whole `users` group.
 - `checks.x86_64-linux.python` lints every `.py` file with the same flake8
   command `pkgs.writers.writePython3Bin` runs during a build. That was the only
   linting any of this got, and it never covered the shared module (delivered by
