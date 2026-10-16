@@ -27,13 +27,11 @@
 
     nix-minecraft.url = "github:Infinidoge/nix-minecraft";
 
-    deepseek-harness.url = "github:moraxyc/deepseek-harness.nix";
-
     # Nous Research's agent harness. Imported per-user (see
-    # users/snowyrenard/hermes.nix), not for every user like deepseek-harness:
-    # it is an agent for one person, whose credentials and memory belong to
-    # that person. nixpkgs follows the top-level input so uv2nix resolves
-    # against the same package set instead of a second pinned copy.
+    # users/snowyrenard/hermes.nix) rather than for every user: it is an agent
+    # for one person, whose credentials and memory belong to that person.
+    # nixpkgs follows the top-level input so uv2nix resolves against the same
+    # package set instead of a second pinned copy.
     hermes-agent = {
       url = "github:NousResearch/hermes-agent";
       inputs = {
@@ -58,7 +56,6 @@
     nur,
     vpn-confinement,
     nix-minecraft,
-    deepseek-harness,
     ...
   }:
   # Build a system configuration for a host with one or more users. `users` is a
@@ -102,8 +99,6 @@
             nixpkgs.overlays = [
               nur.overlays.default
               nix-minecraft.overlay
-              deepseek-harness.overlays.default
-              (import ./overlays/dsh-model-router.nix)
               (import ./overlays/amethyst-mod-manager.nix)
               (import ./overlays/seerrng.nix)
               (import ./overlays/soularr.nix)
@@ -124,7 +119,6 @@
             # One Home Manager configuration per user on this host.
             home-manager.users = nixpkgs.lib.genAttrs users (username: {
               imports = [
-                deepseek-harness.homeModules.default
                 (import ./users/${username}/home.nix)
               ];
             });

@@ -138,50 +138,5 @@
         passfail2
       ];
     };
-
-    dsh = {
-      enable = true;
-      # Declare the web profile so the module materializes it as "nix-web".
-      profiles.web = {
-        bundles =
-          (with pkgs.dsh.bundles; [
-            base
-            web-app
-          ])
-          # @neptune810/dsh-model-router (overlays/dsh-model-router.nix) varies the
-          # DeepSeek thinking level per step and can hold a model pool. Its own
-          # cordis.patch.yml inserts the `model-router` row, so nothing is declared
-          # here for it.
-          ++ [pkgs.dsh-model-router];
-
-        # `mode = "managed"`, so every activation restores cordis.patch.yml and
-        # anything the Settings UI writes at runtime is lost: the rows that matter
-        # (welcome notice, default model) are therefore declared here.
-        patch = [
-          {
-            id = "ui-settings-general";
-            name = "@deepseek-ai/dsh-client-ui-settings-general";
-            config.welcomeNoticeVersion = "2026-09-28.1";
-          }
-          {
-            id = "agent-default-model";
-            name = "@deepseek-ai/dsh-agent-default-model";
-            config = {
-              provider = "deepseek-official";
-              model = "deepseek-flash";
-              reasoningEffort = "high";
-            };
-          }
-        ];
-      };
-    };
-  };
-
-  services.dsh = {
-    enable = true;
-    # No explicit `package`: the module default composes the served profile's
-    # bundles (including the third-party one above) into the unit's dsh. Pinning
-    # `pkgs.dsh.dsh` here would bypass that composition and the plugin would be
-    # in the profile's package.json but absent from the running server.
   };
 }

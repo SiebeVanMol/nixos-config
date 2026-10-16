@@ -20,17 +20,15 @@ src, hash and the wrapper bin differing, so upstream recipe fixes never arrive.
 `postInstall` wrapper and inheriting upstream's bump cadence.
 `system/server/media/seerr.nix:28` needs no change.
 
-## 2. Narrow the overlay and module surface
+## 2. Narrow the overlay surface
 
-`flake.nix:102-111` applies all six third-party overlays to every host, but
+`flake.nix:99` applies five third-party overlays to every host, but
 `alex-desktop` never enables jellyfin (`hosts/AlexDesktop/default.nix:25-28`,
-`system/options.nix:50-52`) and uses none of the media or agent packages.
-`flake.nix:105` + `:129` likewise impose the deepseek-harness overlay and home
-module on every user, though only `users/snowyrenard` uses dsh
-(`programs.nix:172-214`); the comment at `flake.nix:32-33` already argues for
-the per-user pattern hermes uses. Re-evaluate all three hosts after gating:
-any shared module naming `pkgs.seerrng` / `pkgs.dsh-model-router` would fail on a
-host that skips the overlay.
+`system/options.nix:50-52`) and uses none of the media packages. Gating them
+means re-evaluating all three hosts afterwards: any shared module naming
+`pkgs.seerrng` would fail on a host that skips the overlay. The comment at
+`flake.nix:31-34` already argues the per-user pattern for agent software, which
+is also how hermes is imported.
 
 ## 3. One report-delivery path
 
@@ -103,6 +101,10 @@ after it is pushed.
 - `test.sh` is the repo's single entry point: format check, `nix flake check`,
   then evaluation of every host with its hostname assertion. It reads the host
   list from `nixosConfigurations`, so a new host is covered without an edit.
+- Removing a home module does not remove what it left behind: `~/.dsh` still
+  holds the dropped DeepSeek harness's state, and its `dsh-web.service` keeps
+  running until the switch that deletes the unit. State under `$HOME` is the
+  user's to delete.
 - `nix flake check` prints a firefox XDG-path deprecation warning. It comes from
   the third-party zen-browser module's use of home-manager's legacy
   `configPath`, not from anything in this repo.
@@ -172,6 +174,11 @@ after it is pushed.
   module's JSON and its key from config.xml, on the expected path, then reported
   the finding) or against the live stack (`servarr-sweep` reporting
   `unauthorized` for a wrong key and `down` for a dead port).
+- `deepseek-harness` (dsh) is gone: the flake input, its overlay, the
+  `overlays/dsh-model-router.nix` bundle, the home module that was applied to
+  every user, and Snowy's `dsh` / `services.dsh` configuration. `nix flake lock`
+  dropped the input and its three sub-inputs from the lock, and all three hosts
+  still evaluate without it.
 - `checks.x86_64-linux.python` lints every `.py` file with the same flake8
   command `pkgs.writers.writePython3Bin` runs during a build. That was the only
   linting any of this got, and it never covered the shared module (delivered by

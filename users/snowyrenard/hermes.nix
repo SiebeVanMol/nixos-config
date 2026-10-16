@@ -1,7 +1,7 @@
 # Hermes Agent (https://github.com/NousResearch/hermes-agent): Nous Research's
-# agent harness, imported into Snowy's home only. It is deliberately not a
-# shared home module like deepseek-harness: an agent's credentials, memory and
-# sessions belong to one person, so alexander never gets it.
+# agent harness, imported into Snowy's home only. It is deliberately not a shared
+# home module: an agent's credentials, memory and sessions belong to one person,
+# so alexander never gets it.
 #
 # `programs.hermes-agent` is the installation - the `hermes` CLI and the
 # Electron desktop application. `services.hermes-agent` owns HERMES_HOME and the
@@ -43,10 +43,10 @@ in {
     #
     # DeepSeek is a first-class provider: `provider` selects its built-in
     # endpoint (https://api.deepseek.com) and DEEPSEEK_API_KEY is the
-    # credential, so no base_url is needed. deepseek-flash is the model dsh
-    # already runs (see overlays/dsh-model-router.nix); deepseek-v4-pro is the
-    # larger sibling. It stays the default model: the host's local server hands
-    # its VRAM back when idle and this desktop shares the card with games.
+    # credential, so no base_url is needed. deepseek-flash is the cheap agent
+    # model; deepseek-v4-pro is the larger sibling. It stays the default model:
+    # the host's local server hands its VRAM back when idle and this desktop
+    # shares the card with games.
     settings =
       {
         model = {
