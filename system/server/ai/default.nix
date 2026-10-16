@@ -325,23 +325,48 @@ in {
         # belongs, which is a silent failure rather than an error.
         jinja = true;
 
-        "n-gpu-layers" = 999;
+        # Placement is left to llama.cpp's own fit logic instead of pinned, and
+        # that is a measured decision rather than a default: `--fit` only adjusts
+        # arguments left *unset*, so setting `n-gpu-layers` and `cpu-moe`
+        # together is itself what switches it off - which is how this file spent
+        # its first version, holding 3.5 GiB of the card and decoding at 29-31
+        # tok/s. Released on a spare port against the same model, same prompt,
+        # same 128 tokens: 37.9 tok/s decode, 101 tok/s prefill, 13.2 GiB
+        # resident, settling on 41 of 42 layers with CPU tensor overrides for
+        # the remainder.
+        #
+        # The old placement was not wrong, it was conservative in one direction
+        # only: pinning experts to RAM assumes the card has no room for any of
+        # them, so 8.5 GiB sat idle while every expert matmul ran on the CPU.
+        # Fit decides per launch from the VRAM free at that moment, so the
+        # placement tracks what else holds the card instead of assuming a 14 GiB
+        # budget. `cpu-moe` also matched nothing in a dense model, so the 12B
+        # is unaffected either way.
+        #
+        # The cost is that the split is load-order dependent: with
+        # `models-max = 2`, whichever model loads second fits around the first.
+        # The reproducible form is to read the split the first launch chose
+        # (`-v` prints `offloaded N/M layers to GPU`) and pin `n-cpu-moe` to it.
+        "fit" = "on";
 
-        # Expert weights to RAM, everything else on the card. Same placement
-        # Hermes' own runtime picks for a discrete card with a spilled MoE
-        # (local_runtime/context_policy.py, spill_overrides), and the reason
-        # decode stays interactive: a token reads only the experts it routes to.
-        # 21 GiB of weights do not fit in 14 usable GiB, and this placement is
-        # what makes the model usable at all: measured on this host it holds
-        # 3.5 GiB of the card and decodes at 29 tok/s. It matches nothing in a
-        # dense model, so the 12B is unaffected.
-        "cpu-moe" = true;
+        # MiB left free per device while fitting. This desktop shares the card
+        # with games, so this is the dial to raise if a model ever loads too
+        # eagerly - not a return to `cpu-moe`, which gives away the whole card.
+        "fit-target" = 1024;
+
+        # Floor for the context fit may shrink to. Pinned to the configured
+        # window so fit trades layers for VRAM and never window for VRAM: a 32K
+        # agent model is not the model this host serves.
+        "fit-ctx" = cfg.contextSize;
+
         # llama.cpp warns that CPU tensor overrides under mmap cost speed
         # ("consider using --load-mode none"). mmap stays on deliberately: this
         # host has no swap, so the alternative is ~21 GiB of anonymous memory the
         # kernel cannot reclaim, which is what turns desktop memory pressure into
         # an OOM kill. Page cache under the mapping can just be dropped and
         # re-read; if first-token latency ever looks wrong, that is the knob.
+        # Expert tensors reach the CPU through exactly these overrides whenever
+        # fit spills, so the warning appears in the log on every load.
 
         # `contextSize` is the option name; llama-server's flag is --ctx-size, and
         # the module renders each settings key verbatim, so the mapping is explicit
