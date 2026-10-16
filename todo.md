@@ -100,7 +100,11 @@ after it is pushed.
 
 - `test.sh` is the repo's single entry point: format check, `nix flake check`,
   then evaluation of every host with its hostname assertion. It reads the host
-  list from `nixosConfigurations`, so a new host is covered without an edit.
+  list from `nixosConfigurations`, so a new host is covered without an edit. The
+  eval step forces each host's toplevel derivation, which is what walks unit text
+  and service configuration: a shallow attribute check passed while a wrong key
+  under `serviceConfig` reached a real rebuild, and `nix flake check` does not
+  catch that either. Forcing the toplevel is how it was found.
 - Removing a home module does not remove what it left behind: `~/.dsh` still
   holds the dropped DeepSeek harness's state, and its `dsh-web.service` keeps
   running until the switch that deletes the unit. State under `$HOME` is the

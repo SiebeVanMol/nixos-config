@@ -22,7 +22,13 @@ echo ""
 echo "=== eval check: all hosts ==="
 for host in "${HOSTS[@]}"; do
   echo "  eval: $host ..."
-  nix eval "$ROOT#nixosConfigurations.$host.config.system.stateVersion" --raw >/dev/null
+  # Force the *toplevel* derivation: that is what walks the unit text, the
+  # service configuration and everything else a shallow attribute never reaches.
+  # Asking for `system.stateVersion` passed while a wrong key under
+  # serviceConfig reached a real rebuild instead - forcing the same expression
+  # the build forces is the only eval check worth having. `nix flake check` does
+  # not do this either.
+  nix eval "$ROOT#nixosConfigurations.$host.config.system.build.toplevel.drvPath" --raw >/dev/null
 
   hostname="$(nix eval --raw "$ROOT#nixosConfigurations.$host.config.networking.hostName")"
   # Case-insensitive: the attribute is AlexDesktop while that machine's

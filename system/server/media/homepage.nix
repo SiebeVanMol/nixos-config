@@ -71,13 +71,14 @@ in {
       description = "Collect API keys for the Homepage dashboard";
       before = ["homepage-dashboard.service"];
       wantedBy = ["homepage-dashboard.service"];
+      # Which applications to read keys for: the registry's list, so adding one
+      # needs no edit to the collector. Top-level `environment`, as the dashboard
+      # unit above uses: inside serviceConfig this key is not the NixOS option.
+      environment.HOMEPAGE_ARR_APPS = "${arrAppsJSON}";
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
         User = "root";
-        # Which applications to read keys for: the registry's list, so adding one
-        # needs no edit to the collector.
-        environment.HOMEPAGE_ARR_APPS = "${arrAppsJSON}";
         ExecStart = lib.getExe envScript;
         # A oneshot's default start timeout is INFINITE, so anything that hangs
         # here hangs `nixos-rebuild switch` with it. The collector is a few file
