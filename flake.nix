@@ -29,6 +29,19 @@
 
     deepseek-harness.url = "github:moraxyc/deepseek-harness.nix";
 
+    # Nous Research's agent harness. Imported per-user (see
+    # users/snowyrenard/hermes.nix), not for every user like deepseek-harness:
+    # it is an agent for one person, whose credentials and memory belong to
+    # that person. nixpkgs follows the top-level input so uv2nix resolves
+    # against the same package set instead of a second pinned copy.
+    hermes-agent = {
+      url = "github:NousResearch/hermes-agent";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        home-manager.follows = "home-manager";
+      };
+    };
+
     # Fetched over HTTPS rather than SSH: the repository is public, and an input
     # needing a key only builds on a machine whose user has one (alex-desktop does
     # not, so an SSH fetch died before evaluation). `git+https` also speaks the git
