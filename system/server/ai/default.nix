@@ -265,6 +265,13 @@ in {
 
             Plain Q4_K_M, not the UD-Q4_K_XL the 12B takes: none of this is QAT
             weights, so the dynamic quant would buy 70 MB and no accuracy.
+
+            It starts in thinking mode: a request with no reasoning control
+            comes back with the whole budget spent in `reasoning_content` and
+            nothing in the content, which reads as a broken model and is not
+            one. Hermes turns it off on every call (`reasoning_effort: none`,
+            the shape its custom profile projects for a disabled
+            `reasoning_config`); a hand-written request has to say so itself.
           '';
         };
       };
