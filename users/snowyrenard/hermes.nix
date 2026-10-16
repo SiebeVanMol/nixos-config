@@ -17,6 +17,7 @@
   inputs,
   lib,
   osConfig,
+  pkgs,
   ...
 }: let
   # The local server's endpoint, derived from the module that owns the port, so
@@ -36,6 +37,51 @@ in {
   services.hermes-agent = {
     enable = true;
     gateway.enable = true;
+
+    # What the agent's shell can reach. The module builds every Hermes
+    # process's PATH as [hermes bash coreutils git] ++ extraPackages, and the
+    # LSP layer resolves language-server binaries on that same PATH, so a tool
+    # named here reaches the terminal tool, execute_code, and the semantic
+    # diagnostics the agent reads back after each edit.
+    #
+    # This is the toolbox for the languages in ~/Documents/Programming (Nix,
+    # Rust, C and C++, Python), not a second copy of the interactive shell:
+    # extraPackages is a PATH, so nothing from a dotfile, ~/.cargo/bin or a
+    # dev shell is visible here. rustup is the case in point - its toolchains
+    # live in ~/.cargo/bin, which no Hermes process has on PATH, so Rust gets
+    # nixpkgs rustc and cargo instead. Those pair with the nixpkgs
+    # rust-analyzer, which needs cargo on PATH to load a workspace at all.
+    #
+    # The servers are the language half. shellcheck is not optional there: it
+    # is the backend bash-language-server delegates to, and without it that
+    # server spawns and reports nothing, which reads exactly like a clean file.
+    # bear is the same kind of dependency for the C projects - clangd reads a
+    # compile_commands.json, and a bare Makefile does not produce one.
+    extraPackages = with pkgs; [
+      # Nix - the language this repository is written in
+      nixd
+      nix # ./test.sh opens with `nix run`
+
+      # Rust
+      rust-analyzer
+      rustc
+      cargo
+
+      # C and C++
+      clang-tools # clangd
+      gcc
+      gnumake
+      cmake
+      bear # compile_commands.json for the Makefile-based projects
+      valgrind
+      norminette # the 42 school projects under Documents/Programming/CC
+
+      # Python
+      (python3.withPackages (ps: [ps.mypy ps.flake8]))
+
+      # Shell
+      shellcheck
+    ];
 
     # One `settings` attribute, not two: an attribute set literal cannot repeat a
     # key, and the local wiring is conditional, so the two halves are joined here
