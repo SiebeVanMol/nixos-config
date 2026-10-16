@@ -145,13 +145,23 @@ in {
 
     maxResidentModels = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 1;
+      default = 2;
       description = ''
         How many models may be loaded at once. 1 keeps the card for whichever
         model is in use, so switching is a load and an unload. 2 is measured to
         fit only barely here: the 12B holds 8.2 GiB above the desktop's own
         ~1.9 GiB and the agent model another 3.5 GiB, i.e. ~13.6 GiB of the
-        14.27 GiB free, leaving nothing for a browser. 1 stays the default.
+        14.27 GiB free, leaving nothing for a browser. 1 stayed the default
+        while there were two models.
+
+        With three it is 2, and `tiny` is the reason: Hermes asks that model for
+        a session title at the start of every session, and at models-max 1 the
+        request would unload whichever chat model was resident - a title costing
+        a 75 s reload of the agent model on the next turn. The pairs that happen
+        in practice fit: tiny with the agent model is ~6.5 GiB, tiny with the
+        12B ~11.2 GiB. The pair that does not fit is the 12B and the agent model
+        together, which now takes loading both within the fifteen-minute idle
+        window - set this back to 1 to forbid that and accept the reload.
       '';
     };
 
@@ -230,6 +240,31 @@ in {
             measured ~157 t/s on that model, against ~39 t/s for a 12B on a
             smaller one): the MoE trade is that compute drops to 4B active while
             all 26B parameters still have to be in memory to keep routing fast.
+          '';
+        };
+
+        tiny = {
+          repo = "unsloth/gemma-4-E2B-it-GGUF";
+          revision = "0314792d7f1f7e229411f620751375812bb9faf2";
+          file = "gemma-4-E2B-it-Q4_K_M.gguf";
+          note = ''
+            The title model: the smallest of the family the other two come from,
+            for the one job that needs no more than this - Hermes asks for a
+            3-7 word JSON title once per session.
+
+            3.11 GB of weights, against 6.72 GB for the 12B that held this slot
+            before. Replacing the 12B is the point: it was loaded at the start of
+            every session and held ~10 GiB of the card for the next fifteen
+            minutes, after a ~23 s cold load off /Vault, to emit five tokens.
+
+            E2B is the family floor (E2B < E4B < 12B < 26B < 31B), so this is
+            the smallest gemma-4 rather than an older small line: 1B-class models
+            a generation back start at 0.81 GB (gemma-3-1b-it), and holding a
+            JSON contract this simple is exactly where a 1B gives way, which
+            Hermes answers by keeping its own derived title instead.
+
+            Plain Q4_K_M, not the UD-Q4_K_XL the 12B takes: none of this is QAT
+            weights, so the dynamic quant would buy 70 MB and no accuracy.
           '';
         };
       };

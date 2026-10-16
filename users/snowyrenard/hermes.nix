@@ -221,21 +221,16 @@ in {
             model = osConfig.device.app.ai.modelIds.agent;
           };
 
+          # Titles are a 3-7 word task, so they go to the smallest model the
+          # router serves - the one `tiny` exists for. The size is the point:
+          # this call fires at the start of every session, and against the 12B
+          # it meant a 6.72 GB weight load and ~10 GiB of the card held for the
+          # next fifteen minutes, to emit five tokens. Hermes' instant derived
+          # title stays the fallback when the small model returns nothing
+          # usable, so a bad title costs a worse title and not a failure.
           title_generation = {
-            # Off, and not merely smaller. Titling is a 3-7 word task and the
-            # opener already says it, so the instant derived title (the first
-            # 48 characters of that message, written before any call) is kept
-            # instead. A model call here would load the 12B at the start of
-            # every session - 6.7 GB on disk, 10 GiB of the card resident for
-            # the next 15 minutes, ~23 s cold - to emit five tokens; on the
-            # cloud it is a fraction of a cent but still a call nobody reads.
-            #
-            # The upgrade is worth turning back on only against a model small
-            # enough for the task: a 1-3B served by the router would be one
-            # entry in device.app.ai.models plus a llama-fetch, and roughly
-            # 1-2 GB of card instead of 10. `prefer_fast_model = true` with the
-            # cloud provider is the one-line alternative.
-            model_upgrade_enabled = false;
+            provider = "llamacpp";
+            model = osConfig.device.app.ai.modelIds.tiny;
           };
         };
       };
