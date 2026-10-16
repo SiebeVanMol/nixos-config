@@ -97,7 +97,7 @@ def window_rows(con: sqlite3.Connection, start: float, end: float) -> list[sqlit
             """select session_id, model, billing_provider, billing_base_url, task,
                       api_call_count, input_tokens, output_tokens, cache_read_tokens,
                       cache_write_tokens, reasoning_tokens, estimated_cost_usd,
-                      actual_cost_usd, cost_status, cost_source, first_seen, last_seen
+                      actual_cost_usd, first_seen, last_seen
                  from session_model_usage
                 where last_seen >= ? and last_seen < ?""",
             (start, end),
@@ -116,6 +116,10 @@ def totals(rows: list[sqlite3.Row]) -> dict:
         out["cache_write"] += r["cache_write_tokens"] or 0
         out["reasoning"] += r["reasoning_tokens"] or 0
         out["cost"] += r["estimated_cost_usd"] or 0.0
+        # Kept because a provider that reports its own charge would make the
+        # estimate a floor rather than the figure; the report prints the two side
+        # by side when this is non-zero.
+        out["actual_cost"] += r["actual_cost_usd"] or 0.0
         sessions.add(r["session_id"])
     out["sessions"] = len(sessions)
     return out
@@ -241,6 +245,11 @@ def main() -> int:
     print(f"  output tokens      {human(t['output']):>8}   (prev {human(p['output'])})")
     print(f"  cache read tokens  {human(t['cache_read']):>8}   (prev {human(p['cache_read'])})")
     print(f"  estimated cost     {money(t['cost']):>10}   (prev {money(p['cost'])})")
+    if t["actual_cost"]:
+        print(
+            f"  provider-reported  {money(t['actual_cost']):>10}   "
+            f"(estimated {money(t['cost'])}, difference {money(t['actual_cost'] - t['cost'])})"
+        )
     if p["cost"]:
         change = 100 * (t["cost"] - p["cost"]) / p["cost"]
         print(f"  cost change        {change:+.0f}%")
@@ -248,12 +257,12 @@ def main() -> int:
         print("  cost change        n/a (no earlier data in the DB)")
 
     total_in = t["input"] + t["cache_read"]
+    # The two figures need different inputs, so they get different guards: the
+    # cache-hit rate needs only prompt volume, which a week of calls always has,
+    # while the reasoning share needs output tokens.
+    if total_in:
+        print(f"\n  cache-hit rate     {100 * t['cache_read'] / total_in:.1f}% of prompt volume")
     if t["output"]:
-        print(
-            f"\n  cache-hit rate     {100 * t['cache_read'] / total_in:.1f}% of prompt volume"
-            if total_in
-            else ""
-        )
         print(f"  reasoning share    {100 * t['reasoning'] / t['output']:.0f}% of output tokens")
 
     # ── where it went ──────────────────────────────────────────────────────────
@@ -288,7 +297,7 @@ def main() -> int:
     print("\n## most expensive sessions")
     for sid, cost in sorted(session_cost.items(), key=lambda kv: -kv[1])[:5]:
         meta = con.execute(
-            "select title, model, message_count, tool_call_count, started_at, archived from sessions where id=?",
+            "select title, model, message_count, tool_call_count, started_at from sessions where id=?",
             (sid,),
         ).fetchone()
         title = (meta["title"] if meta and meta["title"] else sid[:14] + "...")

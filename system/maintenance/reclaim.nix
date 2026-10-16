@@ -23,14 +23,18 @@
 {
   config,
   lib,
+  media,
   pkgs,
   ...
 }: let
-  vault = "/Vault";
+  # Every /Vault path this module names comes from the shared layout in
+  # lib/media.nix, which the flake hands to each module as `media`, so a library
+  # move is one edit there rather than a hunt through the files mentioning it.
+  inherit (media) downloads mediaRoot musicIncomplete vault;
   # The single media tree Jellyfin, Navidrome and Kavita all serve. It holds
   # the download staging directories too, so the report covers arrivals as
   # well as the library.
-  library = "${vault}/Media";
+  library = mediaRoot;
 
   # Filesystems the report watches: every btrfs mount, since those hold data
   # rather than firmware. One entry per backing device, so /home and /nix - two
@@ -125,7 +129,10 @@
               [ -e "$profile" ] && generations=$((generations + 1))
             done
             findings+=("system generations: ''${generations}; all but the newest ${toString keepGenerations} are pruned monthly")
-            fragmented="$(du -x -sm ${vault}/Downloads/.incomplete /var/lib/transmission/.incomplete 2>/dev/null | awk '{t+=$1} END {printf "%.1f", t/1024}')"
+            # Every incomplete tree the tmpfiles rules below sweep has to be
+            # counted here too - a tree named in one place and not the other is
+            # how this figure came to exclude Soulseek's staging directory.
+            fragmented="$(du -x -sm ${downloads}/.incomplete ${musicIncomplete} /var/lib/transmission/.incomplete 2>/dev/null | awk '{t+=$1} END {printf "%.1f", t/1024}')"
             findings+=("unfinished download fragments: ''${fragmented:-0} GB; those older than 90 days are removed")
             findings+=("$(btrfs filesystem usage ${vault} 2>/dev/null | grep -E 'Free \(estimated\)' | sed 's/^ *//')")
 
@@ -165,10 +172,10 @@ in {
     # months is long enough that no healthy transfer is still behind it; if
     # Transmission does still track one, its next check fails that torrent and
     # the *arr apps' removeFailedDownloads setting clears it away.
-    "e ${vault}/Downloads/.incomplete - - - 90d"
+    "e ${downloads}/.incomplete - - - 90d"
     # Soulseek's incomplete tree, same reasoning and same age as the downloads
     # above: slskd is the other client that parks partial files on /Vault.
-    "e ${vault}/Media/.incomplete - - - 90d"
+    "e ${musicIncomplete} - - - 90d"
     "e /var/lib/transmission/.incomplete - - - 90d"
     # Crash dumps are diagnostic debris, not records: a week is long enough to
     # notice one and read it, and pure disk otherwise.

@@ -118,8 +118,9 @@ in {
       default = 8080;
       description = ''
         Port on loopback. 8080 is llama-server's own default and the single port
-        Hermes probes for a server it did not start, so changing it means also
-        changing providers.llamacpp.base_url in users/snowyrenard/hermes.nix.
+        Hermes probes for a server it did not start. Everything that talks to
+        this server derives its URL from this option, so raising it is a change
+        here alone.
       '';
     };
 

@@ -18,7 +18,12 @@
   lib,
   osConfig,
   ...
-}: {
+}: let
+  # The local server's endpoint, derived from the module that owns the port, so
+  # raising device.app.ai.port moves every client with it. Reading the model ids
+  # from that same option tree is the same rule applied to the names below.
+  aiEndpoint = "http://127.0.0.1:${toString osConfig.device.app.ai.port}/v1";
+in {
   imports = [
     inputs.hermes-agent.homeManagerModules.default
   ];
@@ -115,7 +120,7 @@
       # Gated on the service, so a host without it gets neither the aliases nor
       # an endpoint pointing at a port nothing serves.
       // lib.optionalAttrs osConfig.device.app.ai.enable {
-        providers.llamacpp.base_url = "http://127.0.0.1:8080/v1";
+        providers.llamacpp.base_url = aiEndpoint;
 
         # Self-contained (provider + base_url, no credential): an alias is
         # resolved before any provider is contacted, so selecting one must not
@@ -133,14 +138,14 @@
           local = {
             model = osConfig.device.app.ai.modelIds.agent;
             provider = "custom";
-            base_url = "http://127.0.0.1:8080/v1";
+            base_url = aiEndpoint;
           };
 
           # The 12B dense one: a question, a page to summarise, a screenshot.
           small = {
             model = osConfig.device.app.ai.modelIds.quick;
             provider = "custom";
-            base_url = "http://127.0.0.1:8080/v1";
+            base_url = aiEndpoint;
           };
         };
       };
