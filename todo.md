@@ -96,6 +96,17 @@ after it is pushed.
   on the live instance once, then keep the per-series call only for the
   `episode` mode.
 
+## 7. The *arr apps accept any Host header
+
+`radarr reports warning: Allowed Hosts is not configured` - the daily health check
+prints it on every run. The same `config/host` PUT that converged the web-UI login
+carries this too (`allowedHosts` is one more field beside `authenticationMethod`),
+so the fix is a dozen lines in `servarr-sync`. Measured, not inferred: the exposure
+is bounded by the proxy, which only answers site addresses it knows, so this is
+DNS-rebinding hardening rather than the key disclosure the login fix closed - which
+is why it is written here instead of being folded into that work. Check whether the
+other three applications report it before writing the convergence.
+
 ## Notes
 
 - `test.sh` is the repo's single entry point: everything `nix flake check`
