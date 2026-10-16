@@ -25,7 +25,7 @@ import sqlite3
 import sys
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 HERMES_HOME = os.environ.get("HERMES_HOME") or os.path.expanduser("~/.hermes")
 DB_PATH = os.path.join(HERMES_HOME, "state.db")
@@ -52,13 +52,18 @@ except Exception as exc:  # pragma: no cover - depends on the interpreter
     # dropping the section. The `hermes` wrapper exports HERMES_PYTHON, and the
     # guard variable makes a failed re-exec fall through to the degraded report
     # rather than looping.
-    _hermes_python = os.environ.get("HERMES_PYTHON")
-    if (
-        _hermes_python
-        and os.path.exists(_hermes_python)
-        and os.path.realpath(_hermes_python) != os.path.realpath(sys.executable)
-        and not os.environ.get("HERMES_DIGEST_REEXEC")
-    ):
+    _hermes_python = os.environ.get("HERMES_PYTHON") or ""
+    # Asked through all() rather than a multi-line `and` chain: flake8 as the
+    # writers invoke it rejects an operator that starts a line. `or ""` keeps the
+    # variable a str, so nothing below has to re-check it for None.
+    _another_python = all(
+        [
+            bool(_hermes_python),
+            os.path.exists(_hermes_python),
+            os.path.realpath(_hermes_python) != os.path.realpath(sys.executable),
+        ]
+    )
+    if _another_python and not os.environ.get("HERMES_DIGEST_REEXEC"):
         os.environ["HERMES_DIGEST_REEXEC"] = "1"
         try:
             os.execv(_hermes_python, [_hermes_python, os.path.abspath(__file__), *sys.argv[1:]])

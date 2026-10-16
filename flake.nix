@@ -147,6 +147,22 @@
           alejandra --check .
           touch "$out"
         '';
+
+      # The Python here was only ever linted as a side effect of a build: the
+      # media scripts get it from pkgs.writers.writePython3Bin, which runs
+      # flake8, but that leaves the shared arr_client module (read by
+      # writeTextDir, not linted) and every script no module builds unchecked.
+      # Same command as the writer runs, so a script that passes here cannot
+      # then fail its own build on a style rule.
+      python =
+        pkgs.runCommand "python-lint-check" {
+          nativeBuildInputs = [pkgs.python3Packages.flake8 pkgs.findutils];
+          src = ./.;
+        } ''
+          cd "$src"
+          flake8 --show-source --ignore=E501 $(find . -name '*.py' -not -path './.git/*')
+          touch "$out"
+        '';
     };
 
     # The flake's own helper commands live in lib/flake-packages.nix; this
