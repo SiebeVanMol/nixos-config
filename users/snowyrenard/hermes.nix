@@ -180,6 +180,52 @@ in {
             base_url = aiEndpoint;
           };
         };
+
+        # Scheduled work runs on the local server: it is the traffic that can
+        # wait out a cold load, and per-token price is the whole bill for a job
+        # nobody is waiting on. Resolution at fire time is per-job pin >
+        # cron.model > the main model, so a job that wants the cloud model
+        # keeps its own pin and this default never forces one onto it.
+        #
+        # The 35B rather than the 12B: unattended work has no latency to
+        # protect, and the big one is the lighter of the two in VRAM (5.4 GiB
+        # with its experts in RAM against 10 GiB dense) while being the one
+        # whose tool calls were measured as real.
+        #
+        # `llamacpp` is the provider id, not a second endpoint: it resolves to
+        # custom and takes the base_url from providers.llamacpp above. A cron
+        # job resolves its provider this way - the scheduler has no base_url
+        # field of its own - and `hermes chat --provider llamacpp --model
+        # <quick id>` was run against the live server to prove the pair
+        # resolves and answers with no credential at all.
+        cron = {
+          model = osConfig.device.app.ai.modelIds.agent;
+          model_provider = "llamacpp";
+        };
+
+        # The same reasoning for background work. The fork that files a turn -
+        # memory writes, skill edits - is a routine replay of work the main
+        # model already did, and a session title is cosmetic, so neither pays
+        # for a frontier model. What stays on the cloud is deliberate:
+        # compression blocks the session it is summarising, the approval
+        # classifier decides whether a dangerous command runs, and vision needs
+        # a model that is not served here.
+        auxiliary = {
+          background_review = {
+            provider = "llamacpp";
+            model = osConfig.device.app.ai.modelIds.agent;
+          };
+
+          curator = {
+            provider = "llamacpp";
+            model = osConfig.device.app.ai.modelIds.agent;
+          };
+
+          title_generation = {
+            provider = "llamacpp";
+            model = osConfig.device.app.ai.modelIds.quick;
+          };
+        };
       };
 
     # Secrets travel by runtime path, never as a Nix path literal, which would
