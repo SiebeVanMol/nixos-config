@@ -190,8 +190,10 @@ after it is pushed.
   that is every LAN and Tailscale request: `servarr-sync` now converges
   `authenticationMethod = forms` with `authenticationRequired = enabled` (only
   while that is not already right, and reading the value back afterwards), with
-  the password generated at activation into `/etc/servarr/ui-password` under
-  `lib/arr-apps.nix:uiAuth` - never in the store. Bazarr gets it through its own
+  the password generated at activation into
+  `~/.local/share/servarr/ui-password` under `lib/arr-apps.nix:uiAuth` - never in
+  the store, and owned by the user at 0400 so that reading it needs no root
+  shell while the root-run consumers read it all the same. Bazarr gets it through its own
   module's `_secret` mechanism, which hands the unit the password as a systemd
   credential, because its API has nowhere to put it. The API keys the scripts use
   are untouched: `X-Api-Key` bypasses the UI login by design.

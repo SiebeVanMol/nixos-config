@@ -187,16 +187,23 @@
   appUnits = map (name: "${name}.service") (lib.attrNames apps);
 in {
   config = lib.mkIf config.device.app.jellyfin.enable {
-    # The UI login every application in the stack is given. Generated once, the
-    # way backup.nix generates the restic password, and deliberately not in the
-    # store: a generated password in a world-readable path is no password, and
-    # regenerating it on every switch would lock every browser out.
+    # The UI login every application in the stack is given. Generated once, and
+    # deliberately not in the store: a generated password in a world-readable
+    # path is no password, and regenerating it on every switch would lock every
+    # browser out. Owned by the user so that reading it needs no root shell; the
+    # consumers (the sync, and systemd for Bazarr) run as root and read it
+    # regardless. Alphanumeric only, because it gets typed into a browser.
     system.activationScripts.servarr-ui-password.text = ''
-      if [ ! -s ${arrApps.uiAuth.passwordFile} ]; then
-        ${pkgs.coreutils}/bin/install -d -m 0700 $(dirname ${arrApps.uiAuth.passwordFile})
+      ui_password=${arrApps.uiAuth.passwordFile}
+      if [ ! -s "$ui_password" ]; then
+        ui_dir="$(dirname "$ui_password")"
+        if [ ! -d "$ui_dir" ]; then
+          ${pkgs.coreutils}/bin/install -d -m 0755 -o ${arrApps.uiAuth.username} -g users "$ui_dir"
+        fi
         tmp="$(${pkgs.coreutils}/bin/mktemp)"
-        ${pkgs.coreutils}/bin/head -c 24 /dev/urandom | ${pkgs.coreutils}/bin/base64 --wrap=0 > "$tmp"
-        ${pkgs.coreutils}/bin/install -m 0600 "$tmp" ${arrApps.uiAuth.passwordFile}
+        ${pkgs.coreutils}/bin/head -c 24 /dev/urandom | ${pkgs.coreutils}/bin/base64 --wrap=0 \
+          | ${pkgs.coreutils}/bin/tr -d '/+=' > "$tmp"
+        ${pkgs.coreutils}/bin/install -m 0400 -o ${arrApps.uiAuth.username} -g users "$tmp" "$ui_password"
         ${pkgs.coreutils}/bin/rm -f "$tmp"
       fi
     '';

@@ -65,12 +65,18 @@
   # made to require a login - sync_authentication in servarr-sync.py explains
   # why, and it is not optional: without it the UI hands out the application's
   # API key to anything that looks local. One password, generated at activation
-  # into a root-only file and never stored here, is what every application in
-  # the stack accepts. The API keys the scripts use are a separate credential and
-  # are unaffected by this.
+  # and never stored here, is what every application in the stack accepts. The
+  # API keys the scripts use are a separate credential and are unaffected.
+  #
+  # It lives in the user's own home rather than /etc, owned by that user at 0400:
+  # the applications that need it (the sync, and systemd for Bazarr) run as root
+  # and can read anything, while the owner can read it without sudo - otherwise
+  # the only way to find the login would be a root shell. Nothing else on the
+  # machine can read it, including the media services, which run as their own
+  # accounts.
   uiAuth = {
     username = "snowyrenard";
-    passwordFile = "/etc/servarr/ui-password";
+    passwordFile = "/home/snowyrenard/.local/share/servarr/ui-password";
   };
 
   # What media.mkArr takes: the facts above minus the library extras it has no
