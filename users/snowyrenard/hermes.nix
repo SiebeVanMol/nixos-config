@@ -205,8 +205,8 @@ in {
 
         # The same reasoning for background work. The fork that files a turn -
         # memory writes, skill edits - is a routine replay of work the main
-        # model already did, and a session title is cosmetic, so neither pays
-        # for a frontier model. What stays on the cloud is deliberate:
+        # model already did, so it does not pay for a frontier model; a session
+        # title needs no model at all. What stays on the cloud is deliberate:
         # compression blocks the session it is summarising, the approval
         # classifier decides whether a dangerous command runs, and vision needs
         # a model that is not served here.
@@ -222,8 +222,20 @@ in {
           };
 
           title_generation = {
-            provider = "llamacpp";
-            model = osConfig.device.app.ai.modelIds.quick;
+            # Off, and not merely smaller. Titling is a 3-7 word task and the
+            # opener already says it, so the instant derived title (the first
+            # 48 characters of that message, written before any call) is kept
+            # instead. A model call here would load the 12B at the start of
+            # every session - 6.7 GB on disk, 10 GiB of the card resident for
+            # the next 15 minutes, ~23 s cold - to emit five tokens; on the
+            # cloud it is a fraction of a cent but still a call nobody reads.
+            #
+            # The upgrade is worth turning back on only against a model small
+            # enough for the task: a 1-3B served by the router would be one
+            # entry in device.app.ai.models plus a llama-fetch, and roughly
+            # 1-2 GB of card instead of 10. `prefer_fast_model = true` with the
+            # cloud provider is the one-line alternative.
+            model_upgrade_enabled = false;
           };
         };
       };
