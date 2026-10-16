@@ -141,9 +141,10 @@ in {
       default = 1;
       description = ''
         How many models may be loaded at once. 1 keeps the card for whichever
-        model is in use, so switching is a load and an unload; 2 lets the small
-        model stay hot while the agent model is resident, at the cost of ~7 GiB of
-        VRAM that a game would otherwise have.
+        model is in use, so switching is a load and an unload. 2 is measured to
+        fit only barely here: the 12B holds 8.2 GiB above the desktop's own
+        ~1.9 GiB and the agent model another 3.5 GiB, i.e. ~13.6 GiB of the
+        14.27 GiB free, leaving nothing for a browser. 1 stays the default.
       '';
     };
 
@@ -281,9 +282,10 @@ in {
         # Hermes' own runtime picks for a discrete card with a spilled MoE
         # (local_runtime/context_policy.py, spill_overrides), and the reason
         # decode stays interactive: a token reads only the experts it routes to.
-        # 21 GiB of weights do not fit in 14 usable GiB, but 1.7 GiB of active
-        # experts per token over ~70 GB/s of DDR5 do. It matches nothing in a
-        # dense model, so the small one is unaffected.
+        # 21 GiB of weights do not fit in 14 usable GiB, and this placement is
+        # what makes the model usable at all: measured on this host it holds
+        # 3.5 GiB of the card and decodes at 29 tok/s. It matches nothing in a
+        # dense model, so the 12B is unaffected.
         "cpu-moe" = true;
         # llama.cpp warns that CPU tensor overrides under mmap cost speed
         # ("consider using --load-mode none"). mmap stays on deliberately: this

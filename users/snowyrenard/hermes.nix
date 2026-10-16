@@ -64,12 +64,24 @@
       # one; the port is device.app.ai.port, so change both together.
       #
       # DeepSeek stays the default because the local models are the wrong tool
-      # for anything multi-step. A 12B's wrong tool call costs more than the
-      # round-trip it saves, and the failure is silent - a plausible action on the
-      # wrong file - while the local window is 64K against the cloud model's much
-      # larger one, so long sessions hit compression sooner. `/model small` is for
-      # a question, a page to summarise, a draft; `/model local` for local or
-      # offline work where a 35B is worth 29 tok/s instead of 62.
+      # for anything multi-step: a 12B's wrong tool call costs more than the
+      # round-trip it saves, the failure is silent (a plausible action on the
+      # wrong file), and the local window is 64K against the cloud model's much
+      # larger one, so a long session compresses sooner.
+      #
+      # It is also not the expensive choice at this volume. Recorded usage across
+      # every session so far: 556 calls, 1.20M input tokens, 0.70M output, 74.4M
+      # cache reads - 98% of the prompt volume bills as cache hits, because the
+      # prefix only grows at the end. The estimate for all of it is $0.82, about
+      # $0.0015 a call; the heaviest single session, 193 calls, was $0.33.
+      #
+      # The habit that matters more than the model: switch at a session boundary,
+      # not mid-conversation. A provider's cache is keyed to the model serving the
+      # request, so a mid-session /model change makes the next turn re-read the
+      # whole conversation at cache-miss price - often more than the cloud turn it
+      # was meant to save. `/new` first, then `/model small` for a question, a page
+      # to summarise, a draft; `/model local` for local or offline work where a 35B
+      # is worth 29 tok/s instead of 62.
       #
       # Measured on this host after the two models were fetched: `/model local`
       # decodes at ~29 tok/s holding 5.4 GiB of VRAM (experts in RAM), `/model
@@ -87,6 +99,14 @@
         # resolved before any provider is contacted, so selecting one must not
         # depend on the server being up.
         model_aliases = {
+          # The cloud model under its own short name, so a session can go back to
+          # it in one command without landing on whichever DeepSeek model the
+          # built-in `deepseek` alias happens to resolve to.
+          cloud = {
+            model = "deepseek-flash";
+            provider = "deepseek";
+          };
+
           # The 35B MoE with its experts in RAM: a session that has to think.
           local = {
             model = osConfig.device.app.ai.modelIds.agent;
