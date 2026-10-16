@@ -5,20 +5,33 @@ The template ships in the Soularr package and carries sensible defaults for
 everything except credentials and paths, so it is copied and patched rather than
 reproduced here - the upstream defaults stay in one place.
 
+The two keys arrive through the environment rather than as arguments: a command
+line is readable by every local user out of /proc/<pid>/cmdline, while the
+environment of a root process is readable only by root.
+
 Kept as a real file (not an inline heredoc in the Nix string) because Python is
 indentation-sensitive and Nix's indentation stripping is exactly the wrong tool
 for that: this can be read, run and linted like any other script.
 """
 
 import configparser
+import os
 import sys
 
 
 def main():
-    if len(sys.argv) != 8:
-        sys.exit(f"usage: {sys.argv[0]} <template> <out> <lidarr_url> <slskd_url> <download_dir> <lidarr_key> <slskd_key>")
+    if len(sys.argv) != 6:
+        sys.exit(
+            f"usage: {sys.argv[0]} <template> <out> <lidarr_url> <slskd_url> <download_dir> "
+            "(with LIDARR_API_KEY and SLSKD_API_KEY in the environment)"
+        )
 
-    template, out, lidarr_url, slskd_url, download_dir, lidarr_key, slskd_key = sys.argv[1:]
+    template, out, lidarr_url, slskd_url, download_dir = sys.argv[1:]
+
+    lidarr_key = os.environ.get("LIDARR_API_KEY")
+    slskd_key = os.environ.get("SLSKD_API_KEY")
+    if not lidarr_key or not slskd_key:
+        sys.exit("LIDARR_API_KEY and SLSKD_API_KEY must both be set in the environment")
 
     config = configparser.ConfigParser()
     if not config.read(template):

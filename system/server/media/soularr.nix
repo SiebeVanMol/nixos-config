@@ -39,7 +39,9 @@ in {
     # ever written into the store. `slskd-env` creates the slskd key, so it has
     # to run first.
     system.activationScripts.soularr-config = {
-      deps = ["slskd-env"];
+      # `users` for the ownership below: the file is handed to the service's own
+      # account, so that account has to exist first.
+      deps = ["slskd-env" "users"];
       text = ''
         lidarr_key="$(${arrKey}/bin/arr-api-key /var/lib/lidarr 2>/dev/null || true)"
         slskd_key="$(${pkgs.gnused}/bin/sed -n 's/^SLSKD_API_KEY=//p' \
@@ -49,15 +51,19 @@ in {
         # converge; the next switch fills it in.
         if [ -n "$lidarr_key" ] && [ -n "$slskd_key" ]; then
           ${pkgs.coreutils}/bin/install -d -m 0750 -o root -g users ${configDir}
-          ${writeConfig}/bin/soularr-config \
+          # The keys go in the environment, not the command line: a root
+          # process's environment is readable only by root, while its argv is
+          # readable by every local user (/proc/<pid>/cmdline).
+          LIDARR_API_KEY="$lidarr_key" SLSKD_API_KEY="$slskd_key" \
+            ${writeConfig}/bin/soularr-config \
             ${pkgs.soularr}/share/soularr/config.ini \
             "${configFile}.new" \
             "${lidarrUrl}" \
             "${slskdUrl}" \
-            "${media.musicDownloads}" \
-            "$lidarr_key" \
-            "$slskd_key"
-          ${pkgs.coreutils}/bin/install -m 0640 -o root -g users "${configFile}.new" "${configFile}"
+            "${media.musicDownloads}"
+          # Owned by the service rather than readable by the whole `users`
+          # group, which is every media service and both human accounts.
+          ${pkgs.coreutils}/bin/install -m 0400 -o soularr -g users "${configFile}.new" "${configFile}"
           ${pkgs.coreutils}/bin/rm -f "${configFile}.new"
         fi
       '';
