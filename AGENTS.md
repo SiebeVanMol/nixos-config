@@ -70,3 +70,13 @@ servers and toolchains shared with the shell and the editor, plus what only the
 agent needs. Nothing from a shell profile, a dev shell or `~/.cargo/bin` is on
 it, so a command that works in the user's terminal can still be missing here;
 the fix is a line in that file, not a wrapper script.
+
+Language servers are trust-gated, and a server declared under `lsp.servers`
+always is. nixd, rust-analyzer and csharp-ls therefore start only in a
+workspace the operator pointed Hermes at — a session started inside the
+project, a Desktop project, or the gateway's `terminal.cwd`. A session running
+from the home directory has no such anchor, so those servers stay dormant and
+the log carries `skipped: untrusted workspace`. clangd, pyright and
+bash-language-server are exempt and run anywhere. The committed configuration
+deliberately lists no trusted directory: the gate is the session's workspace,
+not a path allowlist.

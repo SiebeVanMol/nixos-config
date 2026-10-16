@@ -18,6 +18,7 @@
     cmake
     valgrind
     norminette # the 42 school projects
+    dotnet-sdk_8 # Godot's C# projects are net8.0; csharp-ls runs on it
     (python3.withPackages (ps: [ps.mypy ps.flake8]))
   ];
 
@@ -27,6 +28,7 @@
   servers = with pkgs; [
     nixd
     clang-tools # clangd
+    csharp-ls # Hermes ships no C# server; hermes.nix declares this one
   ];
 
   # What only the agent needs, and why the shell must not have it.

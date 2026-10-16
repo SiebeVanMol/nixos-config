@@ -92,6 +92,21 @@ in {
         # sent an effort field: they are reached through a custom base_url, which
         # receives whatever effort resolves, and llama-server has no use for it.
         agent.reasoning_overrides."deepseek-flash" = "low";
+
+        # C# is the one language he works in that Hermes ships no server for.
+        # A config-declared server is gated like nixd and rust-analyzer: it
+        # starts only in a workspace the operator pointed Hermes at - a session
+        # launched inside the project, a Desktop project, or a terminal.cwd
+        # inside it - and the log says `skipped: untrusted workspace` when
+        # there is none. That gate is why no directory list appears here: one
+        # would go stale at the next move and would trust everything cloned
+        # into it. The command resolves on the agent's PATH, which is
+        # programming.nix's list.
+        lsp.servers.csharp = {
+          command = ["csharp-ls"];
+          extensions = [".cs"];
+          language_id = "csharp";
+        };
       }
       # The host runs its own llama-server in router mode (system/server/ai) on
       # loopback:8080, serving two models. Naming the endpoint makes them
