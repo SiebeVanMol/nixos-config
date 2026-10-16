@@ -22,9 +22,9 @@
     (python3.withPackages (ps: [ps.mypy ps.flake8]))
   ];
 
-  # Servers that the editor and the agent both resolve. rust-analyzer is
-  # deliberately not here: the editor already takes it from rustup, so the
-  # agent's copy lives in agentOnly instead of shadowing it.
+  # Servers that the editor and the agent both resolve. rust-analyzer is not
+  # here: rustup provides it, for the editor and the agent alike, so a nixpkgs
+  # copy would only shadow it (and collide with the shim - see agentOnly).
   servers = with pkgs; [
     nixd
     clang-tools # clangd
@@ -35,18 +35,22 @@
   #
   # nix: ./test.sh is this repository's only verification entry point and it
   # opens with `nix run`.
-  # rustc and cargo: a rustup toolchain lives in ~/.cargo/bin, which no Hermes
-  # process has on PATH, and rust-analyzer needs cargo on PATH just to load a
-  # Cargo workspace.
+  # rustup, and nothing beside it that provides the same commands. rust-analyzer
+  # needs cargo on PATH just to load a Cargo workspace, and the shell's rustup is
+  # not on this PATH: that one lives in the profile, which the agent's env is not
+  # built from. The two cannot coexist anyway - extraPackages become
+  # home.packages, whose buildEnv refuses two packages that both install
+  # bin/cargo, and rustup's shims are exactly that (that collision is what failed
+  # a switch, twice: cargo, then rust-analyzer). So the agent resolves rust
+  # through the same rustup the rest of the machine uses, which also means
+  # rust-toolchain.toml is honoured for it.
   # shellcheck: the backend bash-language-server delegates to. Without it the
   # server spawns and reports nothing, which reads exactly like a clean file.
   # bear: writes the compile_commands.json clangd reads, which a bare Makefile
   # never produces.
   agentOnly = with pkgs; [
     nix
-    rustc
-    cargo
-    rust-analyzer
+    rustup
     shellcheck
     bear
   ];

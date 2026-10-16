@@ -107,6 +107,12 @@ after it is pushed.
   and service configuration: a shallow attribute check passed while a wrong key
   under `serviceConfig` reached a real rebuild, and `nix flake check` does not
   catch that either. Forcing the toplevel is how it was found.
+- A `buildEnv` collision is invisible to every check here. `nix flake check`
+  and the per-host eval both passed while a switch failed twice on
+  `home-manager-path` (two packages providing `bin/cargo`, then `bin/rust-analyzer`
+  - rustup ships shims for both). The check that catches it is building the
+  profile itself: `nix build <host>.config.home-manager.users.<user>.home.path`,
+  which is cheap once its inputs are in the store.
 - Removing a home module does not remove what it left behind: `~/.dsh` still
   holds the dropped DeepSeek harness's state, and its `dsh-web.service` keeps
   running until the switch that deletes the unit. State under `$HOME` is the

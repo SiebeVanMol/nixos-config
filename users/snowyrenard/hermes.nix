@@ -50,8 +50,8 @@ in {
     # The lists are in programming.nix rather than here, so the editor and the
     # shell take the same definitions instead of three copies that drift. That
     # file explains each entry: which servers the editor resolves too, which
-    # compilers the shell shares, and why rustc, cargo, nix, shellcheck and
-    # bear are the agent's alone.
+    # compilers the shell shares, and why nix, rustup, rust-analyzer, shellcheck
+    # and bear are the agent's alone.
     extraPackages = programming.servers ++ programming.toolchain ++ programming.agentOnly;
 
     # One `settings` attribute, not two: an attribute set literal cannot repeat a
