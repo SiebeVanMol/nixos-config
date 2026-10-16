@@ -32,11 +32,27 @@
   mountsArg = lib.concatStringsSep " " (map lib.escapeShellArg btrfsMounts);
 
   arrClient = import ../../lib/arr-client.nix {inherit pkgs;};
+  arrApps = import ../../lib/arr-apps.nix {inherit lib;};
+
+  # Which applications the check reports on, from the live registry: the ports
+  # are options, so the script must not carry its own copy of them. Baked into
+  # the wrapper below rather than exported at the call site, because the call
+  # site discards stderr and a missing file would then read as "all clear".
+  arrHealthConfig = pkgs.writeText "arr-health.json" (
+    builtins.toJSON (arrApps.withPorts config.device.media.services)
+  );
 
   # Reports what the *arr services say about themselves; see the script.
   arrHealth = pkgs.writers.writePython3Bin "arr-health" {
     flakeIgnore = ["E501"];
-    makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
+    makeWrapperArgs = [
+      "--set"
+      "PYTHONPATH"
+      "${arrClient}"
+      "--set"
+      "ARR_HEALTH_CONFIG"
+      "${arrHealthConfig}"
+    ];
   } (builtins.readFile ../server/media/arr-health.py);
 
   healthCheck = pkgs.writeShellApplication {

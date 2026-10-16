@@ -4,13 +4,11 @@
   lib,
   media,
   ...
-}: {
-  config = lib.mkIf config.device.app.jellyfin.enable (media.mkArr {
-    name = "radarr";
-    port = 7878;
-    order = 20;
-    description = "Movies";
-    category = "radarr";
-    writePaths = [media.downloads media.movies];
-  });
+}: let
+  arrApps = import ../../../lib/arr-apps.nix {inherit lib;};
+in {
+  config = lib.mkIf config.device.app.jellyfin.enable (media.mkArr (arrApps.mkArrArgs "radarr"
+    // {
+      writePaths = [media.downloads media.movies];
+    }));
 }

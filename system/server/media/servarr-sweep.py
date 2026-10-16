@@ -40,15 +40,9 @@ import time
 
 import arr_client as arr
 
-# Fallbacks for a standalone `nix run`, mirroring the registry in
-# system/server/media. A SERVARR_SWEEP_CONFIG JSON overrides them, which is what
-# the NixOS module would pass if this ever grows a scheduled form.
-DEFAULT_APPS = {
-    "sonarr": {"port": 8989, "dir": "/var/lib/sonarr", "version": "v3"},
-    "radarr": {"port": 7878, "dir": "/var/lib/radarr", "version": "v3"},
-    "lidarr": {"port": 8686, "dir": "/var/lib/lidarr", "version": "v1"},
-}
-
+# The applications to work on come from ARR_APPS, a JSON the build writes from
+# the shared facts (lib/arr-apps.nix). There is no built-in list: that one was a
+# second copy of the ports and state directories.
 PAGE_SIZE = 250
 
 
@@ -74,11 +68,31 @@ def call(port, version, key, path, params=None, body=None, timeout=120, method=N
 
 
 def load_apps():
-    path = os.environ.get("SERVARR_SWEEP_CONFIG")
+    """The applications to work on, each classified against the live API.
+
+    The API version is probed rather than stored: it only says which endpoint
+    prefix the application answers on, and a stored copy goes stale on a major
+    upgrade - at which point the tool reads as broken rather than misconfigured.
+    An application that is down or whose key cannot be read is reported and left
+    out, so the rest of the sweep still runs.
+    """
+    path = os.environ.get("ARR_APPS")
     if not path:
-        return dict(DEFAULT_APPS)
+        sys.exit("servarr-sweep: ARR_APPS is not set - run this through `nix run .#servarr-sweep`")
     with open(path, encoding="utf-8") as handle:
-        return json.load(handle)["apps"]
+        apps = json.load(handle)["apps"]
+    ready = {}
+    for name, spec in apps.items():
+        key = api_key(spec["dir"])
+        if key is None:
+            warn(f"{name}: no API key readable from {spec['dir']} (needs root)")
+            continue
+        version, state = arr.probe_version(spec["port"], key)
+        if version is None:
+            warn(f"{name}: not answering on port {spec['port']} ({state})")
+            continue
+        ready[name] = dict(spec, version=version)
+    return ready
 
 
 def plan_radarr(port, version, key, _args):
@@ -555,7 +569,8 @@ def main():
     wanted = parse_apps(args.app) if args.app else sorted(apps)
     unknown = [n for n in wanted if n not in apps]
     if unknown:
-        sys.exit(f"unknown application(s): {', '.join(unknown)} (known: {', '.join(sorted(apps))})")
+        loaded = ", ".join(sorted(apps)) or "none - see the warnings above"
+        sys.exit(f"no usable application named {', '.join(unknown)} (loaded: {loaded})")
 
     if not args.apply:
         log("DRY RUN - no searches will be sent. Add --apply to do it.")

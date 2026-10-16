@@ -18,6 +18,10 @@
 }: let
   arrClient = import ../../../lib/arr-client.nix {inherit pkgs;};
 
+  # Prowlarr is not built by mkArr (it owns no library), so its state directory
+  # comes from the shared facts instead of being written out again here.
+  arrApps = import ../../../lib/arr-apps.nix {inherit lib;};
+
   # Derived from the registry: each *arr service registers its implementation,
   # state directory and Transmission category, so this no longer duplicates
   # them (or the ports and download directories they imply).
@@ -28,7 +32,7 @@
 
   prowlarr = {
     port = config.device.media.services.prowlarr.port;
-    dir = "/var/lib/prowlarr";
+    dir = arrApps.dirOf "prowlarr";
   };
 
   # Where the library lived before the servers became peers of it rather than

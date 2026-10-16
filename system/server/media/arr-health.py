@@ -17,19 +17,27 @@ PYTHONPATH (lib/arr-client.nix). What stays here is the policy: every API failur
 is swallowed, because a sick *arr must not make the health check look broken.
 """
 
+import json
 import os
 import sys
 
 import arr_client as arr
 
-# Same ports as the `device.media.services` registry (system/server/media/options.nix),
-# minus the services that need no health check of their own.
-APPS = {
-    "sonarr": {"port": 8989, "dir": "/var/lib/sonarr"},
-    "radarr": {"port": 7878, "dir": "/var/lib/radarr"},
-    "lidarr": {"port": 8686, "dir": "/var/lib/lidarr"},
-    "prowlarr": {"port": 9696, "dir": "/var/lib/prowlarr"},
-}
+
+def load_apps():
+    """Which applications to check, and where each of them listens.
+
+    ARR_HEALTH_CONFIG is a JSON written by the module that builds this script,
+    from the live registry - so a host that moved a port is still reported on at
+    the new number. There is deliberately no built-in list: that was a second
+    copy of those ports, and the copy is the thing that goes stale.
+    """
+    path = os.environ.get("ARR_HEALTH_CONFIG")
+    if not path:
+        print("arr-health: ARR_HEALTH_CONFIG is not set - nothing to check", file=sys.stderr)
+        return None
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)["apps"]
 
 
 api_key = arr.api_key
@@ -71,8 +79,11 @@ def health(app, spec):
 
 
 def main():
+    apps = load_apps()
+    if apps is None:
+        return 1
     lines = []
-    for app, spec in sorted(APPS.items()):
+    for app, spec in sorted(apps.items()):
         if not os.path.isdir(spec["dir"]):
             continue
         lines += health(app, spec)

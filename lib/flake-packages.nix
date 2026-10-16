@@ -4,6 +4,12 @@
   # The shared *arr client every media script imports; on PYTHONPATH via the
   # wrapper each writer builds (lib/arr-client.nix explains the mechanism).
   arrClient = import ./arr-client.nix {inherit pkgs;};
+
+  # ...and the shared application facts, as the JSON the scripts read. This is
+  # the one consumer that cannot take them from a host's configuration: these
+  # commands run outside any host. Passed with --set-default, so pointing a run
+  # at a different file still wins.
+  arrAppsJSON = pkgs.writeText "arr-apps.json" (import ./arr-apps.nix {lib = pkgs.lib;}).scriptsJSON;
 in {
   # Run the formatter and then nixos-rebuild, with --flake filled in and sudo
   # added for the subcommands that need it.
@@ -72,7 +78,14 @@ in {
     text = ''
       exec ${pkgs.writers.writePython3Bin "servarr-sweep" {
         flakeIgnore = ["E501"];
-        makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
+        makeWrapperArgs = [
+          "--set"
+          "PYTHONPATH"
+          "${arrClient}"
+          "--set-default"
+          "ARR_APPS"
+          "${arrAppsJSON}"
+        ];
       } (builtins.readFile ../system/server/media/servarr-sweep.py)}/bin/servarr-sweep "$@"
     '';
   };
@@ -94,7 +107,14 @@ in {
       export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.amf]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
       exec ${pkgs.writers.writePython3Bin "media-recode" {
         flakeIgnore = ["E501"];
-        makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
+        makeWrapperArgs = [
+          "--set"
+          "PYTHONPATH"
+          "${arrClient}"
+          "--set-default"
+          "ARR_APPS"
+          "${arrAppsJSON}"
+        ];
       } (builtins.readFile ../system/server/media/media-recode.py)}/bin/media-recode "$@"
     '';
   };

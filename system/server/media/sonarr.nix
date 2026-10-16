@@ -5,16 +5,11 @@
   lib,
   media,
   ...
-}: {
-  config = lib.mkIf config.device.app.jellyfin.enable (media.mkArr {
-    name = "sonarr";
-    port = 8989;
-    order = 10;
-    description = "TV";
-    category = "tv-sonarr";
-    # Sonarr still calls its project NzbDrone, so that is the directory it nests
-    # its config.xml under.
-    projectDir = "NzbDrone";
-    writePaths = [media.downloads media.shows];
-  });
+}: let
+  arrApps = import ../../../lib/arr-apps.nix {inherit lib;};
+in {
+  config = lib.mkIf config.device.app.jellyfin.enable (media.mkArr (arrApps.mkArrArgs "sonarr"
+    // {
+      writePaths = [media.downloads media.shows];
+    }));
 }

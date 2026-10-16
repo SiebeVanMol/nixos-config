@@ -75,24 +75,18 @@ import arr_client as arr
 
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".m4v", ".ts", ".webm", ".mov", ".wmv"}
 
-# Which application owns which kind of library, and how to tell it to look again.
-APPS = {
-    "radarr": {
-        "port": 7878, "dir": "/var/lib/radarr", "version": "v3",
-        "items": "/movie", "path_key": "path", "rescan": "RescanMovie",
-        "ids_key": "movieIds",
-    },
-    "sonarr": {
-        "port": 8989, "dir": "/var/lib/sonarr", "version": "v3",
-        "items": "/series", "path_key": "path", "rescan": "RescanSeries",
-        "ids_key": "seriesIds",
-    },
-    "lidarr": {
-        "port": 8686, "dir": "/var/lib/lidarr", "version": "v1",
-        "items": "/artist", "path_key": "path", "rescan": "RescanArtist",
-        "ids_key": "artistIds",
-    },
-}
+# Which application owns which kind of library comes from ARR_APPS, a JSON the
+# build writes from the shared application facts (lib/arr-apps.nix). It carries
+# no API version on purpose: that literal goes stale on a major upgrade and a
+# stale one reads as "the application is broken", so it is probed instead.
+
+
+def load_apps():
+    path = os.environ.get("ARR_APPS")
+    if not path:
+        sys.exit("media-recode: ARR_APPS is not set - run this through `nix run .#media-recode`")
+    with open(path, encoding="utf-8") as handle:
+        return json.load(handle)["apps"]
 
 
 def log(message):
@@ -274,16 +268,20 @@ def scan(library):
 def load_app_state():
     """Read each application's item list once, to map a file to its owner."""
     state = {}
-    for name, spec in APPS.items():
+    for name, spec in load_apps().items():
         key = api_key(spec["dir"])
         if key is None:
             continue
+        version, app_state = arr.probe_version(spec["port"], key)
+        if version is None:
+            warn(f"{name}: not answering on port {spec['port']} ({app_state})")
+            continue
         try:
-            items = call(spec["port"], spec["version"], key, spec["items"]) or []
+            items = call(spec["port"], version, key, spec["items"]) or []
         except ApiError as error:
             warn(f"{name}: {error}")
             continue
-        state[name] = {"spec": spec, "key": key, "items": items}
+        state[name] = {"spec": dict(spec, version=version), "key": key, "items": items}
     return state
 
 

@@ -11,9 +11,14 @@
 # and Kavita served the same files. Naming every path here keeps a library move
 # from becoming a hunt through a dozen files.
 {lib}: let
-  # "sonarr" -> "Sonarr", for the names the *arr APIs and their directories use.
-  capitalize = s: lib.toUpper (lib.substring 0 1 s) + lib.substring 1 (lib.stringLength s) s;
+  # The *arr application facts live in their own file, because the flake's own
+  # commands need them too and have no host configuration to read
+  # (lib/arr-apps.nix). Only the values more than one consumer wants are there.
+  arrApps = import ./arr-apps.nix {inherit lib;};
 in rec {
+  # "sonarr" -> "Sonarr", for the names the *arr APIs and their directories use.
+  inherit (arrApps) capitalize;
+
   vault = "/Vault";
 
   mediaRoot = "${vault}/Media";
