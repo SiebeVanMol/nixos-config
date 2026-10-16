@@ -53,6 +53,9 @@
     music = {
       enable = lib.mkEnableOption "Navidrome music server with slskd (Soulseek) acquisition";
     };
+    ai = {
+      enable = lib.mkEnableOption "llama.cpp inference server (system/server/ai, sized by device.app.ai.backend)";
+    };
     minecraft = {
       enable = lib.mkEnableOption "Minecraft server";
     };

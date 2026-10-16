@@ -33,6 +33,8 @@
       gamemode.enable = true;
       jellyfin.enable = true;
       music.enable = true;
+      # The local agent model: this host has the GPU for it, the others do not.
+      ai.enable = true;
       minecraft.enable = false;
       virtualization.enable = true;
     };
