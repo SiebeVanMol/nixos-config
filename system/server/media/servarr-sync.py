@@ -687,8 +687,11 @@ def quality_profile_id(port, version, key, name):
     return None
 
 
-def sync_seerr_link(service, spec, key, seerr):
+def sync_seerr_link(service, spec, key, seerr, asserting):
     """Keep one SeerrNG service link able to reach its application.
+
+    Returns True when the link was actually patched, so the caller knows whether
+    the apiKey assertion it authorized was carried out.
 
     Patch-only, deliberately. A link is a whole settings object (import
     directory, quality profile, 4K flag, tag rules, override rules...) and
@@ -714,10 +717,10 @@ def sync_seerr_link(service, spec, key, seerr):
     target = next((entry for entry in entries if entry.get("port") == spec["port"]), None)
     if target is None:
         warn(f"seerr: no {service} instance on port {spec['port']}; add it once in the Seerr UI")
-        return
+        return False
     if target.get("id") is None:
         warn(f"seerr: the {service} instance has no id; skipping it")
-        return
+        return False
 
     desired = {
         "hostname": seerr.get("hostname", "127.0.0.1"),
@@ -745,14 +748,17 @@ def sync_seerr_link(service, spec, key, seerr):
             if name_field:
                 desired[name_field] = wanted
 
-    asserting = not seerr_keys_asserted()
+    # `asserting` is a parameter, not a call made here: the marker it reflects is
+    # per BOOT. Read inside this per-link function, the first link that drifted
+    # set it and the links after it in the same run saw False, so they left their
+    # own key stale until the next boot.
     if asserting:
         desired["apiKey"] = spec["key"]
 
     drifted = [field for field, value in desired.items() if target.get(field) != value]
     if not drifted:
         log(f"seerr: {service} link already correct")
-        return
+        return False
 
     patched = dict(target, **desired)
     # The instance id is read-only to the API - it belongs in the URL, and
@@ -766,9 +772,9 @@ def sync_seerr_link(service, spec, key, seerr):
         patched,
         port=port,
     )
-    if asserting:
-        mark_seerr_keys_asserted()
+    # The key assertion is the caller's to mark, once per boot for every link.
     log(f"seerr: converged {service} link ({', '.join(sorted(drifted))})")
+    return True
 
 
 def sync_seerr(seerr, apps):
@@ -784,6 +790,12 @@ def sync_seerr(seerr, apps):
     if not key:
         warn("seerr: no API key in its settings.json; skipping its service links")
         return
+    # Assert the keys once per boot: read the marker before the loop and write it
+    # after, so every link in this run gets its apiKey pushed. All three apps are
+    # configured, so a marker written by the first drifting link used to leave the
+    # other two unasserted.
+    asserting = not seerr_keys_asserted()
+    converged = False
     for service in seerr.get("services", []):
         spec = apps.get(service)
         if spec is None:
@@ -791,7 +803,10 @@ def sync_seerr(seerr, apps):
             # left over from a removed application, say), so its link is left
             # exactly as it is.
             continue
-        sync_seerr_link(service, spec, key, seerr)
+        converged = sync_seerr_link(service, spec, key, seerr, asserting) or converged
+
+    if asserting and converged:
+        mark_seerr_keys_asserted()
 
 
 def sync_indexer_proxy(prowlarr, host):
