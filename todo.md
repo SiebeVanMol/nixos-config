@@ -167,3 +167,13 @@ after it is pushed.
   written three times in `users/snowyrenard/hermes.nix`.
 - SeerrNG service keys are asserted once per boot for every app, not once per
   link (`system/server/media/servarr-sync.py`).
+- Host feature toggles are derived from the tree: a module in
+  `system/{app,hardware,security,wm}/` gets `device.<area>.<file>.enable` from
+  its own file name and its own description from its first comment line, so
+  adding a feature no longer edits `system/options.nix`. A module earns a toggle
+  by reading one, which is what keeps the unconditional modules in those
+  directories unconditional. The four features whose paths are not their option
+  names (jellyfin, music, ai, minecraft) declare their enable in their own
+  modules, as does `device.security.reverse-proxy.publicDomain`.
+  Verified behaviour-preserving: the full option surface is identical, and the
+  toplevel derivation path of all three hosts is unchanged by the migration.

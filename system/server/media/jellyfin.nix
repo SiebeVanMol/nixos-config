@@ -6,6 +6,10 @@
   media,
   ...
 }: {
+  # Declared here rather than derived from the tree: this file is
+  # server/media/jellyfin.nix, whose path is not its option name.
+  options.device.app.jellyfin.enable = lib.mkEnableOption "Jellyfin media server";
+
   config = lib.mkIf config.device.app.jellyfin.enable {
     # AMD OpenCL for tone mapping
     hardware.graphics.extraPackages = lib.mkIf config.device.hardware.mesa.enable [

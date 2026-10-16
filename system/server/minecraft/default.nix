@@ -98,6 +98,10 @@
     }
   ];
 in {
+  # Declared here rather than derived from the tree: this module is
+  # server/minecraft/default.nix, whose path is not its option name.
+  options.device.app.minecraft.enable = lib.mkEnableOption "Minecraft server";
+
   config = lib.mkIf config.device.app.minecraft.enable {
     # Minecraft is raw TCP, not HTTP, so it bypasses the reverse proxy.
     # It is exposed directly on the public internet via its public domain

@@ -11,6 +11,11 @@
   media,
   ...
 }: {
+  # Declared here rather than derived from the tree, because the two names
+  # differ: this module is server/media/navidrome.nix and its toggle is
+  # device.app.music.
+  options.device.app.music.enable = lib.mkEnableOption "Navidrome music server with slskd (Soulseek) acquisition";
+
   # The music stack has its own toggle; it does not need Jellyfin.
   config = lib.mkIf config.device.app.music.enable {
     services.navidrome = {

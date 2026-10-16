@@ -7,6 +7,16 @@
   lib,
   ...
 }: {
+  # This module's file name (reverse-proxy.nix) is its toggle, so `enable` is
+  # derived from the tree in system/options.nix. publicDomain is configuration
+  # rather than a toggle, so it is declared here with everything else about the
+  # proxy.
+  options.device.security.reverse-proxy.publicDomain = lib.mkOption {
+    type = lib.types.str;
+    default = "";
+    description = "Public domain served by the reverse proxy (e.g. snowyrenard.com). Empty = LAN-only.";
+  };
+
   config = lib.mkIf config.device.security.reverse-proxy.enable {
     services.caddy = {
       enable = true;

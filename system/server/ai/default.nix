@@ -21,8 +21,10 @@
 # model argument), reads the model list from /models, and adopts what it finds.
 # The user side of the wiring is users/snowyrenard/hermes.nix.
 #
-# `enable` is declared in system/options.nix with the other host toggles; the
-# knobs below are this service's own.
+# `enable` and the knobs below are this service's own: they are declared in this
+# file, because the module's path is not its option name and the tree cannot
+# derive one from the other. The other host toggles are derived in
+# system/options.nix.
 {
   config,
   lib,
@@ -102,6 +104,10 @@
   ));
 in {
   options.device.app.ai = {
+    # Declared here rather than derived from the tree: this module is
+    # server/ai/default.nix, whose path is not its option name.
+    enable = lib.mkEnableOption "llama.cpp inference server (system/server/ai, sized by device.app.ai.backend)";
+
     backend = lib.mkOption {
       type = lib.types.enum ["vulkan" "rocm"];
       default = "vulkan";
