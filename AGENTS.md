@@ -64,9 +64,9 @@ shell should reach in `extraPackages`. Secrets never enter this repository —
 the API key is read from `~/.config/hermes/env` and merged into
 `~/.hermes/.env` at activation.
 
-`extraPackages` is the agent's entire PATH: hermes, bash, coreutils, git, then
-nixd, nix, rust-analyzer, rustc, cargo, clang-tools, gcc, gnumake, cmake, bear,
-valgrind, norminette, python3 with mypy and flake8, and shellcheck. Nothing
-from a shell profile, a dev shell or `~/.cargo/bin` is on it, so a command that
-works in the user's terminal can still be missing here; the fix is a line in
-that list, not a wrapper script.
+`extraPackages` is the agent's entire PATH: hermes, bash, coreutils and git,
+then the three lists in `users/snowyrenard/programming.nix` — the language
+servers and toolchains shared with the shell and the editor, plus what only the
+agent needs. Nothing from a shell profile, a dev shell or `~/.cargo/bin` is on
+it, so a command that works in the user's terminal can still be missing here;
+the fix is a line in that file, not a wrapper script.

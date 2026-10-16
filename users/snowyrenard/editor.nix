@@ -1,27 +1,31 @@
 # Helix editor with LSP servers (nixd, rust-analyzer, clangd, zls, markdown-oxide, harper, typos).
-{pkgs, ...}: {
+{pkgs, ...}: let
+  # The servers he programs with have one home: programming.nix. What is left
+  # here is editor-only - spell and typo checkers, and the tree-sitter grammars.
+  programming = import ./programming.nix {inherit pkgs;};
+in {
   home.sessionVariables.EDITOR = "hx";
 
   programs.helix = {
     enable = true;
     defaultEditor = true;
 
-    extraPackages = with pkgs; [
-      nixd
-      markdown-oxide
-      glsl_analyzer
-      zls
-      clang-tools
+    extraPackages =
+      programming.servers
+      ++ (with pkgs; [
+        markdown-oxide
+        glsl_analyzer
+        zls
 
-      tree-sitter
-      tree-sitter-grammars.tree-sitter-rust
-      tree-sitter-grammars.tree-sitter-toml
-      tree-sitter-grammars.tree-sitter-nix
-      tree-sitter-grammars.tree-sitter-nu
-      tree-sitter-grammars.tree-sitter-glsl
-      tree-sitter-grammars.tree-sitter-c
-      tree-sitter-grammars.tree-sitter-cpp
-    ];
+        tree-sitter
+        tree-sitter-grammars.tree-sitter-rust
+        tree-sitter-grammars.tree-sitter-toml
+        tree-sitter-grammars.tree-sitter-nix
+        tree-sitter-grammars.tree-sitter-nu
+        tree-sitter-grammars.tree-sitter-glsl
+        tree-sitter-grammars.tree-sitter-c
+        tree-sitter-grammars.tree-sitter-cpp
+      ]);
 
     settings = {
       theme = "onedark";

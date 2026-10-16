@@ -1,77 +1,77 @@
 # Snowy's installed programs: dev tools, games, media, productivity apps.
-{pkgs, ...}: {
-  home.packages = with pkgs; [
-    #########
-    # Utils #
-    #########
-    # Archives
-    p7zip
-    # File System
-    dust
-    ripgrep
-    pipe-rename
-    # Monitoring
-    yazi
-    nvtopPackages.amd
-    # Extra
-    tokei
-    tealdeer
+{pkgs, ...}: let
+  # The compilers, build tools and language servers he programs with have one
+  # home and one definition: users/snowyrenard/programming.nix.
+  programming = import ./programming.nix {inherit pkgs;};
+in {
+  home.packages = with pkgs;
+    [
+      #########
+      # Utils #
+      #########
+      # Archives
+      p7zip
+      # File System
+      dust
+      ripgrep
+      pipe-rename
+      # Monitoring
+      yazi
+      nvtopPackages.amd
+      # Extra
+      tokei
+      tealdeer
 
-    ###############
-    # Programming #
-    ###############
-    # Compilers
-    gcc
-    gnumake
-    cmake
-    valgrind
-    rustup
-    # Python
-    (python3.withPackages (ps: [ps.mypy ps.flake8]))
-    # Cargo
-    cargo-expand
-    cargo-tarpaulin
-    cargo-flamegraph
-    cargo-all-features
-    # Code tools
-    man-pages
-    norminette
+      ###############
+      # Programming #
+      ###############
+      # Rust: rustup owns the toolchains here and honours rust-toolchain.toml, so
+      # the nixpkgs rustc and cargo the agent needs stay off this PATH.
+      rustup
+      # Cargo
+      cargo-expand
+      cargo-tarpaulin
+      cargo-flamegraph
+      cargo-all-features
+      # Code tools
+      man-pages
 
-    #########
-    # Games #
-    #########
-    # Launcher
-    xivlauncher
-    heroic
-    prismlauncher
-    protonup-qt
-    lutris
-    amethyst-mod-manager
-    rpcs3
-    shadps4
-    shadps4-qtlauncher
+      #########
+      # Games #
+      #########
+      # Launcher
+      xivlauncher
+      heroic
+      prismlauncher
+      protonup-qt
+      lutris
+      amethyst-mod-manager
+      rpcs3
+      shadps4
+      shadps4-qtlauncher
 
-    ################
-    # Productivity #
-    ################
-    # Communication
-    discord
-    # File sharing
-    qbittorrent
+      ################
+      # Productivity #
+      ################
+      # Communication
+      discord
+      # File sharing
+      qbittorrent
 
-    #########
-    # Media #
-    #########
-    # Music
-    ncspot
+      #########
+      # Media #
+      #########
+      # Music
+      ncspot
 
-    jetbrains.clion
-    jetbrains.pycharm
-    jetbrains.rust-rover
-    jetbrains.rider
-    mono
-    godot-mono
-  ];
+      jetbrains.clion
+      jetbrains.pycharm
+      jetbrains.rust-rover
+      jetbrains.rider
+      mono
+      godot-mono
+    ]
+    ++ programming.toolchain;
 
   home.sessionVariables = {
     PROTON_FSR4_UPGRADE = 1;
