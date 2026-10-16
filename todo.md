@@ -11,39 +11,12 @@ syntax-checked the Python it touched. It could not rebuild or switch anything
 **read-verified, not measured**: re-check the named lines before acting, and
 treat every "after the change" claim as something to test.
 
-## 1. Consolidate the media Python clients
+## 1. Derive the *arr tables instead of hardcoding them
 
-Six scripts carry the same things:
-
-- `api_key()`, byte-equivalent in `servarr-sync.py:69`, `arr-health.py:38`,
-  `torrent-cleanup.py:65`, `houndarr-config.py:110`, `servarr-sweep.py:77`,
-  `media-recode.py:112` - while `lib/arr-api-key.nix` has existed all along for
-  the shell side (used by `recyclarr.nix:20`, `soularr.nix:16`,
-  `homepage.nix:15`). `arr-health.py:14-17` justifies the duplication with "a
-  shared module would have to be built and referenced by both", which the
-  existing helper already contradicts, and six copies of the why must now stay
-  in step.
-- An `*arr` HTTP client, once per script: `servarr-sync.py:120`,
-  `servarr-sweep.py:97`, `media-recode.py:126`, `arr-health.py:57`,
-  `torrent-cleanup.py:85`, plus `servarr-sync.py:939` for Seerr.
-- A v3/v1 version probe three times: `servarr-sync.py:159`,
-  `torrent-cleanup.py:100`, `arr-health.py:75`.
-
-Deliberate differences that must become parameters, not be flattened: the
-timeout (30 / 120 / 10 / 15 s), `arr-health` never raising (it always exits 0),
-`media-recode`'s 120 s for long `/command` posts, and `torrent-cleanup` making
-the key optional. `servarr-sync.py:144` raising on an unparseable body while
-`:961` returns None silently is drift, not intent.
-
-Test: run each script against the live stack after the change (`nix run` on its
-package, or the unit) rather than only importing it.
-
-## 2. Derive the *arr tables instead of hardcoding them
-
-`arr-health.py:30-35`, `media-recode.py:81-97` and `servarr-sweep.py:48-52`
+`arr-health.py:27-32`, `media-recode.py:79-95` and `servarr-sweep.py:46-50`
 spell out port / dir / version (and items, path_key, rescan) that
-`lib/media.nix:87-101` (`mkArr`) already derives; `servarr-sync.nix:22-25` and
-`torrent-cleanup.nix:22-25` already receive that table as JSON. The hardcoded
+`lib/media.nix:87-101` (`mkArr`) already derives; `servarr-sync.nix:24-27` and
+`torrent-cleanup.nix:27-30` already receive that table as JSON. The hardcoded
 copies are the ones that go stale when a service moves.
 
 Related: `homepage-env.sh:35` loops over a literal `sonarr radarr lidarr
@@ -55,7 +28,7 @@ a dashboard widget with nothing saying why.
 Caveat: the registry would have to grow `media-recode`'s per-app fields, or the
 JSON generator keeps them once.
 
-## 3. Fork nixpkgs' seerr instead of copying it
+## 2. Fork nixpkgs' seerr instead of copying it
 
 `overlays/seerrng.nix:14-88` is line-for-line nixpkgs' `seerr` derivation
 (pnpmDeps, preBuild, prune, installPhase, makeWrapper) with only pname, version,
@@ -64,7 +37,7 @@ src, hash and the wrapper bin differing, so upstream recipe fixes never arrive.
 `postInstall` wrapper and inheriting upstream's bump cadence.
 `system/server/media/seerr.nix:28` needs no change.
 
-## 4. Narrow the overlay and module surface
+## 3. Narrow the overlay and module surface
 
 `flake.nix:102-111` applies all six third-party overlays to every host, but
 `alex-desktop` never enables jellyfin (`hosts/AlexDesktop/default.nix:25-28`,
@@ -76,17 +49,17 @@ the per-user pattern hermes uses. Re-evaluate all three hosts after gating:
 any shared module naming `pkgs.seerrng` / `pkgs.dsh-model-router` would fail on a
 host that skips the overlay.
 
-## 5. One report-delivery path
+## 4. One report-delivery path
 
-`monitoring.nix:137-150` and `reclaim.nix:136-143` each hand-roll the same
+`monitoring.nix:143-145` and `reclaim.nix:146-147` each hand-roll the same
 Discord post: the same `${report:0:1800}` truncation against Discord's
 2000-character cap, `jq -n --arg content`, and the same `curl -sfS -X POST`
-against the same `EnvironmentFile` (`monitoring.nix:189`, `reclaim.nix:208`). A
+against the same `EnvironmentFile` (`monitoring.nix:192`, `reclaim.nix:215`). A
 fix to the cap or the failure handling in one leaves the other wrong. Extract
 one helper (a `lib/` function emitting the shell fragment, or a
 `writeShellApplication` reading the report on stdin).
 
-## 6. Traps in the (currently disabled) Minecraft tree
+## 5. Traps in the (currently disabled) Minecraft tree
 
 No host enables it, so these matter on the day it is re-enabled:
 
@@ -104,7 +77,7 @@ No host enables it, so these matter on the day it is re-enabled:
   placeholders), no generator in the tree, and the pack-bump note at
   `default.nix:14-16` covers only the URL and hash.
 
-## 7. Alex's git identity
+## 6. Alex's git identity
 
 `users/alexander/programs.nix:66-72` sets `git.settings.user` to Snowy Renard /
 snowyrenard@gmail.com, so every commit made on that machine is authored as
@@ -113,7 +86,7 @@ Snowy. It dates from the initial copy of the user directory and survived the
 out from the repo, but nothing says so - and authorship is painful to correct
 after it is pushed.
 
-## 8. Smaller
+## 7. Smaller
 
 - Browser search engines and bookmarks are written out in full in both users'
   modules (`users/snowyrenard/browser.nix:96-291`,
@@ -133,7 +106,7 @@ after it is pushed.
   this Hyprland accepts the Lua-style dispatcher name is unverified - check it
   on the running compositor before changing, and add the package if the fade is
   what was wanted.
-- `system/server/media/servarr-sweep.py:154` requests `/episode` once per series
+- `system/server/media/servarr-sweep.py:117` requests `/episode` once per series
   to learn which seasons have files, where `/series` already carries
   `seasons[].statistics.episodeFileCount` (39 series today). Verify the payload
   on the live instance once, then keep the per-series call only for the
@@ -177,3 +150,21 @@ after it is pushed.
   modules, as does `device.security.reverse-proxy.publicDomain`.
   Verified behaviour-preserving: the full option surface is identical, and the
   toplevel derivation path of all three hosts is unchanged by the migration.
+- The media scripts share one *arr client (`system/server/media/arr_client.py`),
+  which `lib/arr-client.nix` puts on PYTHONPATH in all seven places that build
+  one of them. Six `api_key()` copies, six HTTP clients and three version probes
+  became one implementation behind a small per-script adapter, so each script
+  kept its own call convention - method before path, a sweep's query parameters
+  and 120 s timeout, `arr-health` never raising, `torrent-cleanup`'s probe -
+  while the plumbing lives once: 233 lines net out of the six scripts, against a
+  163-line module. `servarr-sync`'s Seerr helper was the last copy holding its
+  own request; converting it also ended the drift where an unparseable body
+  raised in one path and returned `None` in another. `torrent-cleanup` keeps
+  `http_json`, which polls the download client's queue and is not an *arr API.
+  Verified against the live stack rather than by import alone: 401 with the
+  status set, `probe_version` telling "unauthorized" from "down", a real Seerr
+  403 body parsed into the message, and every tool rebuilt and re-run after.
+- `checks.x86_64-linux.python` lints every `.py` file with the same flake8
+  command `pkgs.writers.writePython3Bin` runs during a build. That was the only
+  linting any of this got, and it never covered the shared module (delivered by
+  `writeTextDir`, which no writer lints) or the scripts no module builds.

@@ -63,7 +63,6 @@ encoder can reproduce - so it is opt-in, never assumed.
 import argparse
 import collections
 import copy
-import glob
 import json
 import os
 import shutil
@@ -71,9 +70,8 @@ import subprocess
 import sys
 import tempfile
 import time
-import urllib.error
-import urllib.request
-import xml.etree.ElementTree as ET
+
+import arr_client as arr
 
 VIDEO_EXTENSIONS = {".mkv", ".mp4", ".avi", ".m4v", ".ts", ".webm", ".mov", ".wmv"}
 
@@ -105,41 +103,14 @@ def warn(message):
     print(f"WARNING: {message}", file=sys.stderr, flush=True)
 
 
-class ApiError(Exception):
-    pass
-
-
-def api_key(app_dir):
-    candidates = [os.path.join(app_dir, "config.xml")]
-    candidates += sorted(glob.glob(os.path.join(app_dir, ".config", "*", "config.xml")))
-    for path in candidates:
-        try:
-            root = ET.parse(path).getroot()
-        except (OSError, ET.ParseError):
-            continue
-        node = root.find("ApiKey")
-        if node is not None and (node.text or "").strip():
-            return node.text.strip()
-    return None
+# The *arr plumbing lives in arr_client; this script's own convention is that a
+# body means POST, and that a recode command needs a long timeout.
+ApiError = arr.ApiError
+api_key = arr.api_key
 
 
 def call(port, version, key, path, body=None, timeout=120):
-    url = f"http://127.0.0.1:{port}/api/{version}{path}"
-    data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request(url, data=data, method="POST" if data else "GET")
-    request.add_header("X-Api-Key", key)
-    request.add_header("Accept", "application/json")
-    if data is not None:
-        request.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read()
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", "replace")[:200]
-        raise ApiError(f"HTTP {error.code} on {path}: {' '.join(detail.split())}") from error
-    except (urllib.error.URLError, OSError) as error:
-        raise ApiError(f"{path}: {error}") from error
-    return json.loads(raw) if raw else None
+    return arr.call(port, version, key, path, body=body, timeout=timeout)
 
 
 def ffprobe(path):

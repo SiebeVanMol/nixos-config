@@ -22,14 +22,14 @@ Configuration arrives as JSON through TORRENT_CLEANUP_CONFIG (or --config); see
 torrent-cleanup.nix. Run with --dry-run to see what it would do.
 """
 
-import glob
 import json
 import os
 import sys
 import time
 import urllib.error
 import urllib.request
-import xml.etree.ElementTree as ET
+
+import arr_client as arr
 
 TAG = "[torrent-cleanup]"
 
@@ -62,24 +62,15 @@ def load_config():
         return json.load(handle)
 
 
-def api_key(app_dir):
-    """The API key an application wrote into its own config.xml.
+# The *arr plumbing lives in arr_client. http_json stays, because this script
+# also polls a download client's queue, which is not an *arr API at all.
+api_key = arr.api_key
 
-    Mirrors servarr-sync's search: Prowlarr/older layouts keep config.xml
-    directly in the data directory, while Sonarr/Radarr/Lidarr nest it under
-    .config/<Project>. This runs as root, which is what makes the key readable.
-    """
-    candidates = [os.path.join(app_dir, "config.xml")]
-    candidates += sorted(glob.glob(os.path.join(app_dir, ".config", "*", "config.xml")))
-    for path in candidates:
-        try:
-            root = ET.parse(path).getroot()
-        except (OSError, ET.ParseError):
-            continue
-        node = root.find("ApiKey")
-        if node is not None and (node.text or "").strip():
-            return node.text.strip()
-    return None
+
+def api_version(port, key):
+    """v3 for Sonarr/Radarr, v1 for Lidarr; see arr_client.probe_version."""
+    version, _state = arr.probe_version(port, key)
+    return version
 
 
 def http_json(url, key=None, method="GET", body=None, timeout=30):
@@ -93,17 +84,6 @@ def http_json(url, key=None, method="GET", body=None, timeout=30):
     with urllib.request.urlopen(request, timeout=timeout) as response:
         raw = response.read()
     return json.loads(raw) if raw else None
-
-
-def api_version(port, key):
-    """v3 for Sonarr/Radarr, v1 for Lidarr - probing avoids hardcoding it."""
-    for version in ("v3", "v1"):
-        try:
-            http_json(f"http://127.0.0.1:{port}/api/{version}/system/status", key, timeout=5)
-            return version
-        except (urllib.error.URLError, OSError, ValueError):
-            continue
-    return None
 
 
 class Transmission:

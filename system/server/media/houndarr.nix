@@ -114,12 +114,15 @@
     inherit apps tuning;
   });
 
+  arrClient = import ../../../lib/arr-client.nix {inherit pkgs;};
+
   # cryptography is all this needs beyond the standard library: it speaks to
   # Houndarr's database with sqlite3 and encrypts the API key with the same
   # Fernet primitive Houndarr uses.
   configScript = pkgs.writers.writePython3Bin "houndarr-config" {
     libraries = [pkgs.python3Packages.cryptography];
     flakeIgnore = ["E501"];
+    makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
   } (builtins.readFile ./houndarr-config.py);
 in {
   config = lib.mkIf config.device.app.jellyfin.enable {

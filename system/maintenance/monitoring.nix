@@ -31,9 +31,12 @@
 
   mountsArg = lib.concatStringsSep " " (map lib.escapeShellArg btrfsMounts);
 
+  arrClient = import ../../lib/arr-client.nix {inherit pkgs;};
+
   # Reports what the *arr services say about themselves; see the script.
   arrHealth = pkgs.writers.writePython3Bin "arr-health" {
     flakeIgnore = ["E501"];
+    makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
   } (builtins.readFile ../server/media/arr-health.py);
 
   healthCheck = pkgs.writeShellApplication {

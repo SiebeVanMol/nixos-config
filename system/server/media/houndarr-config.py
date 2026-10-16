@@ -31,16 +31,16 @@ The search controls are the point of the exercise, not an afterthought: the
 values are declared and explained in houndarr.nix.
 """
 
-import glob
 import json
 import os
 import sqlite3
 import subprocess
 import sys
 import time
-import xml.etree.ElementTree as ET
 
 from cryptography.fernet import Fernet, InvalidToken
+
+import arr_client as arr
 
 TAG = "[houndarr-config]"
 
@@ -107,26 +107,7 @@ def load_config():
         return json.load(handle)
 
 
-def api_key(app_dir):
-    """Return the API key an application wrote into its own config.xml.
-
-    Where that file lives depends on how the service was started: Prowlarr keeps
-    it directly in its data directory, while Sonarr, Radarr and Lidarr nest it
-    under .config/<Project>. Both layouts are tried, exactly as the Servarr sync
-    does, because getting this wrong is not a soft failure - the instance is
-    then written with no usable key.
-    """
-    candidates = [os.path.join(app_dir, "config.xml")]
-    candidates += sorted(glob.glob(os.path.join(app_dir, ".config", "*", "config.xml")))
-    for path in candidates:
-        try:
-            root = ET.parse(path).getroot()
-        except (OSError, ET.ParseError):
-            continue
-        node = root.find("ApiKey")
-        if node is not None and (node.text or "").strip():
-            return node.text.strip()
-    return None
+api_key = arr.api_key
 
 
 def encrypt(plaintext, key):

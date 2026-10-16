@@ -11,9 +11,14 @@
   pkgs,
   ...
 }: let
+  # The scripts import the shared *arr client; lib/arr-client.nix explains why it
+  # arrives on PYTHONPATH instead of being copied into each file.
+  arrClient = import ../../../lib/arr-client.nix {inherit pkgs;};
+
   script = pkgs.writers.writePython3Bin "torrent-cleanup" {
     # Long descriptive lines read better than wrapped ones here.
     flakeIgnore = ["E501"];
+    makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
   } (builtins.readFile ./torrent-cleanup.py);
 
   # Derived from the registry, so the cleanup knows each application's port,

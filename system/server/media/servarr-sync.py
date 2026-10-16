@@ -22,14 +22,12 @@ The connection details arrive as a JSON file through SERVARR_SYNC_CONFIG; see
 the accompanying Nix module for what it contains.
 """
 
-import glob
 import json
 import os
 import sys
 import time
-import urllib.error
-import urllib.request
-import xml.etree.ElementTree as ET
+
+import arr_client as arr
 
 TAG = "[servarr-sync]"
 CLIENT_NAME = "Transmission"
@@ -47,15 +45,21 @@ def warn(message):
     print(f"{TAG} WARNING: {message}", flush=True)
 
 
-class ApiError(Exception):
-    """An API call that could not be completed."""
+# The *arr plumbing lives in arr_client - one implementation, on PYTHONPATH via
+# the module that builds this script. What stays here is this script's own
+# argument order, so every call site reads the way it always did.
+ApiError = arr.ApiError
+api_key = arr.api_key
 
-    def __init__(self, message, status=None):
-        super().__init__(message)
-        # The HTTP status, when the server answered at all. A reply - even a
-        # 401 - proves the application is up, which is a different thing from a
-        # connection that was refused.
-        self.status = status
+
+def call(port, version, key, method, path, body=None, timeout=30):
+    """This script's order (method before path); see arr_client.call."""
+    return arr.call(port, version, key, path, method=method, body=body, timeout=timeout)
+
+
+def probe(port, key):
+    """(version, state) for a running application; see arr_client.probe_version."""
+    return arr.probe_version(port, key)
 
 
 def load_config():
@@ -64,106 +68,6 @@ def load_config():
         sys.exit(f"{TAG} SERVARR_SYNC_CONFIG is not set")
     with open(path, encoding="utf-8") as handle:
         return json.load(handle)
-
-
-def api_key(app_dir):
-    """Return the API key an application wrote into its own config.xml.
-
-    Where that file lives depends on how the service was started, so both
-    layouts are tried: Prowlarr is launched with -data=/var/lib/prowlarr and
-    keeps config.xml directly in that directory, while Sonarr, Radarr and
-    Lidarr are launched with -data=/var/lib/<app>/.config/<Project> and keep it
-    one level further down. Getting this wrong is not a soft failure - the
-    application then never looks ready and the caller waits out its deadline.
-    """
-    candidates = [os.path.join(app_dir, "config.xml")]
-    candidates += sorted(glob.glob(os.path.join(app_dir, ".config", "*", "config.xml")))
-    for path in candidates:
-        try:
-            root = ET.parse(path).getroot()
-        except (OSError, ET.ParseError):
-            continue
-        node = root.find("ApiKey")
-        if node is not None and (node.text or "").strip():
-            return node.text.strip()
-    return None
-
-
-def _describe_error(detail):
-    """Turn an *arr error body into one readable line.
-
-    These APIs answer with a JSON array of validation objects, which is
-    unreadable in a journal at 300 characters and says nothing about what to do.
-    Pull out the message and the offending property/value instead.
-    """
-    try:
-        payload = json.loads(detail)
-    except json.JSONDecodeError:
-        return " ".join(detail.split())[:200]
-    if not isinstance(payload, list):
-        return " ".join(detail.split())[:200]
-    parts = []
-    for item in payload[:3]:
-        if not isinstance(item, dict):
-            continue
-        message = item.get("errorMessage") or item.get("message") or item.get("errorCode") or ""
-        placeholders = item.get("formattedMessagePlaceholderValues") or {}
-        prop = placeholders.get("PropertyName")
-        value = placeholders.get("PropertyValue") or placeholders.get("AttemptedValue")
-        if prop:
-            message = f"{message} [{prop}={value}]" if message else f"[{prop}={value}]"
-        if message:
-            parts.append(message.strip())
-    return "; ".join(parts)[:300] if parts else " ".join(detail.split())[:200]
-
-
-def call(port, version, key, method, path, body=None, timeout=30):
-    """Call one of the *arr APIs on loopback and return the decoded body."""
-    url = f"http://127.0.0.1:{port}/api/{version}{path}"
-    data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request(url, data=data, method=method)
-    request.add_header("X-Api-Key", key)
-    request.add_header("Accept", "application/json")
-    if data is not None:
-        request.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read()
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", "replace")[:600]
-        raise ApiError(
-            f"{method} {path} -> HTTP {error.code}: {_describe_error(detail)}",
-            status=error.code,
-        ) from error
-    except (urllib.error.URLError, OSError) as error:
-        raise ApiError(f"{method} {path} -> {error}") from error
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as error:
-        raise ApiError(f"{method} {path} -> unparseable response") from error
-
-
-def probe(port, key):
-    """Classify a running application.
-
-    Returns (version, state) where state is one of "ok" (it answered and
-    accepted the key), "unauthorized" (it answered but rejected the key - a
-    config problem that waiting cannot fix) or "down" (nothing answered yet).
-
-    Sonarr/Radarr answer on v3 while Lidarr/Prowlarr answer on v1, and
-    probing removes the need to hardcode that per application.
-    """
-    saw_response = False
-    for version in ("v3", "v1"):
-        try:
-            call(port, version, key, "GET", "/system/status", timeout=5)
-            return version, "ok"
-        except ApiError as error:
-            if error.status is not None:
-                saw_response = True
-    return None, "unauthorized" if saw_response else "down"
 
 
 def wait_ready(apps, deadline):
@@ -952,29 +856,20 @@ def export_seerr_links():
 
 
 def call_seerr(key, path, method="GET", body=None, port=None):
-    """Call SeerrNG's API, raising ApiError so a caller can react to it."""
-    data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request(
-        f"http://127.0.0.1:{port or SEERR_PORT}{path}", data=data, method=method
+    """Call SeerrNG's API, raising ApiError so a caller can react to it.
+
+    Callers pass Seerr's full path ("/api/v1/settings/sonarr"); arr_client builds
+    the version segment, so it is stripped here rather than at every call site.
+    """
+    return arr.call(
+        port or SEERR_PORT,
+        "v1",
+        key,
+        path.removeprefix("/api/v1"),
+        method=method,
+        body=body,
+        timeout=15,
     )
-    request.add_header("X-Api-Key", key)
-    request.add_header("Accept", "application/json")
-    if data is not None:
-        request.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            raw = response.read()
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", "replace")[:200]
-        raise ApiError(f"{method} {path} -> HTTP {error.code}: {detail}", status=error.code) from error
-    except (urllib.error.URLError, OSError) as error:
-        raise ApiError(f"{method} {path} -> {error}") from error
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        return None
 
 
 def export(config=None):

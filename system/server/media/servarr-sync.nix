@@ -16,6 +16,8 @@
   media,
   ...
 }: let
+  arrClient = import ../../../lib/arr-client.nix {inherit pkgs;};
+
   # Derived from the registry: each *arr service registers its implementation,
   # state directory and Transmission category, so this no longer duplicates
   # them (or the ports and download directories they imply).
@@ -167,6 +169,7 @@
   syncScript = pkgs.writers.writePython3Bin "servarr-sync" {
     # Long descriptive lines read better than wrapped ones here.
     flakeIgnore = ["E501"];
+    makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
   } (builtins.readFile ./servarr-sync.py);
 
   appUnits = map (name: "${name}.service") (lib.attrNames apps);

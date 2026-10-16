@@ -33,14 +33,12 @@ lives in a 0700 config.xml inside each application's state directory.
 """
 
 import argparse
-import glob
 import json
 import os
 import sys
 import time
-import urllib.error
-import urllib.request
-import xml.etree.ElementTree as ET
+
+import arr_client as arr
 
 # Fallbacks for a standalone `nix run`, mirroring the registry in
 # system/server/media. A SERVARR_SWEEP_CONFIG JSON overrides them, which is what
@@ -62,8 +60,17 @@ def warn(message):
     print(f"WARNING: {message}", file=sys.stderr, flush=True)
 
 
-class ApiError(Exception):
-    """An API call that could not be completed."""
+# The *arr plumbing lives in arr_client; what stays here is this script's own
+# conventions - a sweep asks for every episode of every series, so it wants a
+# much longer timeout than the default.
+ApiError = arr.ApiError
+api_key = arr.api_key
+
+
+def call(port, version, key, path, params=None, body=None, timeout=120, method=None):
+    return arr.call(
+        port, version, key, path, method=method, body=body, params=params, timeout=timeout
+    )
 
 
 def load_apps():
@@ -72,55 +79,6 @@ def load_apps():
         return dict(DEFAULT_APPS)
     with open(path, encoding="utf-8") as handle:
         return json.load(handle)["apps"]
-
-
-def api_key(app_dir):
-    """Return the API key an application wrote into its own config.xml.
-
-    The file's location depends on how the service was started, so both layouts
-    are tried: Prowlarr keeps config.xml directly in its data directory while
-    Sonarr, Radarr and Lidarr nest it under .config/<Project>.
-    """
-    candidates = [os.path.join(app_dir, "config.xml")]
-    candidates += sorted(glob.glob(os.path.join(app_dir, ".config", "*", "config.xml")))
-    for path in candidates:
-        try:
-            root = ET.parse(path).getroot()
-        except (OSError, ET.ParseError):
-            continue
-        node = root.find("ApiKey")
-        if node is not None and (node.text or "").strip():
-            return node.text.strip()
-    return None
-
-
-def call(port, version, key, path, params=None, body=None, timeout=120, method=None):
-    """Call one of the *arr APIs on loopback and return the decoded body."""
-    url = f"http://127.0.0.1:{port}/api/{version}{path}"
-    if params:
-        url += "?" + "&".join(f"{k}={v}" for k, v in params.items())
-    data = json.dumps(body).encode() if body is not None else None
-    if method is None:
-        method = "POST" if data is not None else "GET"
-    request = urllib.request.Request(url, data=data, method=method)
-    request.add_header("X-Api-Key", key)
-    request.add_header("Accept", "application/json")
-    if data is not None:
-        request.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read()
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", "replace")[:200]
-        raise ApiError(f"HTTP {error.code} on {path}: {' '.join(detail.split())}") from error
-    except (urllib.error.URLError, OSError) as error:
-        raise ApiError(f"{path}: {error}") from error
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as error:
-        raise ApiError(f"unparseable response from {path}") from error
 
 
 def plan_radarr(port, version, key, _args):

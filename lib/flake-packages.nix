@@ -1,6 +1,10 @@
 # The flake's own helper commands, kept out of flake.nix so that file stays a
 # readable entry point: inputs, hosts, and where each piece lives.
-{pkgs}: {
+{pkgs}: let
+  # The shared *arr client every media script imports; on PYTHONPATH via the
+  # wrapper each writer builds (lib/arr-client.nix explains the mechanism).
+  arrClient = import ./arr-client.nix {inherit pkgs;};
+in {
   # Run the formatter and then nixos-rebuild, with --flake filled in and sudo
   # added for the subcommands that need it.
   rebuild = pkgs.writeShellScriptBin "rebuild" ''
@@ -50,6 +54,7 @@
     text = ''
       exec ${pkgs.writers.writePython3Bin "servarr-sync-export" {
         flakeIgnore = ["E501"];
+        makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
       } (builtins.readFile ../system/server/media/servarr-sync.py)}/bin/servarr-sync-export --export "$@"
     '';
   };
@@ -67,6 +72,7 @@
     text = ''
       exec ${pkgs.writers.writePython3Bin "servarr-sweep" {
         flakeIgnore = ["E501"];
+        makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
       } (builtins.readFile ../system/server/media/servarr-sweep.py)}/bin/servarr-sweep "$@"
     '';
   };
@@ -88,6 +94,7 @@
       export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.amf]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
       exec ${pkgs.writers.writePython3Bin "media-recode" {
         flakeIgnore = ["E501"];
+        makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
       } (builtins.readFile ../system/server/media/media-recode.py)}/bin/media-recode "$@"
     '';
   };

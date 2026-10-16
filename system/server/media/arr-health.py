@@ -11,19 +11,16 @@ caller decides what to do with it. This script always exits 0: it reports, it
 does not judge, and a failing *arr must not make the health check itself look
 broken.
 
-The API key handling deliberately mirrors servarr-sync.py rather than importing
-it: these are two small standalone scripts in the store, and a shared module
-would have to be built and referenced by both. The duplication is ~30 lines of
-call plumbing.
+The API key handling and the call plumbing come from arr_client, the shared
+module every media script imports - the module that builds this one puts it on
+PYTHONPATH (lib/arr-client.nix). What stays here is the policy: every API failure
+is swallowed, because a sick *arr must not make the health check look broken.
 """
 
-import glob
-import json
 import os
 import sys
-import urllib.error
-import urllib.request
-import xml.etree.ElementTree as ET
+
+import arr_client as arr
 
 # Same ports as the `device.media.services` registry (system/server/media/options.nix),
 # minus the services that need no health check of their own.
@@ -35,33 +32,18 @@ APPS = {
 }
 
 
-def api_key(app_dir):
-    """Read an application's API key from its own config.xml.
-
-    Both layouts are tried: Prowlarr keeps config.xml directly in its data
-    directory, the others one level down under .config/<Project>.
-    """
-    candidates = [os.path.join(app_dir, "config.xml")]
-    candidates += sorted(glob.glob(os.path.join(app_dir, ".config", "*", "config.xml")))
-    for path in candidates:
-        try:
-            root = ET.parse(path).getroot()
-        except (OSError, ET.ParseError):
-            continue
-        node = root.find("ApiKey")
-        if node is not None and (node.text or "").strip():
-            return node.text.strip()
-    return None
+api_key = arr.api_key
 
 
 def call(port, version, key, path, timeout=10):
-    request = urllib.request.Request(f"http://127.0.0.1:{port}/api/{version}{path}")
-    request.add_header("X-Api-Key", key)
-    request.add_header("Accept", "application/json")
+    """The decoded body, or None on ANY failure.
+
+    This script reports, it does not judge: a failing *arr must not make the
+    health check itself look broken.
+    """
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read() or b"null")
-    except (urllib.error.URLError, OSError, json.JSONDecodeError):
+        return arr.call(port, version, key, path, timeout=timeout)
+    except arr.ApiError:
         return None
 
 
