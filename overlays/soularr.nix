@@ -37,8 +37,6 @@ _final: prev: let
     slskd-api
   ]);
 in {
-  inherit slskd-api;
-
   soularr = prev.stdenv.mkDerivation (_: {
     pname = "soularr";
     version = "unstable-2026-07-31";

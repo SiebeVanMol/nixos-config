@@ -1,5 +1,4 @@
 result
-.chmod_test
 
 # Bytecode from the Python scripts this repository carries alongside their
 # modules (system/server/media/, system/server/minecraft/): importing one for a

@@ -8,16 +8,15 @@
   config = lib.mkIf config.device.hardware.kernel.enable {
     boot = {
       kernelPackages = pkgs.linuxPackages_latest;
-      kernelModules = ["uinput"];
       consoleLogLevel = 0;
       kernel.sysctl = {
         "vm.swappiness" = 10;
       };
     };
+    # `hardware.uinput.enable` supplies the kernel module, the `uinput` group and
+    # the udev rule together, so none of the three is repeated here. Its rule is
+    # the stricter one: it carries SUBSYSTEM=="misc", which a local copy of that
+    # rule drops.
     hardware.uinput.enable = true;
-    services.udev.extraRules = ''
-      KERNEL=="uinput", MODE="0660", GROUP="uinput", OPTIONS+="static_node=uinput"
-    '';
-    users.groups.uinput = {};
   };
 }
