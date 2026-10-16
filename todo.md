@@ -164,6 +164,11 @@ after it is pushed.
   Verified against the live stack rather than by import alone: 401 with the
   status set, `probe_version` telling "unauthorized" from "down", a real Seerr
   403 body parsed into the message, and every tool rebuilt and re-run after.
+  Confirmed in production once the rebuild landed: all four wrappers in the
+  running system carry the same store `arr_client.py`, and the two units that
+  re-ran on that switch exited 0 doing real work - `servarr-sync` converged all
+  three Seerr links (the helper converted last), `houndarr-config` read every
+  app's key out of its root-only config.xml through the shared reader.
 - `checks.x86_64-linux.python` lints every `.py` file with the same flake8
   command `pkgs.writers.writePython3Bin` runs during a build. That was the only
   linting any of this got, and it never covered the shared module (delivered by
