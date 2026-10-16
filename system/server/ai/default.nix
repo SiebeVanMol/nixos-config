@@ -1,19 +1,25 @@
-# Local inference: one llama.cpp server, declared by the host that runs it.
+# Local inference: one llama.cpp server in router mode over the model files on
+# /Vault, sized for this machine's own GPU.
+#
+# Two models for two jobs. `agent` is what an agent loop thinks with: a 35B
+# mixture-of-experts whose expert tensors live in RAM, so a token pays only for
+# the ~3B parameters it activates. `quick` is a small dense model for a question
+# or a page summary.
+#
+# Router mode is what makes one service out of several models: llama-server
+# starts with no model argument, discovers every GGUF in --models-dir, loads one
+# when a request names it, and unloads it again when another is wanted. A client
+# therefore sees several model ids on one endpoint while the card only ever holds
+# the model in use. The id is the file name without .gguf - llama.cpp derives it
+# and sets each child's --alias to match - so the file names below are part of the
+# interface, not an implementation detail. Every other setting is inherited by
+# the children, which is why --cpu-moe is safe to set globally: it matches expert
+# tensors, and a dense model has none.
 #
 # Hermes already speaks this protocol. It probes 127.0.0.1:8080 for /props,
-# fingerprints llama-server by its build_info, and adopts the server it finds
-# (hermes_cli/local_runtime/detect.py), then reads the context window from the
-# running server rather than from a catalog. A server declared here therefore
-# needs no plugin, no API key and no per-user download, and every other local
-# client (the desktop app's own Local Models pane, aider, curl) uses the same
-# endpoint. The user side of the wiring is users/snowyrenard/hermes.nix.
-#
-# The model choice is dictated by the card. 16 GiB of VRAM cannot hold a 4-bit
-# 30B-class model *and* a 64K window, and the card is shared with a compositor
-# and a browser. A mixture-of-experts model is the way out: attention, the KV
-# cache and the router stay on the card while the expert tensors stay in RAM
-# (--cpu-moe), so a token pays only for the ~3B parameters it activates. A dense
-# model that spills instead re-reads its whole self out of RAM on every token.
+# fingerprints llama-server by its build_info (the router answers it, with no
+# model argument), reads the model list from /models, and adopts what it finds.
+# The user side of the wiring is users/snowyrenard/hermes.nix.
 #
 # `enable` is declared in system/options.nix with the other host toggles; the
 # knobs below are this service's own.
@@ -26,7 +32,6 @@
   cfg = config.device.app.ai;
 
   modelsDir = "/Vault/llama/models";
-  modelPath = "${modelsDir}/${cfg.model.file}";
 
   # gfx1201 is the RX 9070/XT (RDNA4). nixpkgs' rocmPackages carries a
   # per-architecture scope (`rocmPackages.gfx1201`) that pins clr and everything
@@ -54,19 +59,47 @@
         rocmGpuTargets = ["gfx1201"];
       };
 
-  # huggingface-hub's CLI fetches the weights at runtime, so a 20 GiB model never
+  # huggingface-hub's CLI fetches the weights at runtime, so 20+ GiB never
   # becomes a store path: a store copy would be re-downloaded on every pin change
   # and would not be the thing the user is allowed to delete to reclaim space.
   hf = lib.getExe' pkgs.python3Packages.huggingface-hub "hf";
 
-  llamaFetch = pkgs.writeShellScriptBin "llama-fetch" ''
-    set -euo pipefail
-    echo "fetching ${cfg.model.repo}:${cfg.model.file}"
-    echo "into ${modelsDir} ($(du -sh ${modelsDir} 2>/dev/null | cut -f1 || echo empty))"
-    exec ${hf} download ${cfg.model.repo} ${cfg.model.file} \
-      --revision ${cfg.model.revision} \
-      --local-dir ${modelsDir}
-  '';
+  # One branch per declared model, so the small one is useful before the big one
+  # has been paid for. Built as a list of lines rather than an indented string:
+  # interpolated text is inserted verbatim, so alignment inside an indented
+  # template would depend on which line happened to be first.
+  modelNames = lib.concatStringsSep ", " (lib.attrNames cfg.models);
+
+  fetchLine = name: m: "  ${name}) fetch ${name} \"${m.repo}\" \"${m.file}\" \"${m.revision}\" ;;";
+  fetchAllLine = name: m: "    fetch ${name} \"${m.repo}\" \"${m.file}\" \"${m.revision}\"";
+
+  llamaFetch = pkgs.writeShellScriptBin "llama-fetch" (lib.concatStringsSep "\n" (
+    [
+      "set -euo pipefail"
+      ""
+      "fetch() {"
+      "  echo \"==> $1: $3\""
+      "  ${hf} download \"$2\" \"$3\" --revision \"$4\" --local-dir ${modelsDir}"
+      "}"
+      ""
+      "case \"\${1:-all}\" in"
+    ]
+    ++ lib.mapAttrsToList fetchLine cfg.models
+    ++ (
+      ["  all)"]
+      ++ lib.mapAttrsToList fetchAllLine cfg.models
+      ++ [
+        "    ;;"
+        "  *)"
+        "    echo \"unknown model: $1 (try ${modelNames}, or all)\" >&2"
+        "    exit 2"
+        "    ;;"
+        "esac"
+        ""
+        "echo \"in ${modelsDir} - a running server picks the file up on its next start\""
+      ]
+    )
+  ));
 in {
   options.device.app.ai = {
     backend = lib.mkOption {
@@ -94,11 +127,23 @@ in {
       type = lib.types.ints.positive;
       default = 65536;
       description = ''
-        Context window to serve. Every model Hermes recommends gets at least 64K.
-        A hybrid-attention model costs very little per token here (this one holds
-        10 full-attention layers, ~10 KiB of q8 cache per token), so raising this
-        is cheap until the KV cache plus the compute buffer stop fitting on the
-        card; 131072 is the next sensible step.
+        Context window every model is served with. Every model Hermes recommends
+        gets at least 64K. The agent model costs very little per token here (a
+        hybrid layout with 10 full-attention layers, ~10 KiB of q8 cache per
+        token), so raising this is cheap until the KV cache plus the compute
+        buffer stop fitting on the card; llama.cpp reduces the window at load
+        time if that happens.
+      '';
+    };
+
+    maxResidentModels = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 1;
+      description = ''
+        How many models may be loaded at once. 1 keeps the card for whichever
+        model is in use, so switching is a load and an unload; 2 lets the small
+        model stay hot while the agent model is resident, at the cost of ~7 GiB of
+        VRAM that a game would otherwise have.
       '';
     };
 
@@ -112,41 +157,91 @@ in {
       '';
     };
 
-    model = {
-      repo = lib.mkOption {
-        type = lib.types.str;
-        default = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF";
-        description = "Hugging Face repository the weights come from.";
-      };
+    models = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.submodule {
+        options = {
+          repo = lib.mkOption {
+            type = lib.types.str;
+            description = "Hugging Face repository the weights come from.";
+          };
+          revision = lib.mkOption {
+            type = lib.types.str;
+            description = ''
+              Commit the download is pinned to, so llama-fetch is reproducible and
+              a re-upload upstream cannot swap the weights under a running config.
+            '';
+          };
+          file = lib.mkOption {
+            type = lib.types.str;
+            description = ''
+              The GGUF in that repository. The id clients use is this file name
+              without .gguf, so renaming the file renames the model.
+            '';
+          };
+          note = lib.mkOption {
+            type = lib.types.str;
+            default = "";
+            description = "Why this model, for whoever reads this next.";
+          };
+        };
+      });
+      default = {
+        agent = {
+          repo = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF";
+          revision = "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d";
+          file = "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf";
+          note = ''
+            The agent model: 35B total / 3B active, 262144 native context, and
+            Hermes' own catalog entry for it ("validated" there). ~22.7 GB on
+            disk, of which only the attention half needs to be on the GPU.
+          '';
+        };
 
-      revision = lib.mkOption {
-        type = lib.types.str;
-        default = "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d";
-        description = ''
-          Commit the download is pinned to, so llama-fetch is reproducible and a
-          re-upload upstream cannot swap the weights under a running config.
-        '';
-      };
+        quick = {
+          repo = "unsloth/gemma-4-12B-it-qat-GGUF";
+          revision = "980b060c40a8539ac159e0501a3e0f66a6365af3";
+          file = "gemma-4-12B-it-qat-UD-Q4_K_XL.gguf";
+          note = ''
+            The small one: 12B dense, 6.72 GB, multimodal, with four times the
+            headroom of the agent model - a 64K window fits comfortably and the
+            rest of the card stays with the desktop.
 
-      file = lib.mkOption {
-        type = lib.types.str;
-        default = "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf";
-        description = ''
-          The GGUF in that repository. This is Hermes' own catalog entry for the
-          model ("validated" there): 35B total parameters, 3B active, 262144
-          native context, multi-token-prediction heads. ~22.7 GB on disk, of
-          which only the attention half needs to be on the GPU.
-        '';
-      };
+            These are Google's quantization-aware-trained weights (trained at the
+            precision they ship at) in Unsloth's dynamic quant. QAT weights need a
+            converter that understands their scales: llama.cpp's own Q4_0 format
+            uses F16 scales where QAT uses BF16, and converting anyway costs real
+            accuracy - 70.2% against 85.6% top-1 for this build of the same
+            weights, which is also 200 MB smaller. So a UD-Q4_K_XL of the QAT
+            checkpoint, not a Q4_0 of it, including the Q4_0 Google publishes.
 
-      alias = lib.mkOption {
-        type = lib.types.str;
-        default = "qwen3.6-35b-a3b";
-        description = ''
-          Name the API answers to (llama-server --alias). This is the model id
-          every client sees, including Hermes' picker.
-        '';
+            The alternative for this slot is Gemma 4 26B-A4B (MoE, 4B active):
+            14.25 GB in the same build, i.e. 13.27 GiB of the card's 14.27 GiB
+            free, which leaves ~1 GiB for the KV cache and compute buffers - a
+            window near 16K, too small for the agent's own prompt plus a page to
+            summarise. It is much faster per token once resident (this card
+            measured ~157 t/s on that model, against ~39 t/s for a 12B on a
+            smaller one): the MoE trade is that compute drops to 4B active while
+            all 26B parameters still have to be in memory to keep routing fast.
+          '';
+        };
       };
+      description = ''
+        Models the router serves, keyed by the name llama-fetch takes. The key is
+        only a label for fetching; the model id a client uses is the file name.
+        Adding a model is one entry here, a rebuild, and `llama-fetch <name>` - no
+        other file changes.
+      '';
+    };
+
+    modelIds = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      readOnly = true;
+      default = lib.mapAttrs (_: m: lib.removeSuffix ".gguf" m.file) cfg.models;
+      description = ''
+        Model id each GGUF answers to, derived the way llama.cpp derives it.
+        Clients name these - users/snowyrenard/hermes.nix reads them for its
+        aliases - so a rename here renames the model everywhere.
+      '';
     };
   };
 
@@ -165,8 +260,13 @@ in {
       settings = {
         host = "127.0.0.1";
         inherit (cfg) port;
-        model = modelPath;
-        inherit (cfg.model) alias;
+
+        # No `model` key, deliberately: llama-server with no model argument
+        # starts as the router over these files instead of loading one of them.
+        # The directory is scanned on start, so a newly fetched model appears
+        # after a restart of the service.
+        "models-dir" = modelsDir;
+        "models-max" = cfg.maxResidentModels;
 
         # Tool calling depends on the template inside the GGUF; this engine's own
         # default is jinja-on, so the flag changes nothing today. It is pinned
@@ -182,7 +282,8 @@ in {
         # (local_runtime/context_policy.py, spill_overrides), and the reason
         # decode stays interactive: a token reads only the experts it routes to.
         # 21 GiB of weights do not fit in 14 usable GiB, but 1.7 GiB of active
-        # experts per token over ~70 GB/s of DDR5 do.
+        # experts per token over ~70 GB/s of DDR5 do. It matches nothing in a
+        # dense model, so the small one is unaffected.
         "cpu-moe" = true;
         # llama.cpp warns that CPU tensor overrides under mmap cost speed
         # ("consider using --load-mode none"). mmap stays on deliberately: this
@@ -214,10 +315,12 @@ in {
         "top-k" = 20;
         "min-p" = "0.0";
 
-        # This desktop shares the card with games, so the server gives the VRAM
-        # back after fifteen minutes of silence - the same idle window Hermes'
-        # own runtime unloads on. The process and its page cache stay; the next
-        # request reloads the model.
+        # This desktop shares the card with games, so an idle model gives its VRAM
+        # back after fifteen minutes - the same window Hermes' own runtime unloads
+        # on. Measured on this card with a 3.96 GB model: 6252 MiB of VRAM while
+        # loaded, 1896 MiB after the timer, `sleeping` in /models, and a reload on
+        # the next request with no client change. The children are spawned from
+        # the router and inherit this flag.
         "sleep-idle-seconds" = 900;
       };
 
@@ -230,10 +333,9 @@ in {
       # the device nodes - HIP opens /dev/kfd, Vulkan opens /dev/dri/renderD* -
       # and DynamicUser gets no group memberships of its own. `render` is what
       # those nodes are owned by in the general case (on this host they happen to
-      # be world-writable already, but a rebuild should not depend on that).
-      # Skipping the groups entirely is also what upstream's GPU-capable Ollama
-      # unit does, minus the DeviceAllow list it needs because it closes
-      # DevicePolicy.
+      # be world-writable already, but a rebuild should not depend on that). The
+      # router spawns one llama-server child per loaded model, and a child
+      # inherits this sandbox, so it needs the same access.
       SupplementaryGroups = ["render" "video"];
 
       # The GPU runtimes load code objects and JIT small shims out of writable

@@ -15,6 +15,8 @@
 {
   config,
   inputs,
+  lib,
+  osConfig,
   ...
 }: {
   imports = [
@@ -30,36 +32,61 @@
     enable = true;
     gateway.enable = true;
 
+    # One `settings` attribute, not two: an attribute set literal cannot repeat a
+    # key, and the local wiring is conditional, so the two halves are joined here
+    # rather than written as two definitions.
+    #
     # DeepSeek is a first-class provider: `provider` selects its built-in
     # endpoint (https://api.deepseek.com) and DEEPSEEK_API_KEY is the
     # credential, so no base_url is needed. deepseek-flash is the model dsh
     # already runs (see overlays/dsh-model-router.nix); deepseek-v4-pro is the
-    # larger sibling.
-    settings.model = {
-      provider = "deepseek";
-      default = "deepseek-flash";
-    };
+    # larger sibling. It stays the default model: the host's local server hands
+    # its VRAM back when idle and this desktop shares the card with games.
+    settings =
+      {
+        model = {
+          provider = "deepseek";
+          default = "deepseek-flash";
+        };
+      }
+      # The host runs its own llama-server in router mode (system/server/ai) on
+      # loopback:8080, serving two models. Naming the endpoint makes them
+      # selectable and not merely detectable: `llamacpp` resolves to this server
+      # instead of depending on the port probe alone, and the aliases give /model
+      # names to switch with. The ids are the router's - one per GGUF file name -
+      # and they are read from the module rather than repeated here, so renaming
+      # a model file cannot leave behind an alias that silently stops resolving.
+      #
+      # Aliases rather than a different default, because managed mode refuses
+      # `hermes config set`: a runtime config write is exactly what the next
+      # switch would undo, while an alias resolves per session and writes
+      # nothing. `/model local` is the thinking model, `/model small` the quick
+      # one; the port is device.app.ai.port, so change both together.
+      #
+      # Gated on the service, so a host without it gets neither the aliases nor
+      # an endpoint pointing at a port nothing serves.
+      // lib.optionalAttrs osConfig.device.app.ai.enable {
+        providers.llamacpp.base_url = "http://127.0.0.1:8080/v1";
 
-    # The host runs its own llama-server (system/server/ai) on loopback:8080.
-    # Naming the endpoint makes the local model selectable and not merely
-    # detectable: `llamacpp` resolves to this server instead of depending on the
-    # port probe alone, and the `local` alias gives /model a name to switch with.
-    # It has to be an alias, because managed mode refuses `hermes config set` -
-    # a runtime config write is exactly what the next switch would undo.
-    #
-    # Local is deliberately not the default. The server hands its VRAM back when
-    # idle and this desktop shares the card with games, so a new session still
-    # starts on DeepSeek and /model local is the deliberate move. The port is
-    # device.app.ai.port; change both together.
-    settings.providers.llamacpp.base_url = "http://127.0.0.1:8080/v1";
+        # Self-contained (provider + base_url, no credential): an alias is
+        # resolved before any provider is contacted, so selecting one must not
+        # depend on the server being up.
+        model_aliases = {
+          # The 35B MoE with its experts in RAM: a session that has to think.
+          local = {
+            model = osConfig.device.app.ai.modelIds.agent;
+            provider = "custom";
+            base_url = "http://127.0.0.1:8080/v1";
+          };
 
-    # Self-contained (provider + base_url, no key): an alias is resolved before
-    # any provider is contacted, so it must not depend on the server being up.
-    settings.model_aliases.local = {
-      model = "qwen3.6-35b-a3b";
-      provider = "custom";
-      base_url = "http://127.0.0.1:8080/v1";
-    };
+          # The 12B dense one: a question, a page to summarise, a screenshot.
+          small = {
+            model = osConfig.device.app.ai.modelIds.quick;
+            provider = "custom";
+            base_url = "http://127.0.0.1:8080/v1";
+          };
+        };
+      };
 
     # Secrets travel by runtime path, never as a Nix path literal, which would
     # copy them into the world-readable store. Write a line such as
