@@ -63,6 +63,21 @@
       # nothing. `/model local` is the thinking model, `/model small` the quick
       # one; the port is device.app.ai.port, so change both together.
       #
+      # DeepSeek stays the default because the local models are the wrong tool
+      # for anything multi-step. A 12B's wrong tool call costs more than the
+      # round-trip it saves, and the failure is silent - a plausible action on the
+      # wrong file - while the local window is 64K against the cloud model's much
+      # larger one, so long sessions hit compression sooner. `/model small` is for
+      # a question, a page to summarise, a draft; `/model local` for local or
+      # offline work where a 35B is worth 29 tok/s instead of 62.
+      #
+      # Measured on this host after the two models were fetched: `/model local`
+      # decodes at ~29 tok/s holding 5.4 GiB of VRAM (experts in RAM), `/model
+      # small` at ~62 tok/s holding 10 GiB, and `/model small` emits real tool
+      # calls. Both drop the model after 15 minutes idle, and a cold load off
+      # /Vault is ~23 s for the small one and ~75 s for the big one - the second
+      # use in a session is seconds, because the page cache kept it.
+      #
       # Gated on the service, so a host without it gets neither the aliases nor
       # an endpoint pointing at a port nothing serves.
       // lib.optionalAttrs osConfig.device.app.ai.enable {
