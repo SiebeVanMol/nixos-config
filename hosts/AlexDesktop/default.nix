@@ -29,12 +29,6 @@
     wm.hyprland.enable = true;
   };
 
-  boot.loader = {
-    systemd-boot.enable = true;
-    efi.canTouchEfiVariables = true;
-  };
-
-  networking.networkmanager.enable = true;
   networking.hostName = "alex-desktop";
 
   time.timeZone = "Asia/Tokyo";
@@ -62,6 +56,4 @@
     # timeout, before nix falls through to the next substituter.
     connect-timeout = 10;
   };
-
-  system.stateVersion = "25.05";
 }

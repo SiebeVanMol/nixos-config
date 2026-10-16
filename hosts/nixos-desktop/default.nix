@@ -41,12 +41,6 @@
     wm.hyprland.enable = true;
   };
 
-  boot.loader = {
-    systemd-boot.enable = true;
-    efi.canTouchEfiVariables = true;
-  };
-
-  networking.networkmanager.enable = true;
   networking.hostName = "nixos-desktop";
 
   powerManagement.cpuFreqGovernor = "performance";
@@ -61,6 +55,4 @@
   systemd.services.nix-daemon.serviceConfig.TemporaryFileSystem = ["/tmp:size=16G,mode=1777"];
 
   time.timeZone = "Europe/Brussels";
-
-  system.stateVersion = "25.05";
 }

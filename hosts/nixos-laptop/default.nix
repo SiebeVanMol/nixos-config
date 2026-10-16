@@ -30,12 +30,6 @@
     wm.hyprland.enable = true;
   };
 
-  boot.loader = {
-    systemd-boot.enable = true;
-    efi.canTouchEfiVariables = true;
-  };
-
-  networking.networkmanager.enable = true;
   networking.hostName = "nixos-laptop";
 
   services.power-profiles-daemon.enable = true;
@@ -46,6 +40,4 @@
   };
 
   time.timeZone = "Europe/Brussels";
-
-  system.stateVersion = "25.05";
 }

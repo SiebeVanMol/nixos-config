@@ -122,16 +122,12 @@
             home-manager.extraSpecialArgs = inputs // {inherit inputs;};
 
             # One Home Manager configuration per user on this host.
-            home-manager.users = builtins.listToAttrs (map (username: {
-                name = username;
-                value = {
-                  imports = [
-                    deepseek-harness.homeModules.default
-                    (import ./users/${username}/home.nix)
-                  ];
-                };
-              })
-              users);
+            home-manager.users = nixpkgs.lib.genAttrs users (username: {
+              imports = [
+                deepseek-harness.homeModules.default
+                (import ./users/${username}/home.nix)
+              ];
+            });
           }
         ];
       };
@@ -142,12 +138,10 @@
       formatting =
         pkgs.runCommand "nix-formatting-check" {
           nativeBuildInputs = [pkgs.alejandra];
-          src = nixpkgs.lib.cleanSourceWith {
-            src = ./.;
-            filter = path: type:
-              (baseNameOf path != "result")
-              && (nixpkgs.lib.cleanSourceFilter path type);
-          };
+          # `./.` is already the git-tracked tree, and cleanSourceWith's default
+          # filter (lib/sources.nix) drops nix-build `result` symlinks, so the
+          # hand-written filter that used to wrap this added nothing.
+          src = ./.;
         } ''
           cd "$src"
           alejandra --check .

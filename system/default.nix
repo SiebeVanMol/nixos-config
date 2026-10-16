@@ -56,6 +56,14 @@ in {
   # Prevent editing boot parameters at boot.
   boot.loader.systemd-boot.editor = false;
 
+  # Byte-identical on all three hosts, so they live here rather than three times
+  # over in hosts/: a host that ever needs to diverge overrides these beside its
+  # own settings, instead of the other two silently keeping the old value.
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+  networking.networkmanager.enable = true;
+  system.stateVersion = "25.05";
+
   # Periodic SSD TRIM.
   services.fstrim.enable = true;
 
