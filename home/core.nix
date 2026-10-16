@@ -15,6 +15,8 @@
     ./hyprland.nix
     ./wallpapers.nix
     ./caelestia.nix
+    ./input-method.nix
+    ./desktop-apps.nix
   ];
 
   programs.home-manager.enable = true;

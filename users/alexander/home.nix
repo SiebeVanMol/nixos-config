@@ -1,5 +1,6 @@
-# Alex's user home: Japanese input (fcitx5 + Mozc).
-{pkgs, ...}: {
+# Alex's user home. The Japanese input stack lives in the shared
+# home/input-method.nix, which home/core.nix imports for every user.
+{...}: {
   imports = [
     ../../home/core.nix
 
@@ -7,16 +8,4 @@
     ./browser.nix
     ./programs.nix
   ];
-
-  i18n.inputMethod = {
-    enable = true;
-    type = "fcitx5";
-    fcitx5 = {
-      waylandFrontend = true;
-      addons = with pkgs; [
-        fcitx5-mozc
-        fcitx5-gtk
-      ];
-    };
-  };
 }

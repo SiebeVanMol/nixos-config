@@ -110,37 +110,7 @@
       };
     };
 
-    fastfetch = {
-      enable = true;
-      settings.modules = [
-        "title"
-        "separator"
-        "os"
-        "host"
-        "kernel"
-        "uptime"
-        "packages"
-        "shell"
-        "wm"
-        "cpu"
-        "gpu"
-        "memory"
-        "swap"
-        "disk"
-        "break"
-        "colors"
-      ];
-    };
-
-    mangohud = {
-      enable = true;
-
-      settings = {
-        no_display = true;
-        preset = 3;
-        full = true;
-      };
-    };
+    # fastfetch and mangohud are identical for both users: home/desktop-apps.nix.
 
     git = {
       enable = true;
