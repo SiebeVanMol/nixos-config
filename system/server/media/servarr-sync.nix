@@ -107,6 +107,14 @@
   syncConfig = pkgs.writeText "servarr-sync.json" (builtins.toJSON {
     inherit apps prowlarr indexers;
 
+    # Require a login for every application's web UI, with the password from the
+    # file the activation script below generates. Without this the UI answers a
+    # LAN request with its API key (see sync_authentication in the script).
+    authentication = {
+      inherit (arrApps.uiAuth) username;
+      password_file = arrApps.uiAuth.passwordFile;
+    };
+
     # Each *arr needs a root folder. The default quality profile is NOT set here:
     # only Lidarr's root folders carry one, so the import list or the requesting
     # application owns that choice.
@@ -179,6 +187,20 @@
   appUnits = map (name: "${name}.service") (lib.attrNames apps);
 in {
   config = lib.mkIf config.device.app.jellyfin.enable {
+    # The UI login every application in the stack is given. Generated once, the
+    # way backup.nix generates the restic password, and deliberately not in the
+    # store: a generated password in a world-readable path is no password, and
+    # regenerating it on every switch would lock every browser out.
+    system.activationScripts.servarr-ui-password.text = ''
+      if [ ! -s ${arrApps.uiAuth.passwordFile} ]; then
+        ${pkgs.coreutils}/bin/install -d -m 0700 $(dirname ${arrApps.uiAuth.passwordFile})
+        tmp="$(${pkgs.coreutils}/bin/mktemp)"
+        ${pkgs.coreutils}/bin/head -c 24 /dev/urandom | ${pkgs.coreutils}/bin/base64 --wrap=0 > "$tmp"
+        ${pkgs.coreutils}/bin/install -m 0600 "$tmp" ${arrApps.uiAuth.passwordFile}
+        ${pkgs.coreutils}/bin/rm -f "$tmp"
+      fi
+    '';
+
     systemd.services.servarr-sync = {
       description = "Converge Prowlarr indexers and applications, download clients, notifications";
 

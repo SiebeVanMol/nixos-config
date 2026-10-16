@@ -284,6 +284,103 @@ def sync_root_folder(name, spec, path):
     log(f"{name}: added root folder {path}")
 
 
+def read_secret(path):
+    """The first non-empty line of a secret file, or None.
+
+    These files are generated at activation and never enter the store, so the
+    only thing that can go wrong is being asked before they exist.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    return line.strip()
+    except OSError:
+        return None
+    return None
+
+
+# What counts as "the UI already requires a login". `forms` is what this applies;
+# `basic` is accepted too, so a method chosen by hand in the UI is left alone.
+LOGIN_METHODS = ("forms", "basic")
+
+
+def sync_authentication(name, spec, auth):
+    """Require a login for the application's web UI.
+
+    The UI bootstrap (`/initialize.json`) hands the API key to any request the
+    application considers local, and behind the reverse proxy every request
+    arrives from 127.0.0.1 - so with the shipped default, which is
+    `disabledForLocalAddresses`, a browser anywhere on the LAN or the Tailscale
+    mesh is as good as a shell on this host, keys included. Measured before this
+    existed, with no credentials at all:
+
+        curl -H 'Host: sonarr.lan' http://127.0.0.1/initialize.json  -> key
+
+    `authenticationRequired = enabled` is the fix, and it leaves the API alone:
+    X-Api-Key bypasses the web login, so every other step in this file and the
+    flake's tools keep working unchanged. Applied only while the setting is not
+    already right, so a password changed in the UI later is not reverted.
+    """
+    port, version, key = spec["port"], spec["version"], spec["key"]
+    current = call(port, version, key, "GET", "/config/host")
+    if not isinstance(current, dict):
+        warn(f"{name}: could not read the host configuration")
+        return False
+    # all() rather than a wrapped `and` chain: flake8, as the writer that builds
+    # this script invokes it, rejects an operator that starts a line.
+    already_secured = all(
+        [
+            current.get("authenticationMethod") in LOGIN_METHODS,
+            current.get("authenticationRequired") == "enabled",
+        ]
+    )
+    if already_secured:
+        log(f"{name}: web UI already requires a login")
+        return False
+
+    password = read_secret(auth["password_file"])
+    if not password:
+        warn(f"{name}: no UI password in {auth['password_file']}, leaving the UI open")
+        return False
+
+    # The whole resource goes back, as the application's own UI does it: the
+    # fields this does not name are ones it just returned.
+    call(
+        port,
+        version,
+        key,
+        "PUT",
+        "/config/host",
+        dict(
+            current,
+            authenticationMethod="forms",
+            authenticationRequired="enabled",
+            username=auth["username"],
+            password=password,
+            passwordConfirmation=password,
+        ),
+    )
+
+    # Read it back: a value the API rejected would otherwise leave the UI open
+    # with nothing but this run's exit code to hint at it.
+    after = call(port, version, key, "GET", "/config/host") or {}
+    accepted = all(
+        [
+            after.get("authenticationMethod") in LOGIN_METHODS,
+            after.get("authenticationRequired") == "enabled",
+        ]
+    )
+    if not accepted:
+        warn(
+            f"{name}: still {after.get('authenticationMethod')}/"
+            f"{after.get('authenticationRequired')} after the change"
+        )
+        return False
+    log(f"{name}: web UI now requires a login as {auth['username']}")
+    return True
+
+
 # What each application calls the collection of things it manages. The path of
 # one of them is an absolute directory recorded per item, separately from the
 # root folders that contain them.
@@ -891,6 +988,18 @@ def main():
 
     failures = 0
     webhook_url = os.environ.get("ALERT_WEBHOOK_URL", "")
+
+    # Before the rest, because it is the only step whose absence is a security
+    # hole: a browser that reaches one of these web UIs can read its API key.
+    authentication = config.get("authentication")
+    if authentication:
+        for name, spec in sorted(ready.items()):
+            try:
+                sync_authentication(name, spec, authentication)
+            except ApiError as error:
+                warn(f"{name}: {error}")
+                failures += 1
+
     for name, spec in sorted(ready.items()):
         if name == "prowlarr":
             continue

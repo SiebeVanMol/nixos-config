@@ -61,6 +61,18 @@
   # re-encoding scripts work on (Prowlarr only holds indexers).
   libraryApps = lib.filterAttrs (_: app: app ? items) apps;
 
+  # The stack's web UIs are published on the LAN through the reverse proxy and
+  # made to require a login - sync_authentication in servarr-sync.py explains
+  # why, and it is not optional: without it the UI hands out the application's
+  # API key to anything that looks local. One password, generated at activation
+  # into a root-only file and never stored here, is what every application in
+  # the stack accepts. The API keys the scripts use are a separate credential and
+  # are unaffected by this.
+  uiAuth = {
+    username = "snowyrenard";
+    passwordFile = "/etc/servarr/ui-password";
+  };
+
   # What media.mkArr takes: the facts above minus the library extras it has no
   # use for, so a module for one application names only what is its own.
   mkArrArgs = name: {inherit name;} // lib.removeAttrs apps.${name} ["items" "rescan" "idsKey"];
