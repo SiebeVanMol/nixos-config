@@ -11,24 +11,7 @@ syntax-checked the Python it touched. It could not rebuild or switch anything
 **read-verified, not measured**: re-check the named lines before acting, and
 treat every "after the change" claim as something to test.
 
-## 1. Derive the *arr tables instead of hardcoding them
-
-`arr-health.py:27-32`, `media-recode.py:79-95` and `servarr-sweep.py:46-50`
-spell out port / dir / version (and items, path_key, rescan) that
-`lib/media.nix:87-101` (`mkArr`) already derives; `servarr-sync.nix:24-27` and
-`torrent-cleanup.nix:27-30` already receive that table as JSON. The hardcoded
-copies are the ones that go stale when a service moves.
-
-Related: `homepage-env.sh:35` loops over a literal `sonarr radarr lidarr
-prowlarr` while the widget keys it must satisfy are generated from the registry
-(`lib/media.nix:95` sets `keyVar`, `dashboard.nix:45` renders it), and
-`homepage.nix:17` builds the script with no arguments - a fourth *arr app breaks
-a dashboard widget with nothing saying why.
-
-Caveat: the registry would have to grow `media-recode`'s per-app fields, or the
-JSON generator keeps them once.
-
-## 2. Fork nixpkgs' seerr instead of copying it
+## 1. Fork nixpkgs' seerr instead of copying it
 
 `overlays/seerrng.nix:14-88` is line-for-line nixpkgs' `seerr` derivation
 (pnpmDeps, preBuild, prune, installPhase, makeWrapper) with only pname, version,
@@ -37,7 +20,7 @@ src, hash and the wrapper bin differing, so upstream recipe fixes never arrive.
 `postInstall` wrapper and inheriting upstream's bump cadence.
 `system/server/media/seerr.nix:28` needs no change.
 
-## 3. Narrow the overlay and module surface
+## 2. Narrow the overlay and module surface
 
 `flake.nix:102-111` applies all six third-party overlays to every host, but
 `alex-desktop` never enables jellyfin (`hosts/AlexDesktop/default.nix:25-28`,
@@ -49,7 +32,7 @@ the per-user pattern hermes uses. Re-evaluate all three hosts after gating:
 any shared module naming `pkgs.seerrng` / `pkgs.dsh-model-router` would fail on a
 host that skips the overlay.
 
-## 4. One report-delivery path
+## 3. One report-delivery path
 
 `monitoring.nix:143-145` and `reclaim.nix:146-147` each hand-roll the same
 Discord post: the same `${report:0:1800}` truncation against Discord's
@@ -59,7 +42,7 @@ fix to the cap or the failure handling in one leaves the other wrong. Extract
 one helper (a `lib/` function emitting the shell fragment, or a
 `writeShellApplication` reading the report on stdin).
 
-## 5. Traps in the (currently disabled) Minecraft tree
+## 4. Traps in the (currently disabled) Minecraft tree
 
 No host enables it, so these matter on the day it is re-enabled:
 
@@ -77,7 +60,7 @@ No host enables it, so these matter on the day it is re-enabled:
   placeholders), no generator in the tree, and the pack-bump note at
   `default.nix:14-16` covers only the URL and hash.
 
-## 6. Alex's git identity
+## 5. Alex's git identity
 
 `users/alexander/programs.nix:66-72` sets `git.settings.user` to Snowy Renard /
 snowyrenard@gmail.com, so every commit made on that machine is authored as
@@ -86,7 +69,7 @@ Snowy. It dates from the initial copy of the user directory and survived the
 out from the repo, but nothing says so - and authorship is painful to correct
 after it is pushed.
 
-## 7. Smaller
+## 6. Smaller
 
 - Browser search engines and bookmarks are written out in full in both users'
   modules (`users/snowyrenard/browser.nix:96-291`,
@@ -98,6 +81,9 @@ after it is pushed.
 - `system/hardware/usb-automount.nix:38-48` and `:73-80` each scan
   `/run/user/*/bus` to find logged-in sessions, with only one copy handling the
   `getent` failure.
+- Nothing lints the shell the modules carry (`homepage-env.sh` and friends):
+  the flake checks Nix formatting and Python, but no `shellcheck`. They do pass
+  `bash -n`, so this is a gap, not a breakage.
 - `system/app/steam.nix:72` sets `programs.gamemode.enable`, so
   `device.app.gamemode.enable` (`system/app/gamemode.nix:7-8`) cannot turn
   gamemode off on any host - all three set both. Pick one owner.
@@ -106,7 +92,7 @@ after it is pushed.
   this Hyprland accepts the Lua-style dispatcher name is unverified - check it
   on the running compositor before changing, and add the package if the fade is
   what was wanted.
-- `system/server/media/servarr-sweep.py:117` requests `/episode` once per series
+- `system/server/media/servarr-sweep.py:131` requests `/episode` once per series
   to learn which seasons have files, where `/series` already carries
   `seasons[].statistics.episodeFileCount` (39 series today). Verify the payload
   on the live instance once, then keep the per-series call only for the
@@ -169,6 +155,23 @@ after it is pushed.
   re-ran on that switch exited 0 doing real work - `servarr-sync` converged all
   three Seerr links (the helper converted last), `houndarr-config` read every
   app's key out of its root-only config.xml through the shared reader.
+- The *arr application facts live in `lib/arr-apps.nix`: port, dashboard row,
+  and how to address each application's library. The three that own one are
+  built by `media.mkArr` from it (a module now names only its own
+  `writePaths`), Prowlarr's port and state directory come from it, and it is the
+  single source for the JSON the media scripts read - read from a host's *live*
+  registry where there is one, since ports are options.
+  That deleted three Python copies (`arr-health`, `media-recode`,
+  `servarr-sweep`), the literal `sonarr radarr lidarr prowlarr` loop in
+  `homepage-env.sh` - which would have given a fifth application no widget key,
+  silently - and every stored API version: those are probed now, because the
+  literal went stale the last time Sonarr changed major version.
+  Verified: before the Python half, the system derivation of all three hosts was
+  byte-identical to the previous commit; afterwards each loader was exercised
+  against a fake *arr server (`arr-health` took port and state directory from the
+  module's JSON and its key from config.xml, on the expected path, then reported
+  the finding) or against the live stack (`servarr-sweep` reporting
+  `unauthorized` for a wrong key and `down` for a dead port).
 - `checks.x86_64-linux.python` lints every `.py` file with the same flake8
   command `pkgs.writers.writePython3Bin` runs during a build. That was the only
   linting any of this got, and it never covered the shared module (delivered by

@@ -31,16 +31,23 @@ emit() {
 
 # Servarr applications: the key lives in config.xml, and where that file sits
 # depends on how the service runs. The shared arr-api-key helper knows both
-# places, so all this loop does is name the environment variable.
-for app in sonarr radarr lidarr prowlarr; do
-  [ -d "/var/lib/$app" ] || continue
-  var="HOMEPAGE_VAR_$(printf '%s' "$app" | tr '[:lower:]' '[:upper:]')_KEY"
-  if key="$(arr-api-key "/var/lib/$app")"; then
-    emit "$var" "$key"
-  else
-    emit "$var" ""
-  fi
-done
+# places, so all this loop does is name the environment variable. Which
+# applications exist comes from the registry, handed over as JSON by the module:
+# naming them here meant a new one silently got no key at all.
+if [ -n "${HOMEPAGE_ARR_APPS:-}" ]; then
+  while IFS=$'\t' read -r app dir; do
+    [ -n "$app" ] || continue
+    [ -d "$dir" ] || continue
+    var="HOMEPAGE_VAR_$(printf '%s' "$app" | tr '[:lower:]' '[:upper:]')_KEY"
+    if key="$(arr-api-key "$dir")"; then
+      emit "$var" "$key"
+    else
+      emit "$var" ""
+    fi
+  done < <(jq -r '.apps | to_entries[] | "\(.key)\t\(.value.dir)"' "$HOMEPAGE_ARR_APPS")
+else
+  printf 'homepage-env: HOMEPAGE_ARR_APPS is not set - no *arr keys collected\n' >&2
+fi
 
 # Bazarr keeps its key under [auth] as "apikey", but WHERE depends on version:
 # 1.6 moved settings from config.ini to config.yaml and converts an existing

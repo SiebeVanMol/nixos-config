@@ -14,9 +14,17 @@
   # own copy of the config.xml search.
   arrKey = import ../../../lib/arr-api-key.nix {inherit pkgs;};
 
+  # Which applications to collect keys for, from the live registry: the ports and
+  # state directories are options, so the script must not name them again. A
+  # literal list there meant a fifth application would quietly get no key.
+  arrApps = import ../../../lib/arr-apps.nix {inherit lib;};
+  arrAppsJSON = pkgs.writeText "homepage-arr-apps.json" (
+    builtins.toJSON (arrApps.withPorts config.device.media.services)
+  );
+
   envScript = pkgs.writeShellApplication {
     name = "homepage-env";
-    runtimeInputs = [pkgs.coreutils pkgs.python3 arrKey];
+    runtimeInputs = [pkgs.coreutils pkgs.python3 pkgs.jq arrKey];
     text = builtins.readFile ./homepage-env.sh;
   };
 
@@ -67,6 +75,9 @@ in {
         Type = "oneshot";
         RemainAfterExit = true;
         User = "root";
+        # Which applications to read keys for: the registry's list, so adding one
+        # needs no edit to the collector.
+        environment.HOMEPAGE_ARR_APPS = "${arrAppsJSON}";
         ExecStart = lib.getExe envScript;
         # A oneshot's default start timeout is INFINITE, so anything that hangs
         # here hangs `nixos-rebuild switch` with it. The collector is a few file
