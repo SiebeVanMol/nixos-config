@@ -48,6 +48,28 @@
           provider = "deepseek";
           default = "deepseek-flash";
         };
+
+        # Reasoning is where this setup's tokens actually go: across every
+        # recorded session 517K of the 704K output tokens were reasoning tokens
+        # (73%), and output is the priciest class - the input side is already 98%
+        # cache hits. DeepSeek V4 accepts low/medium/high/max, its thinking
+        # defaults to on, and the provider profile emits the toggle on every
+        # request so the reasoning_content echo contract holds, which leaves the
+        # level as the one lever.
+        #
+        # `low` rather than a higher tier because this agent's turns are mostly
+        # tool-driven and mechanical, where thinking past `low` buys little.
+        # Raise it per session with `/reasoning high` - session-scoped, so
+        # managed mode is untouched and nothing has to be written - or change
+        # this line for the default. `/reasoning none` is turned by the DeepSeek
+        # profile into an explicit `thinking: {type: disabled}`, switching it off
+        # outright, which is a reasonable choice for a one-shot question and a
+        # poor one for a tool loop.
+        #
+        # Per-model, not `agent.reasoning_effort`, so the local models are not
+        # sent an effort field: they are reached through a custom base_url, which
+        # receives whatever effort resolves, and llama-server has no use for it.
+        agent.reasoning_overrides."deepseek-flash" = "low";
       }
       # The host runs its own llama-server in router mode (system/server/ai) on
       # loopback:8080, serving two models. Naming the endpoint makes them
