@@ -153,5 +153,14 @@
     environmentFiles = [
       "${config.home.homeDirectory}/.config/hermes/env"
     ];
+
+    # The weekly "Hermes usage & spend digest" cron job runs this script before
+    # its agent turn: it reads state.db, prices the week's token mix through
+    # Hermes' own cost engine and prints the report on stdout, which the job's
+    # prompt receives as context. Declared here rather than created by hand so
+    # it is versioned with everything else and survives a rebuild; the cron job
+    # itself is state and lives in $HERMES_HOME/cron, which activation does not
+    # touch.
+    hermesHomeFiles."scripts/usage-digest.py" = ./hermes-usage-digest.py;
   };
 }
