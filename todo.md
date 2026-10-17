@@ -131,6 +131,14 @@ other three applications report it before writing the convergence.
 - `nix flake check` prints a firefox XDG-path deprecation warning. It comes from
   the third-party zen-browser module's use of home-manager's legacy
   `configPath`, not from anything in this repo.
+- The llama-server on `nixos-desktop` is **deliberately off**
+  (`hosts/nixos-desktop/default.nix`, `ai.enable = false`): a model holds its
+  weights on the card for the fifteen-minute idle window after any request, and
+  the owner wanted that VRAM back. It is a switch away from coming back, and
+  nothing in `users/snowyrenard/hermes.nix` needed editing because the whole
+  local block (endpoint, aliases, cron default, aux slots) is gated on that flag.
+  If it is re-enabled, the open question to measure is what still wakes it with
+  no one asking - title generation at session start is the known one.
 
 ## Recently done (do not re-do)
 

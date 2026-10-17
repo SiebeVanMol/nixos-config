@@ -34,7 +34,19 @@
       jellyfin.enable = true;
       music.enable = true;
       # The local agent model: this host has the GPU for it, the others do not.
-      ai.enable = true;
+      #
+      # Off since 2026-10-17, at the owner's request: any request wakes a model
+      # and holds its weights on the card for the whole fifteen-minute idle
+      # window (`sleep-idle-seconds` in system/server/ai), which is VRAM this
+      # machine wants back while it is being used for something else. Nothing
+      # else had to change - the module, the models in /Vault and the endpoint
+      # option all stay declared, and users/snowyrenard/hermes.nix gates its
+      # llamacpp endpoint, model aliases, local cron default and the local aux
+      # slots on this one flag, so a disabled host is left with nothing pointing
+      # at a port that serves nothing. Re-enabling is this line and a switch;
+      # the next session then loads a model again on first use, cold (~23 s for
+      # the 12B, ~75 s for the 35B) unless /Vault's page cache still holds it.
+      ai.enable = false;
       minecraft.enable = false;
       virtualization.enable = true;
     };
