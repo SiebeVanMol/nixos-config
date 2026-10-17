@@ -6,9 +6,10 @@
 # their own lockout, so they need no jail.
 #
 # Both read Caddy's access log rather than the app's own, because Caddy records
-# the real client address (Jellyfin is behind a proxy with no KnownProxies, so
-# every request it sees comes from 127.0.0.1) and because one JSON object per
-# request lets a filter match the failed request itself. The filters match
+# the address the connection really came from - the one Jellyfin only reports
+# once it is told which proxies to trust, so it cannot be relied on at boot -
+# and because one JSON object per request lets a filter match the failed request
+# itself. The filters match
 # Caddy's field order (remote_ip, uri, status); if a Caddy upgrade reorders them
 # the jail silently stops firing, and `fail2ban-regex` shows it.
 {

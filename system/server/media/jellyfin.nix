@@ -27,6 +27,14 @@
       group = "users";
     };
 
+    # Jellyfin's own network.xml is set through the API rather than here; the
+    # module has no option for it. It carries KnownProxies = 127.0.0.1 and ::1,
+    # without which every request arriving through Caddy is attributed to
+    # loopback: a session shows 127.0.0.1 for a client on the other side of the
+    # world, and because nobody looks remote, a per-user remote bitrate limit
+    # has nothing to apply to. config/network.xml is inside the restic backup
+    # below, which is what makes a runtime-only setting tolerable here.
+    #
     # Deliberately NOT setting services.jellyfin.forceEncodingConfig. The
     # module's generated encoding.xml covers only about 19 of the ~45 elements
     # the server writes, so enabling it would replace the working file and
