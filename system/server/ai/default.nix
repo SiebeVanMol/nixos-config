@@ -394,10 +394,12 @@ in {
           repo = "unsloth/Qwen3.8-27B-GGUF";
           revision = "4ca720788d1e01f1bff70c033e0d0028fd02e502";
           file = "Qwen3.8-27B-UD-IQ3_S.gguf";
-          draft = {
-            type = "draft-mtp";
-            file = "MTP/mtp-Qwen3.8-27B-Q4_0.gguf";
-          };
+          # No draft head, although the repository publishes one: measured on
+          # this card at 512 tokens it takes the model from 38.7 t/s to 15.8,
+          # i.e. the MTP head is not the one this 3-bit conversion was made for
+          # and every drafted token is verified and thrown away. The head is
+          # therefore not even fetched - `llama-fetch qwen27` gets the weights
+          # alone.
           note = ''
             The dense alternative, and the reason it is 3 bits rather than 4:
             IQ4_XS is 14.25 GB, which leaves this card nothing for a cache, while

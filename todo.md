@@ -109,15 +109,25 @@ other three applications report it before writing the convergence.
 
 ## 8. Qwen3.8-27B prefills at 37 t/s
 
-Measured on this card with the service's own flags: 20.7 t/s decode over 128
-tokens and 37 t/s prefill, 15.4 GB resident (it fits, no spill), draft
-acceptance 94/97. Decode is close to what owners report; prefill is a third of
-it, and prefill is what an agent's 20-40k prompt actually pays. The likely cause
+Measured on this card with the service's own flags: 38.7 t/s decode over 512
+tokens and 37 t/s prefill, 14.8 GB resident (it fits, no spill), and that is
+with no draft head - the MTP head the repository publishes takes it to 15.8 t/s,
+so it is not fetched. Decode is close to what owners report; prefill is a third
+of it, and prefill is what an agent's 20-40k prompt actually pays. The likely cause
 is the 3-bit IQ3 path on Vulkan rather than the model, so the cheap experiment is
 `device.app.ai.backend = "rocm"` - one line, and the HIP build is already written
 for gfx1201. Keep or drop the model on that result.
 
 ## Notes
+
+- Measuring local speed: 512 tokens, the service's own flags, and the card
+  waited down between cases (`mem_info_vram_used` back under ~2.6 GiB before the
+  next load). Not doing that produced a 3x spread on identical flags - 18.2 and
+  55.7 t/s for the same model - because `--fit` plans against the VRAM free at
+  that instant, so a model still resident from the previous case makes the next
+  one spill. Two stale servers left over from earlier runs were the other half of
+  it. Short runs are just as misleading the other way: a 32-token completion read
+  64.6 t/s on a model that does 75.4 over 512.
 
 - `test.sh` is the repo's single entry point: everything `nix flake check`
   runs (formatter and Python lint - it builds them rather than only evaluating
@@ -161,10 +171,11 @@ for gfx1201. Keep or drop the model on that result.
   as a model - and wired per model through a `--models-preset` INI, since one
   global `--spec-type` cannot say "this model has a head and that one does not".
   Measured through the router at the 64K window the service uses, 32-token
-  completion: `agent` 64.6 t/s decode (37.9 before the head; draft acceptance
-  23/23), `gpt-oss-20b` 127.2 t/s, `quick` 78.1 t/s, `tiny` 106.7 t/s with no
-  head on purpose, and `qwen27` 20.7 t/s over 128 tokens (94/97 accepted) - see
-  open item 8.
+  completion over 512 tokens on a card waited down between cases (the only
+  numbers worth quoting - see the Notes entry on measurement): `agent` 75.4 t/s
+  with the head against 33-40 without, `gpt-oss-20b` 222.8 against 161.5, `quick`
+  155.8 against 64.5, `tiny` 178.4 with no head on purpose, and `qwen27` 38.7 -
+  which is *without* its head, because the published one takes it down to 15.8.
   Three things only running it could have found: the preset loader rejects
   `spec-draft-cache-type-k` ("not recognized in preset", which fails the whole
   router rather than one model) even though `--spec-draft-type-k` exists on the
