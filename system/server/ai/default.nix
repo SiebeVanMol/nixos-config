@@ -4,7 +4,20 @@
 # Two models for two jobs. `agent` is what an agent loop thinks with: a 35B
 # mixture-of-experts whose expert tensors live in RAM, so a token pays only for
 # the ~3B parameters it activates. `quick` is a small dense model for a question
-# or a page summary.
+# or a page summary, and `tiny` titles sessions. `oss` and `qwen27` are the two
+# alternatives to `agent`, both of them recommendations rather than guesses:
+# gpt-oss-20b activates 3.6B and fits the card outright, with the best
+# tool-calling measured in its size class, while Qwen3.8-27B is a dense 27B at
+# 3 bits whose hybrid attention keeps a long window nearly free.
+#
+# Four of the five decode with a draft head, which is the largest single win
+# available on this card: generation is bandwidth-bound, so a head that guesses
+# the next few tokens correctly lets the engine verify them in one pass instead
+# of one per token. `agent` carries its head fused in the same file; `quick`,
+# `qwen27` and `oss` need a second one, which lives outside --models-dir because
+# the router would otherwise offer a 0.5-1.4 GB head to clients as a model.
+# They are wired per model through a preset INI, because a head is only valid
+# against the revision it shipped with - see the note on `models`.
 #
 # Router mode is what makes one service out of several models: llama-server
 # starts with no model argument, discovers every GGUF in --models-dir, loads one
@@ -34,6 +47,11 @@
   cfg = config.device.app.ai;
 
   modelsDir = "/Vault/llama/models";
+
+  # Draft heads sit outside the models directory: the router scans that
+  # directory for models, so a speculative head lying beside the weights would
+  # be offered to clients as a model of its own.
+  draftsDir = "/Vault/llama/drafts";
 
   # gfx1201 is the RX 9070/XT (RDNA4). nixpkgs' rocmPackages carries a
   # per-architecture scope (`rocmPackages.gfx1201`) that pins clr and everything
@@ -72,8 +90,50 @@
   # template would depend on which line happened to be first.
   modelNames = lib.concatStringsSep ", " (lib.attrNames cfg.models);
 
-  fetchLine = name: m: "  ${name}) fetch ${name} \"${m.repo}\" \"${m.file}\" \"${m.revision}\" ;;";
-  fetchAllLine = name: m: "    fetch ${name} \"${m.repo}\" \"${m.file}\" \"${m.revision}\"";
+  # A draft head is pinned and fetched exactly like the weights: a speculative
+  # decoder is only valid against the revision it was trained with, so an
+  # unpinned head is a slower way of fetching something that may not load.
+  fetchLine = name: m:
+    [
+      "  ${name})"
+      "    fetch ${name} \"${m.repo}\" \"${m.file}\" \"${m.revision}\" ${modelsDir}"
+    ]
+    ++ lib.optional (m.draft.type != "none" && m.draft.file != null)
+    "    fetch ${name}-draft \"${m.repo}\" \"${m.draft.file}\" \"${m.revision}\" ${draftsDir}"
+    ++ ["    ;;"];
+
+  fetchAllLine = name: m:
+    [
+      "    fetch ${name} \"${m.repo}\" \"${m.file}\" \"${m.revision}\" ${modelsDir}"
+    ]
+    ++ lib.optional (m.draft.type != "none" && m.draft.file != null)
+    "    fetch ${name}-draft \"${m.repo}\" \"${m.draft.file}\" \"${m.revision}\" ${draftsDir}";
+
+  # Speculative decoding is per model and cannot be a global flag: `agent`
+  # carries a fused head, three others need a second file, and `tiny` has none -
+  # its whole job is a five-token title. A draft file is also tied to the
+  # revision it shipped with. The router reads per-model arguments from an INI
+  # whose sections are model ids and whose keys are long flags without the
+  # dashes. Command-line arguments outrank that file, so everything this module
+  # sets on the CLI - ctx-size, fit, the quantised KV cache - still wins.
+  #
+  # Only those three keys: the draft cache types are a second family of switches
+  # (`--cache-type-k-draft`, whose `--spec-draft-type-k` is an alias the preset
+  # loader does not accept - it fails the whole router with "not recognized in
+  # preset"), and the f16 default costs a fraction of a GiB for a head this
+  # small. Verified against the router rather than the help text.
+  presetSection = _: m:
+    lib.optionalString (m.draft.type != "none") ''
+      [${lib.removeSuffix ".gguf" m.file}]
+      spec-type = ${m.draft.type}
+      spec-draft-n-max = ${toString m.draft.nMax}
+    ''
+    + lib.optionalString (m.draft.type != "none" && m.draft.file != null) ''
+      spec-draft-model = ${draftsDir}/${m.draft.file}
+
+    '';
+
+  modelsPreset = pkgs.writeText "llama-models.ini" (lib.concatStrings (lib.mapAttrsToList presetSection cfg.models));
 
   llamaFetch = pkgs.writeShellScriptBin "llama-fetch" (lib.concatStringsSep "\n" (
     [
@@ -81,15 +141,20 @@
       ""
       "fetch() {"
       "  echo \"==> $1: $3\""
-      "  ${hf} download \"$2\" \"$3\" --revision \"$4\" --local-dir ${modelsDir}"
+      "  ${hf} download \"$2\" \"$3\" --revision \"$4\" --local-dir \"$5\""
+      # huggingface-hub writes 0600 under the caller's umask, and the service is
+      # a DynamicUser: weights it cannot read are the one failure that looks like
+      # a corrupt model. Weights are not secret, so make what was just written
+      # world-readable rather than depend on who ran the fetch.
+      "  chmod -R a+rX \"$5\""
       "}"
       ""
       "case \"\${1:-all}\" in"
     ]
-    ++ lib.mapAttrsToList fetchLine cfg.models
+    ++ lib.concatMap (n: fetchLine n cfg.models.${n}) (lib.attrNames cfg.models)
     ++ (
       ["  all)"]
-      ++ lib.mapAttrsToList fetchAllLine cfg.models
+      ++ lib.concatMap (n: fetchAllLine n cfg.models.${n}) (lib.attrNames cfg.models)
       ++ [
         "    ;;"
         "  *)"
@@ -154,7 +219,7 @@ in {
         14.27 GiB free, leaving nothing for a browser. 1 stayed the default
         while there were two models.
 
-        With three it is 2, and `tiny` is the reason: Hermes asks that model for
+        With five it is still 2, and `tiny` is the reason: Hermes asks that model for
         a session title at the start of every session, and at models-max 1 the
         request would unload whichever chat model was resident - a title costing
         a 75 s reload of the agent model on the next turn. The pairs that happen
@@ -196,6 +261,45 @@ in {
               without .gguf, so renaming the file renames the model.
             '';
           };
+          draft = lib.mkOption {
+            default = {};
+            description = ''
+              Speculative decoding for this model. Off by default: a draft head
+              only helps a model that shipped with one, and using the wrong one
+              is a decode path that guesses badly rather than an error.
+            '';
+            type = lib.types.submodule {
+              options = {
+                type = lib.mkOption {
+                  type = lib.types.enum ["none" "draft-mtp" "draft-eagle3" "draft-simple"];
+                  default = "none";
+                  description = ''
+                    llama-server's --spec-type. MTP and EAGLE3 are the two heads
+                    the recommended models actually publish; both are worth about
+                    2x decode on a bandwidth-bound card, and neither helps prefill.
+                  '';
+                };
+                file = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  description = ''
+                    The head in the same repository, when it is not fused into
+                    the weight file. Positional path, so a head the repository
+                    keeps in its own directory keeps that directory.
+                  '';
+                };
+                nMax = lib.mkOption {
+                  type = lib.types.ints.positive;
+                  default = 3;
+                  description = ''
+                    Tokens to draft per step (--spec-draft-n-max). The engine's
+                    own default is 3; higher drafts more per step and loses more
+                    when the guesses miss.
+                  '';
+                };
+              };
+            };
+          };
           note = lib.mkOption {
             type = lib.types.str;
             default = "";
@@ -208,6 +312,9 @@ in {
           repo = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF";
           revision = "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d";
           file = "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf";
+          # Fused: the MTP repository ships its quants with the draft tensors
+          # already in them, so this model needs a flag and no second fetch.
+          draft.type = "draft-mtp";
           note = ''
             The agent model: 35B total / 3B active, 262144 native context, and
             Hermes' own catalog entry for it ("validated" there). ~22.7 GB on
@@ -219,6 +326,12 @@ in {
           repo = "unsloth/gemma-4-12B-it-qat-GGUF";
           revision = "980b060c40a8539ac159e0501a3e0f66a6365af3";
           file = "gemma-4-12B-it-qat-UD-Q4_K_XL.gguf";
+          # The Q8_0 head, not the BF16 one: 0.47 GB against 0.86 GB for the
+          # same job, and the weights it drafts for are 4-bit.
+          draft = {
+            type = "draft-mtp";
+            file = "MTP/mtp-gemma-4-12B-it-Q8_0.gguf";
+          };
           note = ''
             The small one: 12B dense, 6.72 GB, multimodal, with four times the
             headroom of the agent model - a 64K window fits comfortably and the
@@ -240,6 +353,65 @@ in {
             measured ~157 t/s on that model, against ~39 t/s for a 12B on a
             smaller one): the MoE trade is that compute drops to 4B active while
             all 26B parameters still have to be in memory to keep routing fast.
+          '';
+        };
+
+        oss = {
+          repo = "ggml-org/gpt-oss-20b-GGUF";
+          revision = "ef9b12f2ff56c69cf32153a02784e7a3c88bf524";
+          file = "gpt-oss-20b-MXFP4.gguf";
+          draft = {
+            type = "draft-eagle3";
+            file = "eagle3-gpt-oss-20b-Q8_0.gguf";
+          };
+          note = ''
+            The resident option: 20B total but 3.6B active, and 12.11 GB of
+            weights, which fits this card outright - no expert spill, no fit
+            negotiation, and a window that is paid for out of the ~3.8 GiB left
+            over rather than out of compressed weights.
+
+            MXFP4 is the vendor's own storage format, and on RDNA4 it is storage
+            only: the silicon has no FP4 matrix instruction, so llama.cpp's
+            Vulkan kernels unpack 4.25 bpw to f16 and dot that. The bytes per
+            weight still decide decode speed here, which is why 12.11 GB behaves
+            like a 12 GB model rather than like a 4-bit one from a denser family.
+
+            Recommended over every other 16 GB candidate in the eval that
+            actually tested agentic work rather than benchmarks: it was the only
+            model to pass all eight tasks, including a two-step tool-calling
+            exchange. Owners of this card report ~92 t/s through ROCm and
+            several hundred t/s of prefill, so it is also the fastest thing here
+            per token by a wide margin.
+          '';
+        };
+
+        qwen27 = {
+          repo = "unsloth/Qwen3.8-27B-GGUF";
+          revision = "4ca720788d1e01f1bff70c033e0d0028fd02e502";
+          file = "Qwen3.8-27B-UD-IQ3_S.gguf";
+          draft = {
+            type = "draft-mtp";
+            file = "MTP/mtp-Qwen3.8-27B-Q4_0.gguf";
+          };
+          note = ''
+            The dense alternative, and the reason it is 3 bits rather than 4:
+            IQ4_XS is 14.25 GB, which leaves this card nothing for a cache, while
+            IQ3_S is 12.04 GB and leaves ~2.5 GiB. A dense model does not spill
+            gracefully - every weight is read on every token - so the quant has
+            to fit outright or the speed is lost to the trade the MoE entries
+            above make deliberately.
+
+            What makes 3 bits tolerable here is the architecture: a hybrid with
+            only every fourth block doing full attention, so KV costs roughly
+            10 KiB/token instead of a plain 27B's hundreds - a 64K window is
+            ~0.6 GiB, which is what lets a dense 27B hold an agent's context at
+            all. Owners of this card report ~36 t/s decode and ~1.4K t/s prefill
+            on this exact quant, and call it smarter than the 9B and the 26B-A4B
+            despite the bit depth.
+
+            Not in Hermes' catalog, so its tool-calling template is worth testing
+            before trusting it with an agent loop; `agent` remains the default
+            for that job.
           '';
         };
 
@@ -301,6 +473,7 @@ in {
     # which runs as a DynamicUser, can read what they wrote.
     systemd.tmpfiles.rules = [
       "d ${modelsDir} 2775 root users - -"
+      "d ${draftsDir} 2775 root users - -"
     ];
 
     services.llama-cpp = {
@@ -317,6 +490,11 @@ in {
         # after a restart of the service.
         "models-dir" = modelsDir;
         "models-max" = cfg.maxResidentModels;
+
+        # Per-model arguments, which is where speculative decoding lives: the
+        # section for each model that has a draft head carries --spec-type and
+        # the head's path, and the models without one simply have no section.
+        "models-preset" = modelsPreset;
 
         # Tool calling depends on the template inside the GGUF; this engine's own
         # default is jinja-on, so the flag changes nothing today. It is pinned
@@ -392,12 +570,15 @@ in {
         "min-p" = "0.0";
 
         # This desktop shares the card with games, so an idle model gives its VRAM
-        # back after fifteen minutes - the same window Hermes' own runtime unloads
-        # on. Measured on this card with a 3.96 GB model: 6252 MiB of VRAM while
-        # loaded, 1896 MiB after the timer, `sleeping` in /models, and a reload on
-        # the next request with no client change. The children are spawned from
-        # the router and inherit this flag.
-        "sleep-idle-seconds" = 900;
+        # back after five minutes. That is deliberately shorter than Hermes' own
+        # fifteen-minute unload window: the agent still holds the model, so the
+        # next turn after a lull pays a reload - measured cold, ~23 s for the 12B
+        # and ~75 s for the 35B off /Vault - instead of the card staying claimed
+        # for another ten minutes. Sleeping is not unloading: measured here with a
+        # 3.96 GB model, 6252 MiB of VRAM while loaded, 1896 MiB after the timer,
+        # `sleeping` in /models, and a reload on the next request with no client
+        # change. The children are spawned from the router and inherit this flag.
+        "sleep-idle-seconds" = 300;
       };
 
       # `contextSize` and the rest land as long options: the module renders each

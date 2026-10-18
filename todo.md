@@ -107,6 +107,16 @@ DNS-rebinding hardening rather than the key disclosure the login fix closed - wh
 is why it is written here instead of being folded into that work. Check whether the
 other three applications report it before writing the convergence.
 
+## 8. Qwen3.8-27B prefills at 37 t/s
+
+Measured on this card with the service's own flags: 20.7 t/s decode over 128
+tokens and 37 t/s prefill, 15.4 GB resident (it fits, no spill), draft
+acceptance 94/97. Decode is close to what owners report; prefill is a third of
+it, and prefill is what an agent's 20-40k prompt actually pays. The likely cause
+is the 3-bit IQ3 path on Vulkan rather than the model, so the cheap experiment is
+`device.app.ai.backend = "rocm"` - one line, and the HIP build is already written
+for gfx1201. Keep or drop the model on that result.
+
 ## Notes
 
 - `test.sh` is the repo's single entry point: everything `nix flake check`
@@ -141,6 +151,33 @@ other three applications report it before writing the convergence.
   no one asking - title generation at session start is the known one.
 
 ## Recently done (do not re-do)
+
+- The local server serves five models and four of them decode with a draft head.
+  `agent` (35B-A3B) carries its head fused in the MTP repository's own quants;
+  `quick` (gemma 4 12B) takes `MTP/mtp-gemma-4-12B-it-Q8_0.gguf`, the new `oss`
+  (gpt-oss-20b MXFP4) an EAGLE3 head, and the new `qwen27` (Qwen3.8-27B at
+  IQ3_S) its MTP head. Heads are fetched into `/Vault/llama/drafts` - outside
+  `--models-dir`, because the router would otherwise advertise a 0.5-1.4 GB head
+  as a model - and wired per model through a `--models-preset` INI, since one
+  global `--spec-type` cannot say "this model has a head and that one does not".
+  Measured through the router at the 64K window the service uses, 32-token
+  completion: `agent` 64.6 t/s decode (37.9 before the head; draft acceptance
+  23/23), `gpt-oss-20b` 127.2 t/s, `quick` 78.1 t/s, `tiny` 106.7 t/s with no
+  head on purpose, and `qwen27` 20.7 t/s over 128 tokens (94/97 accepted) - see
+  open item 8.
+  Three things only running it could have found: the preset loader rejects
+  `spec-draft-cache-type-k` ("not recognized in preset", which fails the whole
+  router rather than one model) even though `--spec-draft-type-k` exists on the
+  command line, so the draft cache stays at its f16 default; `hf` writes 0600
+  under the invoking user's umask and a DynamicUser service cannot read that, so
+  `llama-fetch` now chmods what it wrote; and `/Vault/llama` is root-owned, so
+  the drafts directory is created by tmpfiles and the first head fetch has to
+  follow a switch.
+- The idle window is five minutes, not fifteen (`sleep-idle-seconds`), and the
+  desktop's `ai.enable` is back on. Fifteen minutes was why it was switched off:
+  one request held a model on the card for a quarter of an hour. Five minutes is
+  the same trade with the hold cut by two thirds, and a sleeping model still
+  comes back on the next request with no client change.
 
 - `hardware.uinput.enable` no longer duplicated by hand in `system/hardware/kernel.nix`.
 - `system/wm/wayland.nix` no longer re-imports `fonts.nix` past the `importDir` glob.
