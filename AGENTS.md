@@ -1,9 +1,10 @@
 # Working in this repository
 
 NixOS + Home Manager flake for three machines: hosts `nixos-desktop`,
-`nixos-laptop` and `AlexDesktop` (that attribute's `networking.hostName` is
-`alex-desktop` — the lower-case pairing is deliberate and asserted in
-`test.sh`). `hosts/` names each machine's users, `users/<name>/` is the
+`nixos-laptop` and `alex-desktop`. The `nixosConfigurations` attribute is
+`alex-desktop` as well — the directory is `hosts/AlexDesktop` and its hostname
+is `alex-desktop`, and `test.sh` compares the hostname case-insensitively for
+that reason. `hosts/` names each machine's users, `users/<name>/` is the
 per-user tree, `system/` the shared system tree, `home/` the shared Home
 Manager tree, `lib/` the helpers, `overlays/` the package overrides.
 
