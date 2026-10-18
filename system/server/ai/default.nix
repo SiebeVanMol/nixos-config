@@ -405,6 +405,16 @@ in {
           draft = {
             type = "draft-eagle3";
             file = "eagle3-gpt-oss-20b-Q8_0.gguf";
+            # 2, not the engine default of 3: the eagle3 head's third token is
+            # usually rejected, and drafting it costs a verification step anyway.
+            # Measured on this card at 64K with ubatch 1024, three turns per
+            # setting: 156.2 t/s at n-max 2 against 150.2 at 3, with acceptance
+            # 0.49 against 0.40 - the extra draft lowers acceptance, which is the
+            # same shape the 9070 XT bench reports (78% at position 1, 46% at 2,
+            # ~11% by 4). The fused-MTP models do not behave this way: gemma 12B
+            # measured 125.0 at 3 against 119.9 at 2, and the 35B 64.1 against
+            # 60.6, so this is set here rather than as the default.
+            nMax = 2;
           };
           note = ''
             The resident option: 20B total but 3.6B active, and 12.11 GB of
