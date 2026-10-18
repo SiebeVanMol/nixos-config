@@ -34,6 +34,9 @@
   arrClient = import ../../lib/arr-client.nix {inherit pkgs;};
   arrApps = import ../../lib/arr-apps.nix {inherit lib;};
 
+  # The one webhook client, shared with reclaim.nix's weekly report.
+  alertWebhook = import ../../lib/alert-webhook.nix {inherit pkgs;};
+
   # Which applications the check reports on, from the live registry: the ports
   # are options, so the script must not carry its own copy of them. Baked into
   # the wrapper below rather than exported at the call site, because the call
@@ -62,116 +65,105 @@
       pkgs.gawk
       pkgs.gnugrep
       pkgs.gnused
-      pkgs.curl
-      pkgs.jq
       pkgs.smartmontools
       pkgs.btrfs-progs
       pkgs.util-linux
       pkgs.systemd
     ];
     text = ''
-            findings=()
-            critical=0
-            note() { findings+=("$1"); }
-            # A critical finding is something already broken or about to be: the
-            # unit fails, so it shows in `systemctl --failed`. Warnings log and
-            # webhook but leave the unit green, because a check that turns red
-            # daily for something merely worth knowing is one nobody reads.
-            note_critical() {
-              note "$1"
-              critical=1
-            }
+      findings=()
+      critical=0
+      note() { findings+=("$1"); }
+      # A critical finding is something already broken or about to be: the
+      # unit fails, so it shows in `systemctl --failed`. Warnings log and
+      # webhook but leave the unit green, because a check that turns red
+      # daily for something merely worth knowing is one nobody reads.
+      note_critical() {
+        note "$1"
+        critical=1
+      }
 
-            # 1. Services that are not running. Dependants of a dead service usually
-            #    fail too, so one root cause shows up as several lines here.
-            failed="$(systemctl list-units --state=failed --no-legend --plain 2>/dev/null \
-              | awk '{print $1}' | grep -v '^nixos-health-check' || true)"
-            if [ -n "$failed" ]; then
-              note_critical "failed systemd units:"
-              while IFS= read -r unit; do
-                note "  $unit"
-              done <<< "$failed"
-            fi
+      # 1. Services that are not running. Dependants of a dead service usually
+      #    fail too, so one root cause shows up as several lines here.
+      failed="$(systemctl list-units --state=failed --no-legend --plain 2>/dev/null \
+        | awk '{print $1}' | grep -v '^nixos-health-check' || true)"
+      if [ -n "$failed" ]; then
+        note_critical "failed systemd units:"
+        while IFS= read -r unit; do
+          note "  $unit"
+        done <<< "$failed"
+      fi
 
-            for mount in ${mountsArg}; do
-              [ -d "$mount" ] || continue
+      for mount in ${mountsArg}; do
+        [ -d "$mount" ] || continue
 
-              # 2. Capacity. 95% leaves no room for a large import; 90% is the point
-              #    to start pruning.
-              pct="$(df --output=pcent "$mount" 2>/dev/null | tail -n 1 | tr -dc '0-9' || true)"
-              if [ -n "$pct" ]; then
-                if [ "$pct" -ge 95 ]; then
-                  note_critical "CRITICAL: $mount is ''${pct}% full"
-                elif [ "$pct" -ge 90 ]; then
-                  note "warning: $mount is ''${pct}% full"
-                fi
-              fi
+        # 2. Capacity. 95% leaves no room for a large import; 90% is the point
+        #    to start pruning.
+        pct="$(df --output=pcent "$mount" 2>/dev/null | tail -n 1 | tr -dc '0-9' || true)"
+        if [ -n "$pct" ]; then
+          if [ "$pct" -ge 95 ]; then
+            note_critical "CRITICAL: $mount is ''${pct}% full"
+          elif [ "$pct" -ge 90 ]; then
+            note "warning: $mount is ''${pct}% full"
+          fi
+        fi
 
-              # 3. btrfs per-device error counters. A non-zero counter means the
-              #    kernel already saw IO that it could not fix.
-              errors="$(btrfs device stats "$mount" 2>/dev/null | awk '$NF != 0' || true)"
-              if [ -n "$errors" ]; then
-                note_critical "CRITICAL: btrfs device errors on $mount:"
-                while IFS= read -r line; do
-                  note "  $line"
-                done <<< "$errors"
-              fi
-            done
+        # 3. btrfs per-device error counters. A non-zero counter means the
+        #    kernel already saw IO that it could not fix.
+        errors="$(btrfs device stats "$mount" 2>/dev/null | awk '$NF != 0' || true)"
+        if [ -n "$errors" ]; then
+          note_critical "CRITICAL: btrfs device errors on $mount:"
+          while IFS= read -r line; do
+            note "  $line"
+          done <<< "$errors"
+        fi
+      done
 
-            # 4. SMART overall health, one line per physical disk. Devices that do
-            #    not report a health line (USB bridges, virtual disks) are skipped
-            #    rather than reported as failures.
-            for disk in $(lsblk -dno NAME,TYPE | awk '$2 == "disk" {print $1}'); do
-              health="$(smartctl -H "/dev/$disk" 2>/dev/null \
-                | sed -n 's/.*self-assessment test result: *//p' | head -n 1 || true)"
-              [ -n "$health" ] || continue
-              case "$health" in
-                PASSED | OK | PASSED*) : ;;
-                *) note_critical "CRITICAL: SMART health on /dev/$disk: $health" ;;
-              esac
-            done
+      # 4. SMART overall health, one line per physical disk. Devices that do
+      #    not report a health line (USB bridges, virtual disks) are skipped
+      #    rather than reported as failures.
+      for disk in $(lsblk -dno NAME,TYPE | awk '$2 == "disk" {print $1}'); do
+        health="$(smartctl -H "/dev/$disk" 2>/dev/null \
+          | sed -n 's/.*self-assessment test result: *//p' | head -n 1 || true)"
+        [ -n "$health" ] || continue
+        case "$health" in
+          PASSED | OK | PASSED*) : ;;
+          *) note_critical "CRITICAL: SMART health on /dev/$disk: $health" ;;
+        esac
+      done
 
-            # 5. The *arr services' own health warnings: an indexer that started
-            #    refusing connections, a download client that went away, a root
-            #    folder that is no longer writable. Each application already
-            #    knows this and exposes it on /api/<v>/health; without this the
-            #    only way to learn about it is to open four web UIs and look.
-            #    Warnings, not critical: the stack still plays and still imports.
-            arr_health="$(${lib.getExe arrHealth} 2>/dev/null || true)"
-            if [ -n "$arr_health" ]; then
-              while IFS= read -r line; do
-                [ -n "$line" ] && note "$line"
-              done <<< "$arr_health"
-            fi
+      # 5. The *arr services' own health warnings: an indexer that started
+      #    refusing connections, a download client that went away, a root
+      #    folder that is no longer writable. Each application already
+      #    knows this and exposes it on /api/<v>/health; without this the
+      #    only way to learn about it is to open four web UIs and look.
+      #    Warnings, not critical: the stack still plays and still imports.
+      arr_health="$(${lib.getExe arrHealth} 2>/dev/null || true)"
+      if [ -n "$arr_health" ]; then
+        while IFS= read -r line; do
+          [ -n "$line" ] && note "$line"
+        done <<< "$arr_health"
+      fi
 
-            if [ "''${#findings[@]}" -eq 0 ]; then
-              echo "nixos health check: all clear"
-              exit 0
-            fi
+      if [ "''${#findings[@]}" -eq 0 ]; then
+        echo "nixos health check: all clear"
+        exit 0
+      fi
 
-            report="$(printf '%s\n' "''${findings[@]}")"
-            echo "=== nixos health check: ''${#findings[@]} finding(s) ==="
-            printf '%s\n' "$report"
+      report="$(printf '%s\n' "''${findings[@]}")"
+      echo "=== nixos health check: ''${#findings[@]} finding(s) ==="
+      printf '%s\n' "$report"
 
-            if [ -n "''${ALERT_WEBHOOK_URL:-}" ]; then
-              # Discord caps message content at 2000 characters.
-              payload="$(hostname): ''${#findings[@]} health finding(s)
-      ''${report:0:1800}"
-              if jq -n --arg content "$payload" '{content: $content}' \
-                | curl -sfS -X POST -H 'Content-Type: application/json' \
-                    --data-binary @- "$ALERT_WEBHOOK_URL" >/dev/null; then
-                echo "(alert delivered)"
-              else
-                echo "WARNING: could not deliver the alert webhook" >&2
-              fi
-            else
-              echo "(ALERT_WEBHOOK_URL unset; journal only)"
-            fi
+      # Delivery is shared with the weekly disk report; lib/alert-webhook.nix
+      # owns the truncation against Discord's cap and the "a failed webhook
+      # is a warning, not a failed report" rule.
+      printf '%s\n' "$report" \
+        | ${lib.getExe alertWebhook} "$(hostname): ''${#findings[@]} health finding(s)"
 
-            # Only a critical finding fails the unit; warnings are reported and
-            # delivered but leave `systemctl --failed` clean.
-            [ "$critical" -eq 1 ] && exit 1
-            exit 0
+      # Only a critical finding fails the unit; warnings are reported and
+      # delivered but leave `systemctl --failed` clean.
+      [ "$critical" -eq 1 ] && exit 1
+      exit 0
     '';
   };
 in {

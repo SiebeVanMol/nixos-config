@@ -45,6 +45,9 @@
   # something, boot the previous one" without pinning months of old packages.
   keepGenerations = 5;
 
+  # The one webhook client, shared with monitoring.nix's daily health check.
+  alertWebhook = import ../../lib/alert-webhook.nix {inherit pkgs;};
+
   pruneGenerations = pkgs.writeShellApplication {
     name = "prune-generations";
     runtimeInputs = [pkgs.nix];
@@ -78,78 +81,73 @@
       pkgs.gawk
       pkgs.gnugrep
       pkgs.gnused
-      pkgs.jq
-      pkgs.curl
       pkgs.systemd
       pkgs.util-linux
       pkgs.btrfs-progs
     ];
     text = ''
-            findings=()
+      findings=()
 
-            # Capacity per filesystem, and the library's growth since the previous
-            # run: the trend is what says whether last week's cleanup helped.
-            state=/var/lib/disk-care-report/previous.txt
-            mkdir -p "$(dirname "$state")"
-            previous=""
-            [ -r "$state" ] && previous="$(cat "$state")"
+      # Capacity per filesystem, and the library's growth since the previous
+      # run: the trend is what says whether last week's cleanup helped.
+      state=/var/lib/disk-care-report/previous.txt
+      mkdir -p "$(dirname "$state")"
+      previous=""
+      [ -r "$state" ] && previous="$(cat "$state")"
 
-            while read -r mount; do
-              [ -d "$mount" ] || continue
-              pct="$(df --output=pcent "$mount" | tail -n 1 | tr -dc '0-9')"
-              avail="$(df -h --output=avail "$mount" | tail -n 1 | tr -d ' ')"
-              findings+=("$mount: ''${pct}% used, ''${avail} free")
-            done <<< "${lib.concatStringsSep "\n" mounts}"
+      while read -r mount; do
+        [ -d "$mount" ] || continue
+        pct="$(df --output=pcent "$mount" | tail -n 1 | tr -dc '0-9')"
+        avail="$(df -h --output=avail "$mount" | tail -n 1 | tr -d ' ')"
+        findings+=("$mount: ''${pct}% used, ''${avail} free")
+      done <<< "${lib.concatStringsSep "\n" mounts}"
 
-            library_mb="$(du -x -sm ${library} 2>/dev/null | awk '{print $1}')"
-            if [ -n "$previous" ] && [ -n "$library_mb" ]; then
-              delta=$(((library_mb - previous) / 1024))
-              findings+=("library: ''${library_mb} MiB (''${delta} GiB since the previous report)")
-            elif [ -n "$library_mb" ]; then
-              findings+=("library: ''${library_mb} MiB (first report, nothing to compare yet)")
-            fi
+      library_mb="$(du -x -sm ${library} 2>/dev/null | awk '{print $1}')"
+      if [ -n "$previous" ] && [ -n "$library_mb" ]; then
+        delta=$(((library_mb - previous) / 1024))
+        findings+=("library: ''${library_mb} MiB (''${delta} GiB since the previous report)")
+      elif [ -n "$library_mb" ]; then
+        findings+=("library: ''${library_mb} MiB (first report, nothing to compare yet)")
+      fi
 
-            # The biggest items, two levels deep, so the report names actual films and
-            # series rather than just "Movies". This is the actionable half.
-            findings+=("")
-            findings+=("largest items under ${library}:")
-            while IFS= read -r line; do
-              findings+=("  $line")
-              # $1 is the size and everything after it is the path: taking only $2
-              # truncates every name at its first space, which turned "Shows/Doctor Who"
-              # into "Shows/Doctor".
-            done < <(du -x -m --max-depth=2 ${library} 2>/dev/null | sort -rn | head -12 \
-              | awk '{size = $1; sub(/^[^[:space:]]+[[:space:]]+/, ""); printf "%7.1f GB  %s\n", size/1024, $0}')
+      # The biggest items, two levels deep, so the report names actual films and
+      # series rather than just "Movies". This is the actionable half.
+      findings+=("")
+      findings+=("largest items under ${library}:")
+      while IFS= read -r line; do
+        findings+=("  $line")
+        # $1 is the size and everything after it is the path: taking only $2
+        # truncates every name at its first space, which turned "Shows/Doctor Who"
+        # into "Shows/Doctor".
+      done < <(du -x -m --max-depth=2 ${library} 2>/dev/null | sort -rn | head -12 \
+        | awk '{size = $1; sub(/^[^[:space:]]+[[:space:]]+/, ""); printf "%7.1f GB  %s\n", size/1024, $0}')
 
-            findings+=("")
-            findings+=("journal: $(journalctl --disk-usage 2>/dev/null | tail -n 1); capped at 1G")
-            findings+=("coredumps: $(du -sh /var/lib/systemd/coredump 2>/dev/null | cut -f1); older than a week are removed")
-            generations=0
-            for profile in /nix/var/nix/profiles/system-*-link; do
-              [ -e "$profile" ] && generations=$((generations + 1))
-            done
-            findings+=("system generations: ''${generations}; all but the newest ${toString keepGenerations} are pruned monthly")
-            # Every incomplete tree the tmpfiles rules below sweep has to be
-            # counted here too - a tree named in one place and not the other is
-            # how this figure came to exclude Soulseek's staging directory.
-            fragmented="$(du -x -sm ${downloads}/.incomplete ${musicIncomplete} /var/lib/transmission/.incomplete 2>/dev/null | awk '{t+=$1} END {printf "%.1f", t/1024}')"
-            findings+=("unfinished download fragments: ''${fragmented:-0} GB; those older than 90 days are removed")
-            findings+=("$(btrfs filesystem usage ${vault} 2>/dev/null | grep -E 'Free \(estimated\)' | sed 's/^ *//')")
+      findings+=("")
+      findings+=("journal: $(journalctl --disk-usage 2>/dev/null | tail -n 1); capped at 1G")
+      findings+=("coredumps: $(du -sh /var/lib/systemd/coredump 2>/dev/null | cut -f1); older than a week are removed")
+      generations=0
+      for profile in /nix/var/nix/profiles/system-*-link; do
+        [ -e "$profile" ] && generations=$((generations + 1))
+      done
+      findings+=("system generations: ''${generations}; all but the newest ${toString keepGenerations} are pruned monthly")
+      # Every incomplete tree the tmpfiles rules below sweep has to be
+      # counted here too - a tree named in one place and not the other is
+      # how this figure came to exclude Soulseek's staging directory.
+      fragmented="$(du -x -sm ${downloads}/.incomplete ${musicIncomplete} /var/lib/transmission/.incomplete 2>/dev/null | awk '{t+=$1} END {printf "%.1f", t/1024}')"
+      findings+=("unfinished download fragments: ''${fragmented:-0} GB; those older than 90 days are removed")
+      findings+=("$(btrfs filesystem usage ${vault} 2>/dev/null | grep -E 'Free \(estimated\)' | sed 's/^ *//')")
 
-            report="$(printf '%s\n' "''${findings[@]}")"
-            echo "=== disk care report ==="
-            printf '%s\n' "$report"
+      report="$(printf '%s\n' "''${findings[@]}")"
+      echo "=== disk care report ==="
+      printf '%s\n' "$report"
 
-            if [ -n "''${ALERT_WEBHOOK_URL:-}" ]; then
-              # Discord caps message content at 2000 characters.
-              jq -n --arg content "$(hostname) weekly disk report
-      ''${report:0:1800}" '{content: $content}' \
-                | curl -sfS -X POST -H 'Content-Type: application/json' \
-                    --data-binary @- "$ALERT_WEBHOOK_URL" >/dev/null \
-                || echo "WARNING: could not deliver the report" >&2
-            fi
+      # Delivery is shared with the daily health check; lib/alert-webhook.nix
+      # owns the truncation against Discord's cap and the "a failed webhook
+      # is a warning, not a failed report" rule.
+      printf '%s\n' "$report" \
+        | ${lib.getExe alertWebhook} "$(hostname) weekly disk report"
 
-            [ -n "$library_mb" ] && echo "$library_mb" > "$state"
+      [ -n "$library_mb" ] && echo "$library_mb" > "$state"
     '';
   };
 in {
