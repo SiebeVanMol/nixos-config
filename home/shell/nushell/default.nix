@@ -1,17 +1,21 @@
-# Nushell configuration: disable banner, set shorthand aliases, and hand
-# completions to fish.
+# Nushell configuration: disable banner, set shorthand aliases.
 #
-# Completions live in `fish.nu`, which drives fish's completion engine from
-# nushell's external-completer hook. Only fish's binary is wanted, so it is a
-# package here rather than `programs.fish.enable`, which would also configure
-# fish as a login shell with its own config and completion directories.
+# No external completer, on purpose. Carapace is the usual choice and it is out
+# because nixpkgs ships 1.7.3, whose `_carapace nushell` output is the
+# pre-0.116 `{|spans| ...}` completer that nushell 0.116 warns about on the
+# first completion of every session; fish is out because completing from it
+# costs a process per Tab for something nushell already covers for its own
+# commands, paths, variables and environment. What is left is nushell's built-in
+# completion: nu commands and their flags, files and directories, variables and
+# env vars. External commands get no flag or subcommand completion, which is the
+# known cost.
 #
-# Carapace stays out. nixpkgs ships 1.7.3, whose `_carapace nushell` output is
-# the pre-0.116 `{|spans| ...}` completer that nushell 0.116 warns about on the
-# first completion of every session. Carapace-bin 1.8.1 fixes that, and todo.md
-# says what to do when nixpkgs catches up; until then fish's engine is the one
-# that both works and is declarative end to end.
-{pkgs, ...}: {
+# If that cost ever bites, carapace-bin 1.8.1 emits `{|place| ...}` with a compat
+# shim and was run against nushell 0.116.1 here without a warning, so
+# `programs.carapace.enableNushellIntegration = true` on a newer nixpkgs is the
+# one-line route back; the fish bridge is the other, as a closure in
+# `extraConfig` plus `pkgs.fish` in `home.packages`.
+{
   programs.nushell = {
     enable = true;
 
@@ -22,13 +26,5 @@
       clr = "clear";
       fetch = "fastfetch";
     };
-
-    extraConfig = ''
-      source ${./fish.nu}
-    '';
   };
-
-  # The completer in `fish.nu` shells out to `fish --command`, so the binary has
-  # to be on PATH.
-  home.packages = [pkgs.fish];
 }

@@ -90,16 +90,6 @@ after it is pushed.
   this Hyprland accepts the Lua-style dispatcher name is unverified - check it
   on the running compositor before changing, and add the package if the fade is
   what was wanted.
-- Completions now come from fish (`home/shell/nushell/fish.nu`, one process per
-  Tab, 26 ms measured), with carapace deliberately out: nixpkgs ships 1.7.3,
-  whose `_carapace nushell` output is the pre-0.116 `{|spans|}` completer that
-  nushell 0.116 warns about. Carapace-bin 1.8.1 (2026-10-17) emits `{|place|}`
-  with a compat shim, and that output was run here against nushell 0.116.1:
-  completions work and nothing warns. So the exit from the fish bridge is
-  `programs.carapace.enableNushellIntegration = true` once nixpkgs reaches
-  1.8.1 - or an overlay that pulls it in now - then deleting `fish.nu` and
-  `pkgs.fish`; carapace is richer than fish for flags, fish is better for git
-  and ssh.
 - `system/server/media/servarr-sweep.py:131` requests `/episode` once per series
   to learn which seasons have files, where `/series` already carries
   `seasons[].statistics.episodeFileCount` (39 series today). Verify the payload
