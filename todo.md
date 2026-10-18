@@ -90,6 +90,12 @@ after it is pushed.
   this Hyprland accepts the Lua-style dispatcher name is unverified - check it
   on the running compositor before changing, and add the package if the fade is
   what was wanted.
+- `home/shell/nushell/carapace.nu` is a copy of what
+  `carapace _carapace nushell` prints, rewritten for nushell 0.116's record
+  completer input because carapace 1.7.3 still declares `{|spans|}` and warns on
+  the first completion of every session. Deleting it (and the `extraConfig` that
+  sources it, `home/shell/nushell/default.nix:19-20`) is the goal: check whether
+  a newer carapace emits `place` before touching either.
 - `system/server/media/servarr-sweep.py:131` requests `/episode` once per series
   to learn which seasons have files, where `/series` already carries
   `seasons[].statistics.episodeFileCount` (39 series today). Verify the payload
