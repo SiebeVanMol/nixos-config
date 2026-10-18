@@ -1,4 +1,14 @@
-# Nushell configuration: disable banner, set shorthand aliases, enable Carapace completions.
+# Nushell configuration: disable banner, set shorthand aliases.
+#
+# Carapace is deliberately absent. Its `_carapace nushell` output is still the
+# pre-0.116 `{|spans| ...}` external completer, which nushell 0.116 parses with
+# `Positional completer input deprecated` on the first completion of every
+# session, and keeping it working means carrying a rewritten copy of that
+# bridge in this repository - a copy to keep in step with carapace releases for
+# completions only one shell uses. Nothing else relied on it (the bash
+# integration was never enabled), so the package is gone rather than patched.
+# Revisit if carapace starts emitting the record-style completer, or if
+# external-command flag completion is missed enough to pay for the copy.
 {
   programs.nushell = {
     enable = true;
@@ -10,20 +20,5 @@
       clr = "clear";
       fetch = "fastfetch";
     };
-
-    # Carapace's own nushell integration is left off on purpose: it sources what
-    # `carapace _carapace nushell` prints, which is still the pre-0.116
-    # `{|spans| ...}` closure and warns `Positional completer input deprecated`
-    # on the first completion of every session. `carapace.nu` is that bridge
-    # declared against the record nushell 0.116 passes instead; its header says
-    # what was dropped, and todo.md says when it can go.
-    extraConfig = ''
-      source ${./carapace.nu}
-    '';
-  };
-
-  programs.carapace = {
-    enable = true;
-    enableNushellIntegration = false;
   };
 }

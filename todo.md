@@ -90,12 +90,13 @@ after it is pushed.
   this Hyprland accepts the Lua-style dispatcher name is unverified - check it
   on the running compositor before changing, and add the package if the fade is
   what was wanted.
-- `home/shell/nushell/carapace.nu` is a copy of what
-  `carapace _carapace nushell` prints, rewritten for nushell 0.116's record
-  completer input because carapace 1.7.3 still declares `{|spans|}` and warns on
-  the first completion of every session. Deleting it (and the `extraConfig` that
-  sources it, `home/shell/nushell/default.nix:19-20`) is the goal: check whether
-  a newer carapace emits `place` before touching either.
+- Carapace is gone (`home/shell/nushell/default.nix`) because nixpkgs still
+  ships 1.7.3, whose `_carapace nushell` output is the pre-0.116 `{|spans|}`
+  completer that nushell 0.116 warns about. Carapace-bin 1.8.1 (2026-10-17)
+  emits `{|place|}` with a compat shim, and that output was checked against
+  nushell 0.116.1 here: completions work and nothing warns. So re-enabling is
+  `enableNushellIntegration = true` after a nixpkgs bump to >= 1.8.1 - or now,
+  through an overlay that pulls 1.8.1 - and the header comment goes with it.
 - `system/server/media/servarr-sweep.py:131` requests `/episode` once per series
   to learn which seasons have files, where `/series` already carries
   `seasons[].statistics.episodeFileCount` (39 series today). Verify the payload
