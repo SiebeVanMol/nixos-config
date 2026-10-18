@@ -3,15 +3,24 @@
 # SeerrNG (https://github.com/snapetech/seerrng), a fork of Seerr extending the
 # request/approval workflow to music, ebooks and audiobooks. Not in nixpkgs.
 #
-# The build mirrors nixpkgs' own `seerr` derivation, since SeerrNG inherits its
-# stack from upstream: a pnpm-managed Next.js app with two native modules
-# (bcrypt, sqlite3) that must be rebuilt against the pinned Node rather than
-# used as prebuilt artifacts.
+# This is nixpkgs' `seerr` derivation with the fork's source, not a copy of it.
+# SeerrNG inherits upstream's stack - a pnpm-managed Next.js app with two native
+# modules (bcrypt, sqlite3) rebuilt against the pinned Node - so a copy would
+# stop tracking the recipe it was taken from, which is exactly what had happened:
+# buildInputs, the rebuild step, `pnpm build`, the prune and the broken-symlink
+# cleanup were all verbatim, and would have stayed verbatim after any upstream
+# change. The one part that cannot be inherited is the wrapper, because
+# `postInstall` writes `$out/bin/seerr`, so it is restated here with the fork's
+# name.
+#
+# `passthru` is not inherited: upstream's `nixosTests.seerr` would run against a
+# package it does not describe, and its `updateScript` would bump upstream's
+# repo. Neither has a meaning for a fork, so both go.
 _final: prev: let
   nodejs-slim = prev.nodejs-slim_22;
   pnpm = prev.pnpm_10.override {inherit nodejs-slim;};
 in {
-  seerrng = prev.stdenv.mkDerivation (finalAttrs: {
+  seerrng = prev.seerr.overrideAttrs (finalAttrs: _old: {
     pname = "seerrng";
     version = "3.19.3";
 
@@ -22,53 +31,13 @@ in {
       hash = "sha256-veGXitixf6P1djgtyreitkptR8I25HS6t1lctXcn0TY=";
     };
 
+    # A fork pins its own dependency set: same pnpm major, different lockfile.
     pnpmDeps = prev.fetchPnpmDeps {
       inherit (finalAttrs) pname version src;
       inherit pnpm;
       fetcherVersion = 3;
       hash = "sha256-uUClXen1HLuVQGMDXcgqKOecDqSLVvFcP2by1w8ODFg=";
     };
-
-    buildInputs = [prev.sqlite];
-
-    nativeBuildInputs = [
-      prev.python3
-      prev.python3Packages.distutils
-      nodejs-slim
-      prev.makeWrapper
-      prev.pnpmConfigHook
-      pnpm
-    ];
-
-    preBuild = ''
-      export npm_config_nodedir=${nodejs-slim}
-      pushd node_modules
-      pnpm rebuild bcrypt sqlite3
-      popd
-    '';
-
-    buildPhase = ''
-      runHook preBuild
-
-      pnpm build
-      CI=true pnpm prune --prod --ignore-scripts
-      rm -rf .next/cache
-
-      # Clean up broken symlinks left behind by `pnpm prune`
-      # https://github.com/pnpm/pnpm/issues/3645
-      find node_modules -xtype l -delete
-
-      runHook postBuild
-    '';
-
-    installPhase = ''
-      runHook preInstall
-
-      mkdir -p $out/share
-      cp -r -t $out/share .next node_modules dist public package.json seerr-api.yml
-
-      runHook postInstall
-    '';
 
     postInstall = ''
       mkdir -p $out/bin
@@ -77,6 +46,8 @@ in {
         --chdir "$out/share" \
         --set NODE_ENV production
     '';
+
+    passthru = {};
 
     meta = {
       description = "Request and discovery manager for Jellyfin, Plex and Emby, with music and book support";

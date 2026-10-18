@@ -11,16 +11,7 @@ syntax-checked the Python it touched. It could not rebuild or switch anything
 **read-verified, not measured**: re-check the named lines before acting, and
 treat every "after the change" claim as something to test.
 
-## 1. Fork nixpkgs' seerr instead of copying it
-
-`overlays/seerrng.nix:14-88` is line-for-line nixpkgs' `seerr` derivation
-(pnpmDeps, preBuild, prune, installPhase, makeWrapper) with only pname, version,
-src, hash and the wrapper bin differing, so upstream recipe fixes never arrive.
-`prev.seerr.overrideAttrs` would carry them; the cost is re-stating the
-`postInstall` wrapper and inheriting upstream's bump cadence.
-`system/server/media/seerr.nix:28` needs no change.
-
-## 2. Narrow the overlay surface
+## 1. Narrow the overlay surface
 
 `flake.nix:99` applies five third-party overlays to every host, but
 `alex-desktop` never enables jellyfin (`hosts/AlexDesktop/default.nix:25-28`,
@@ -30,7 +21,7 @@ means re-evaluating all three hosts afterwards: any shared module naming
 `flake.nix:31-34` already argues the per-user pattern for agent software, which
 is also how hermes is imported.
 
-## 3. One report-delivery path
+## 2. One report-delivery path
 
 `monitoring.nix:143-145` and `reclaim.nix:146-147` each hand-roll the same
 Discord post: the same `${report:0:1800}` truncation against Discord's
@@ -40,7 +31,7 @@ fix to the cap or the failure handling in one leaves the other wrong. Extract
 one helper (a `lib/` function emitting the shell fragment, or a
 `writeShellApplication` reading the report on stdin).
 
-## 4. Traps in the (currently disabled) Minecraft tree
+## 3. Traps in the (currently disabled) Minecraft tree
 
 No host enables it, so these matter on the day it is re-enabled:
 
@@ -58,7 +49,7 @@ No host enables it, so these matter on the day it is re-enabled:
   placeholders), no generator in the tree, and the pack-bump note at
   `default.nix:14-16` covers only the URL and hash.
 
-## 5. Alex's git identity
+## 4. Alex's git identity
 
 `users/alexander/programs.nix:66-72` sets `git.settings.user` to Snowy Renard /
 snowyrenard@gmail.com, so every commit made on that machine is authored as
@@ -67,7 +58,7 @@ Snowy. It dates from the initial copy of the user directory and survived the
 out from the repo, but nothing says so - and authorship is painful to correct
 after it is pushed.
 
-## 6. Smaller
+## 5. Smaller
 
 - Browser search engines and bookmarks are written out in full in both users'
   modules (`users/snowyrenard/browser.nix:96-291`,
@@ -96,7 +87,7 @@ after it is pushed.
   on the live instance once, then keep the per-series call only for the
   `episode` mode.
 
-## 7. The *arr apps accept any Host header
+## 6. The *arr apps accept any Host header
 
 `radarr reports warning: Allowed Hosts is not configured` - the daily health check
 prints it on every run. The same `config/host` PUT that converged the web-UI login
@@ -107,7 +98,7 @@ DNS-rebinding hardening rather than the key disclosure the login fix closed - wh
 is why it is written here instead of being folded into that work. Check whether the
 other three applications report it before writing the convergence.
 
-## 8. Qwen3.8-27B prefills at 37 t/s
+## 7. Qwen3.8-27B prefills at 37 t/s
 
 Measured on this card with the service's own flags: 38.7 t/s decode over 512
 tokens and 37 t/s prefill, 14.8 GB resident (it fits, no spill), and that is
@@ -162,6 +153,12 @@ for gfx1201. Keep or drop the model on that result.
 
 ## Recently done (do not re-do)
 
+- `seerrng` is `prev.seerr.overrideAttrs`, not a copy of nixpkgs' derivation
+  (`overlays/seerrng.nix`). Upstream's pnpm build now arrives with every
+  nixpkgs bump; only `postInstall` (the wrapper is named `seerr` upstream) and
+  `pnpmDeps` (a fork's own lockfile) are restated. The re-derivation differs
+  from the old copy only in whitespace inside `installPhase`, and both trees
+  were compared - 60163 files each.
 - Weights are store paths now, not runtime downloads. Every model entry carries
   `sha256` (Hugging Face's LFS object id is the file's sha256, so a pin is filled
   in without downloading anything), `--models-dir` and the draft directory are
