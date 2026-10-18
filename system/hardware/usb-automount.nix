@@ -14,7 +14,8 @@
 # On plug-in a notification goes to every logged-in session bus (caelestia
 # provides org.freedesktop.Notifications); headless sessions get none. Neither
 # behaviour hard-codes an owner - the scripts discover logged-in users by
-# scanning /run/user/<uid>/bus.
+# scanning /run/user/<uid>/bus, through one shared helper so both agree on what
+# counts as a session.
 {
   config,
   lib,
@@ -22,6 +23,26 @@
   ...
 }: let
   cfg = config.device.hardware.usb-automount;
+
+  # "Which logged-in users have a session bus", as `uid:gid` lines, for both
+  # scripts below. They used to walk /run/user themselves, and only the mount
+  # handled a bus socket whose uid is not in passwd - the notification would
+  # happily target it. A socket alone is not a session: a stale /run/user entry
+  # left by a crashed session has a socket and no passwd line, and passing that
+  # bare uid to systemd-mount fails the mount rather than skipping it.
+  sessionOwners = pkgs.writeShellScript "usb-automount-sessions.sh" ''
+    export PATH="${pkgs.coreutils}/bin:${pkgs.glibc.bin}/bin:$PATH"
+
+    for bus in /run/user/*/bus; do
+      [ -S "$bus" ] || continue
+      uid="''${bus#/run/user/}"
+      uid="''${uid%/bus}"
+      owner="$(${pkgs.glibc.bin}/bin/getent passwd "$uid" 2>/dev/null)" || continue
+      printf '%s:%s\n' \
+        "$(printf '%s' "$owner" | cut -d: -f3)" \
+        "$(printf '%s' "$owner" | cut -d: -f4)"
+    done
+  '';
 
   # Runs from udev on a "block device with a filesystem appeared" event.
   # The udev properties DEVNAME / ID_FS_TYPE are exported into its environment.
@@ -35,17 +56,11 @@
       vfat|msdos|exfat)
         # Own the FAT mount for the first logged-in desktop session we find.
         # /run/user/<uid>/bus exists only while a graphical session is active.
-        for bus in /run/user/*/bus; do
-          [ -S "$bus" ] || continue
-          uid="''${bus#/run/user/}"
-          uid="''${uid%/bus}"
-          if owner_line="$(${pkgs.glibc.bin}/bin/getent passwd "$uid" 2>/dev/null)"; then
-            oid="$(printf '%s' "$owner_line" | cut -d: -f3)"
-            ogid="$(printf '%s' "$owner_line" | cut -d: -f4)"
-            opts="uid=$oid,gid=$ogid,fmask=0133,dmask=0022"
-            break
-          fi
-        done
+        first="$(${sessionOwners} | ${pkgs.coreutils}/bin/head -n 1)"
+        if [ -n "$first" ]; then
+          IFS=: read -r oid ogid <<< "$first"
+          opts="uid=$oid,gid=$ogid,fmask=0133,dmask=0022"
+        fi
         ;;
     esac
 
@@ -70,12 +85,10 @@
     # Notify each active graphical session. Cap each notify-send because it can
     # block waiting for an absent Notifications daemon, which we never want to
     # stall a udev worker.
-    for bus in /run/user/*/bus; do
-      [ -S "$bus" ] || continue
-      uid="''${bus#/run/user/}"
-      uid="''${uid%/bus}"
+    for owner in $(${sessionOwners}); do
+      uid="''${owner%%:*}"
 
-      export DBUS_SESSION_BUS_ADDRESS="unix:path=$bus"
+      export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus"
       export XDG_RUNTIME_DIR="/run/user/$uid"
       export HOME="/run/user/$uid"
 
