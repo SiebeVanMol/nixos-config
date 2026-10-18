@@ -173,7 +173,9 @@ in {
             base_url = aiEndpoint;
           };
 
-          # The 12B dense one: a question, a page to summarise, a screenshot.
+          # The 12B dense one: a question, a page to summarise, long-form
+          # writing. Multimodal weights, but no projector is served - images are
+          # not wanted, so the vision path stays unwired deliberately.
           small = {
             model = osConfig.device.app.ai.modelIds.quick;
             provider = "custom";
