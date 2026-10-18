@@ -1,4 +1,10 @@
 # Steam with Remote Play, LAN transfer, gamemode integration, and Proton GE.
+#
+# The gamemode *daemon* is not switched on here: `device.app.gamemode.enable`
+# owns it (system/app/gamemode.nix). Turning it on with Steam made that toggle
+# unable to turn it off, since every host that runs Steam also enabled it, so
+# the two owners could never disagree. What Steam itself needs is the client
+# binary for `gamemoderun`, which `extraPackages` below already carries.
 {
   config,
   lib,
@@ -66,9 +72,5 @@ in {
         vulkan-loader
       ];
     };
-
-    # Enable the Feral Gamemode daemon whenever Steam is enabled so games can
-    # use gamemode out of the box.
-    programs.gamemode.enable = true;
   };
 }
