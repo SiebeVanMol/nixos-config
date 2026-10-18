@@ -393,11 +393,15 @@ in {
           repo = "ggml-org/gpt-oss-20b-GGUF";
           revision = "ef9b12f2ff56c69cf32153a02784e7a3c88bf524";
           file = "gpt-oss-20b-MXFP4.gguf";
-          # 128K: the trained window, and nearly free here - 24 blocks with a
-          # 128-token sliding window, so the cache per token is a rounding error
-          # next to the 12.11 GB of weights. This is the model to give the long
-          # window to, because it fits the card and pays almost nothing for it.
-          ctx = 131072;
+          # 64K, not the trained 128K it was given first. The sliding-window
+          # argument (24 blocks on a 128-token window, so the cache is small) held
+          # for VRAM but not for speed: measured on this card with the eagle3 head
+          # on, 70.0 t/s decode at 64K against 50.1 at 128K, and prefill 524
+          # against 373 - the wider window costs a third of both. Gemma 12B is the
+          # one where it really is free (110.1 against 111.6), because its cache
+          # per token is a constant around a 1024-token window; here the attention
+          # still spans the whole prompt, so the window is paid per token.
+          ctx = 65536;
           draft = {
             type = "draft-eagle3";
             file = "eagle3-gpt-oss-20b-Q8_0.gguf";
@@ -594,7 +598,15 @@ in {
         # the module renders each settings key verbatim, so the mapping is explicit
         # in the preset rather than an inherit here.
         "batch-size" = 2048;
-        "ubatch-size" = 2048;
+        # 1024, not the 2048 that matched the batch size. A 2048-token micro-batch
+        # costs the card its stride: measured on this host at 64K, gpt-oss-20b
+        # decoded 87.0 t/s and prefilled 554, against 147.0 and 989 at 1024 - the
+        # same weights, the same 13.8 GiB, one flag apart. Repeating the pair gave
+        # 128.4/946 at 512 and 145.4/997 at 1024, so 1024 is the plateau and 2048
+        # is the cliff. The 35B gains prefill from it too (157 to 197 t/s at 128K,
+        # decode within noise), and the 12B does not move either way, which is why
+        # this is global rather than per model.
+        "ubatch-size" = 1024;
         "flash-attn" = "on";
 
         # q8_0 halves the cache for no measurable quality cost, which on a 16 GiB
