@@ -28,6 +28,14 @@ Two traps:
 Evals and builds are slow here and are the normal cost of changing anything:
 run them rather than reporting that they would pass.
 
+Home Manager changes have a second, shorter path that needs no root:
+`home-manager switch --flake .#<user>@<host>` activates exactly the generation
+`nixos-rebuild switch` would, because the flake re-exports each host's
+NixOS-evaluated Home Manager configuration under `homeConfigurations`. The two
+entry points build the same derivation (`home.activationPackage`), so whichever
+ran last leaves the same profile; anything under `system/` still needs the full
+rebuild.
+
 ## How the code reads
 
 The comments carry the reasoning. A non-obvious choice states the constraint

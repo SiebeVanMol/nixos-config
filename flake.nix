@@ -125,7 +125,87 @@
           }
         ];
       };
+
+    # One table of machines: the attribute name (also what `test.sh` and the
+    # Home Manager aliases use), the directory under ./hosts, and the users
+    # that host runs. Both output sets below are derived from it, so adding a
+    # machine or a user stays one edit. The directory is not derived from the
+    # attribute: alex-desktop's is capitalised.
+    hosts = {
+      nixos-desktop = {
+        dir = "nixos-desktop";
+        users = ["snowyrenard"];
+      };
+      nixos-laptop = {
+        dir = "nixos-laptop";
+        users = ["snowyrenard"];
+      };
+      alex-desktop = {
+        dir = "AlexDesktop";
+        users = ["alexander"];
+      };
+    };
+
+    nixosConfigurations =
+      nixpkgs.lib.mapAttrs (
+        _: machine:
+          buildSystem {
+            host = machine.dir;
+            users = machine.users;
+          }
+      )
+      hosts;
+
+    # The Home Manager configuration NixOS already evaluates for a user,
+    # re-exported so it can be activated on its own:
+    #
+    #   home-manager switch --flake .#snowyrenard@nixos-desktop
+    #
+    # That builds the same activation package `nixos-rebuild switch` would
+    # (the store path is the same derivation, not a second evaluation that has
+    # to be kept in step), and touches only the home tree - no boot loader, no
+    # system units, no root. A system-level change still needs the full
+    # rebuild, which continues to carry Home Manager with it.
+    #
+    # Taken from the NixOS side rather than assembled again for two reasons:
+    # `users/snowyrenard/hermes.nix` reads `osConfig` (the local model ids and
+    # the loopback port), which only exists inside a NixOS evaluation, and a
+    # second module list would be free to drift from the first.
+    #
+    # Both entry points write the same Home Manager generation directory, so
+    # whichever ran last wins - harmless while the derivation is identical,
+    # and the reason a change under `system/` is never visible until the full
+    # rebuild runs.
+    homeConfigurations = nixpkgs.lib.listToAttrs (
+      nixpkgs.lib.concatLists (
+        nixpkgs.lib.mapAttrsToList (
+          host: machine:
+            map (user: let
+              hm = nixosConfigurations.${host}.config.home-manager.users.${user};
+            in {
+              name = "${user}@${host}";
+              # The attributes `homeManagerConfiguration` puts on its result
+              # (`modules/default.nix`): `config` for what the CLI reads out of
+              # it (news among them), the activation package it installs, and the
+              # package set it evaluates against. `hm` *is* that config, so it
+              # serves as both the value and its `config`.
+              value =
+                hm
+                // {
+                  config = hm;
+                  inherit (hm.home) activationPackage;
+                  activation-script = hm.home.activationPackage;
+                  inherit (hm._module.args) pkgs;
+                };
+            })
+            machine.users
+        )
+        hosts
+      )
+    );
   in {
+    inherit nixosConfigurations homeConfigurations;
+
     formatter.x86_64-linux = pkgs.alejandra;
 
     checks.x86_64-linux = {
@@ -177,20 +257,5 @@
     # The flake's own helper commands live in lib/flake-packages.nix; this
     # file stays an entry point: inputs, hosts, and where each piece lives.
     packages.x86_64-linux = import ./lib/flake-packages.nix {inherit pkgs;};
-
-    nixosConfigurations = {
-      nixos-desktop = buildSystem {
-        host = "nixos-desktop";
-        users = ["snowyrenard"];
-      };
-      nixos-laptop = buildSystem {
-        host = "nixos-laptop";
-        users = ["snowyrenard"];
-      };
-      alex-desktop = buildSystem {
-        host = "AlexDesktop";
-        users = ["alexander"];
-      };
-    };
   };
 }
