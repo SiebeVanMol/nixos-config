@@ -227,6 +227,22 @@ in {
         # compression blocks the session it is summarising, the approval
         # classifier decides whether a dangerous command runs, and vision needs
         # a model that is not served here.
+        # Delegation is the escalation half of the routing design. The driving
+        # model stays the cloud one; the children it spawns run here, free, on the
+        # model that fits the card outright. Measured head-to-head on four
+        # sandboxed tasks with identical prompts and budgets (~/bench): the cloud
+        # model finished 4/4 in 47 s, this one 2/4 in 478 s, and its two failures
+        # were its own claims of success - so it is a worker, not a planner, and
+        # the check decides whether a step escalates, never the model's confidence.
+        #
+        # Concurrency stays at the runtime default: the router serves one model at
+        # a time (`models-max` in system/server/ai), so parallel children queue
+        # behind a single slot rather than finishing faster.
+        delegation = {
+          provider = "llamacpp";
+          model = osConfig.device.app.ai.modelIds.oss;
+        };
+
         auxiliary = {
           background_review = {
             provider = "llamacpp";
