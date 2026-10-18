@@ -57,15 +57,6 @@ after it is pushed.
   `search.nixos.org/options` ignores), and `release=master` appears on only one.
   Worth one shared value of `{engines, bookmarks}`; keep the container/extension
   setup - and the two browsers - per user.
-- `system/hardware/usb-automount.nix:38-48` and `:73-80` each scan
-  `/run/user/*/bus` to find logged-in sessions, with only one copy handling the
-  `getent` failure.
-- Nothing lints the shell the modules carry (`homepage-env.sh` and friends):
-  the flake checks Nix formatting and Python, but no `shellcheck`. They do pass
-  `bash -n`, so this is a gap, not a breakage.
-- `system/app/steam.nix:72` sets `programs.gamemode.enable`, so
-  `device.app.gamemode.enable` (`system/app/gamemode.nix:7-8`) cannot turn
-  gamemode off on any host - all three set both. Pick one owner.
 - `home/hyprland.nix:153` binds SUPER+SHIFT+E to `hyprshutdown`, which nothing
   installs, with `hyprctl dispatch 'hl.dsp.exit()'` as the fallback. Whether
   this Hyprland accepts the Lua-style dispatcher name is unverified - check it
@@ -142,6 +133,19 @@ for gfx1201. Keep or drop the model on that result.
   no one asking - title generation at session start is the known one.
 
 ## Recently done (do not re-do)
+
+- The flake lints the shell files in the tree (`checks.x86_64-linux.shell`,
+  shellcheck over every `*.sh`): `test.sh` and `homepage-env.sh` were only
+  `bash -n` clean. Shell inside Nix strings is not covered, but that shell is
+  built by `writeShellApplication`, which shellchecks it in its own checkPhase.
+- `device.app.gamemode.enable` owns the gamemode daemon again: `steam.nix` no
+  longer sets `programs.gamemode.enable` beside it, which had made the toggle
+  unable to turn gamemode off on any host. All three toplevel derivations are
+  unchanged, and forcing the toggle false on nixos-desktop now reports false.
+- The USB udev hooks share one session scan
+  (`usb-automount-sessions.sh`), so a bus socket whose uid is not in passwd is
+  skipped by the notification too, not just by the mount. Exercised against a
+  fake `/run/user`.
 
 - The Discord post has one implementation (`lib/alert-webhook.nix`), read from
   stdin with its header as the argument: `monitoring.nix`'s health check and
