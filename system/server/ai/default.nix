@@ -50,7 +50,12 @@
 
   # Draft heads sit outside the models directory: the router scans that
   # directory for models, so a speculative head lying beside the weights would
-  # be offered to clients as a model of its own.
+  # be offered to clients as a model of its own. A head is not optional once a
+  # model declares one - measured against this build, a missing file fails the
+  # model's load with a 500 and takes the child down rather than falling back to
+  # plain decoding - so `llama-fetch <model>` has to run before anything asks for
+  # a model that has one. `agent` is fused and needs no fetch; the other three
+  # answer only after theirs.
   draftsDir = "/Vault/llama/drafts";
 
   # gfx1201 is the RX 9070/XT (RDNA4). nixpkgs' rocmPackages carries a
