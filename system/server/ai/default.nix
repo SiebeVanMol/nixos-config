@@ -150,8 +150,10 @@
       # huggingface-hub writes 0600 under the caller's umask, and the service is
       # a DynamicUser: weights it cannot read are the one failure that looks like
       # a corrupt model. Weights are not secret, so make what was just written
-      # world-readable rather than depend on who ran the fetch.
-      "  chmod -R a+rX \"$5\""
+      # world-readable. Tolerant on purpose: -R also visits the directory itself,
+      # which root owns here (2775 root:users, already readable and writable), and
+      # a test.sh-less `set -eux` aborted the whole fetch on exactly that.
+      "  chmod -R a+rX \"$5\" 2>/dev/null || true"
       "}"
       ""
       "case \"\${1:-all}\" in"
