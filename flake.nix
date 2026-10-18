@@ -157,6 +157,21 @@
           flake8 --show-source --ignore=E501 $(find . -name '*.py' -not -path './.git/*')
           touch "$out"
         '';
+
+      # The shell that sits in the tree as files: `test.sh` and the scripts a
+      # module reads with `builtins.readFile` (`homepage-env.sh`), neither of
+      # which any build lints. Shell written inside a Nix string is still
+      # invisible here - but that shell belongs to `writeShellApplication`,
+      # whose own checkPhase runs shellcheck, so what is left is exactly these.
+      shell =
+        pkgs.runCommand "shell-lint-check" {
+          nativeBuildInputs = [pkgs.shellcheck pkgs.findutils];
+          src = ./.;
+        } ''
+          cd "$src"
+          shellcheck $(find . -name '*.sh' -not -path './.git/*')
+          touch "$out"
+        '';
     };
 
     # The flake's own helper commands live in lib/flake-packages.nix; this
