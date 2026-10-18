@@ -114,31 +114,36 @@
     ++ lib.optional (m.draft.type != "none" && m.draft.file != null)
     "    fetch ${name}-draft \"${m.repo}\" \"${m.draft.file}\" \"${m.revision}\" ${draftsDir}";
 
-  # Speculative decoding is per model and cannot be a global flag: `agent`
-  # carries a fused head, three others need a second file, and `tiny` has none -
-  # its whole job is a five-token title. A draft file is also tied to the
-  # revision it shipped with. The router reads per-model arguments from an INI
-  # whose sections are model ids and whose keys are long flags without the
-  # dashes. Command-line arguments outrank that file, so everything this module
-  # sets on the CLI - ctx-size, fit, the quantised KV cache - still wins.
-  #
-  # Only those three keys: the draft cache types are a second family of switches
-  # (`--cache-type-k-draft`, whose `--spec-draft-type-k` is an alias the preset
-  # loader does not accept - it fails the whole router with "not recognized in
-  # preset"), and the f16 default costs a fraction of a GiB for a head this
-  # small. Verified against the router rather than the help text.
+  # Speculative decoding and the context window are both per model, and neither
+  # can be a command-line flag: `--ctx-size` on the CLI outranks the preset, so a
+  # per-model window is only reachable through this file. The `[*]` section is
+  # the default everything inherits; a model section overrides it.
+  presetGlobal = ''
+    [*]
+    ctx-size = ${toString cfg.contextSize}
+    fit-ctx = ${toString cfg.contextSize}
+  '';
+
   presetSection = _: m:
-    lib.optionalString (m.draft.type != "none") ''
-      [${lib.removeSuffix ".gguf" m.file}]
-      spec-type = ${m.draft.type}
-      spec-draft-n-max = ${toString m.draft.nMax}
-    ''
-    + lib.optionalString (m.draft.type != "none" && m.draft.file != null) ''
-      spec-draft-model = ${draftsDir}/${m.draft.file}
+    lib.optionalString (m.draft.type != "none" || m.ctx != null)
+    (''[${lib.removeSuffix ".gguf" m.file}]''
+      + "\n"
+      + lib.optionalString (m.ctx != null) ''
+        ctx-size = ${toString m.ctx}
+        fit-ctx = ${toString m.ctx}
+      ''
+      + lib.optionalString (m.draft.type != "none") ''
+        spec-type = ${m.draft.type}
+        spec-draft-n-max = ${toString m.draft.nMax}
+      ''
+      + lib.optionalString (m.draft.type != "none" && m.draft.file != null) ''
+        spec-draft-model = ${draftsDir}/${m.draft.file}
+      ''
+      + "\n");
 
-    '';
-
-  modelsPreset = pkgs.writeText "llama-models.ini" (lib.concatStrings (lib.mapAttrsToList presetSection cfg.models));
+  modelsPreset = pkgs.writeText "llama-models.ini" (
+    presetGlobal + lib.concatStrings (lib.mapAttrsToList presetSection cfg.models)
+  );
 
   llamaFetch = pkgs.writeShellScriptBin "llama-fetch" (lib.concatStringsSep "\n" (
     [
@@ -268,6 +273,17 @@ in {
               without .gguf, so renaming the file renames the model.
             '';
           };
+          ctx = lib.mkOption {
+            type = lib.types.nullOr lib.types.ints.positive;
+            default = null;
+            description = ''
+              Context window for this model, when it should differ from
+              `contextSize`. A model whose attention is mostly sliding-window or
+              hybrid pays so little per token that it can hold twice the default
+              window in the same VRAM; one that only just fits at the default
+              cannot. Null means the default.
+            '';
+          };
           draft = lib.mkOption {
             default = {};
             description = ''
@@ -319,6 +335,12 @@ in {
           repo = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF";
           revision = "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d";
           file = "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf";
+          # 128K, and it costs about a tenth of decode: measured on this card with
+          # its head on, 79.6 t/s at 64K against 72.0 at 128K, in the same VRAM
+          # (14966 against 15022 MiB - fit spills differently, not more). The
+          # window is the trade an agent model wants: half as many compressions of
+          # a long session for 9.5% of the token rate.
+          ctx = 131072;
           # Fused: the MTP repository ships its quants with the draft tensors
           # already in them, so this model needs a flag and no second fetch.
           draft.type = "draft-mtp";
@@ -333,6 +355,10 @@ in {
           repo = "unsloth/gemma-4-12B-it-qat-GGUF";
           revision = "980b060c40a8539ac159e0501a3e0f66a6365af3";
           file = "gemma-4-12B-it-qat-UD-Q4_K_XL.gguf";
+          # 128K of its 256K trained window: the 12B's attention is sliding-window
+          # (1024 tokens), so the extra window costs a fraction of a GiB, and this
+          # is the model that summarises pages and holds long drafts.
+          ctx = 131072;
           # The Q8_0 head, not the BF16 one: 0.47 GB against 0.86 GB for the
           # same job, and the weights it drafts for are 4-bit.
           draft = {
@@ -367,6 +393,11 @@ in {
           repo = "ggml-org/gpt-oss-20b-GGUF";
           revision = "ef9b12f2ff56c69cf32153a02784e7a3c88bf524";
           file = "gpt-oss-20b-MXFP4.gguf";
+          # 128K: the trained window, and nearly free here - 24 blocks with a
+          # 128-token sliding window, so the cache per token is a rounding error
+          # next to the 12.11 GB of weights. This is the model to give the long
+          # window to, because it fits the card and pays almost nothing for it.
+          ctx = 131072;
           draft = {
             type = "draft-eagle3";
             file = "eagle3-gpt-oss-20b-Q8_0.gguf";
@@ -541,10 +572,14 @@ in {
         # eagerly - not a return to `cpu-moe`, which gives away the whole card.
         "fit-target" = 1024;
 
-        # Floor for the context fit may shrink to. Pinned to the configured
-        # window so fit trades layers for VRAM and never window for VRAM: a 32K
-        # agent model is not the model this host serves.
-        "fit-ctx" = cfg.contextSize;
+        # Both the window and the floor fit may shrink to are per model now, so
+        # they live in the preset (`[*]` for the default, a section for a model
+        # that can afford more). Deliberately not on this command line: a CLI
+        # argument outranks the preset, which would flatten every model back to
+        # one window - that is what the previous version did without meaning to.
+        #
+        # The floor exists so fit trades layers for VRAM and never window for
+        # VRAM: a 32K agent model is not the model this host serves.
 
         # llama.cpp warns that CPU tensor overrides under mmap cost speed
         # ("consider using --load-mode none"). mmap stays on deliberately: this
@@ -557,8 +592,7 @@ in {
 
         # `contextSize` is the option name; llama-server's flag is --ctx-size, and
         # the module renders each settings key verbatim, so the mapping is explicit
-        # here rather than an inherit.
-        "ctx-size" = cfg.contextSize;
+        # in the preset rather than an inherit here.
         "batch-size" = 2048;
         "ubatch-size" = 2048;
         "flash-attn" = "on";
