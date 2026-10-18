@@ -46,17 +46,59 @@
 }: let
   cfg = config.device.app.ai;
 
-  modelsDir = "/Vault/llama/models";
+  # Weights are store paths. The previous version fetched them at runtime with
+  # huggingface-hub's CLI into /Vault, which kept the store lean and let a model
+  # be deleted to reclaim space - but it also meant the bytes were only as
+  # reproducible as the command someone happened to run, and their hash was never
+  # checked at all. Pinning them as fixed-output derivations costs store space
+  # (54 GB against 688 GB free on this host's /nix) and buys what every other
+  # input here already has: the file is named by its sha256, a re-upload upstream
+  # cannot swap it under a running config, and garbage collection is what
+  # reclaims it.
+  #
+  # The hash is Hugging Face's LFS object id, which is the file's sha256. Their
+  # API reports it per revision, so a pin can be checked without downloading.
+  fetchModel = {
+    repo,
+    revision,
+    file,
+    sha256,
+  }:
+    pkgs.fetchurl {
+      url = "https://huggingface.co/${repo}/resolve/${revision}/${file}";
+      inherit sha256;
+      name = baseNameOf file;
+    };
 
-  # Draft heads sit outside the models directory: the router scans that
-  # directory for models, so a speculative head lying beside the weights would
-  # be offered to clients as a model of its own. A head is not optional once a
-  # model declares one - measured against this build, a missing file fails the
-  # model's load with a 500 and takes the child down rather than falling back to
-  # plain decoding - so `llama-fetch <model>` has to run before anything asks for
-  # a model that has one. `agent` is fused and needs no fetch; the other three
-  # answer only after theirs.
-  draftsDir = "/Vault/llama/drafts";
+  # Two link farms rather than one directory, for the same reason the heads were
+  # ever kept apart: the router scans --models-dir and offers every file it finds
+  # as a model, so a 0.5-1.4 GB draft head sitting beside the weights would show
+  # up in /models as a model of its own. The farm also flattens the repository's
+  # directories, which is why the preset and the fetch both take the basename.
+  modelsDir = "${pkgs.linkFarm "llama-models" (
+    lib.mapAttrsToList (_: m: {
+      name = baseNameOf m.file;
+      path = fetchModel {
+        inherit (m) repo revision file sha256;
+      };
+    })
+    cfg.models
+  )}";
+
+  draftsDir = "${pkgs.linkFarm "llama-drafts" (
+    lib.concatLists (
+      lib.mapAttrsToList (_: m:
+        lib.optional (m.draft.file != null) {
+          name = baseNameOf m.draft.file;
+          path = fetchModel {
+            inherit (m) repo revision;
+            file = m.draft.file;
+            sha256 = m.draft.sha256;
+          };
+        })
+      cfg.models
+    )
+  )}";
 
   # gfx1201 is the RX 9070/XT (RDNA4). nixpkgs' rocmPackages carries a
   # per-architecture scope (`rocmPackages.gfx1201`) that pins clr and everything
@@ -84,36 +126,6 @@
         rocmGpuTargets = ["gfx1201"];
       };
 
-  # huggingface-hub's CLI fetches the weights at runtime, so 20+ GiB never
-  # becomes a store path: a store copy would be re-downloaded on every pin change
-  # and would not be the thing the user is allowed to delete to reclaim space.
-  hf = lib.getExe' pkgs.python3Packages.huggingface-hub "hf";
-
-  # One branch per declared model, so the small one is useful before the big one
-  # has been paid for. Built as a list of lines rather than an indented string:
-  # interpolated text is inserted verbatim, so alignment inside an indented
-  # template would depend on which line happened to be first.
-  modelNames = lib.concatStringsSep ", " (lib.attrNames cfg.models);
-
-  # A draft head is pinned and fetched exactly like the weights: a speculative
-  # decoder is only valid against the revision it was trained with, so an
-  # unpinned head is a slower way of fetching something that may not load.
-  fetchLine = name: m:
-    [
-      "  ${name})"
-      "    fetch ${name} \"${m.repo}\" \"${m.file}\" \"${m.revision}\" ${modelsDir}"
-    ]
-    ++ lib.optional (m.draft.type != "none" && m.draft.file != null)
-    "    fetch ${name}-draft \"${m.repo}\" \"${m.draft.file}\" \"${m.revision}\" ${draftsDir}"
-    ++ ["    ;;"];
-
-  fetchAllLine = name: m:
-    [
-      "    fetch ${name} \"${m.repo}\" \"${m.file}\" \"${m.revision}\" ${modelsDir}"
-    ]
-    ++ lib.optional (m.draft.type != "none" && m.draft.file != null)
-    "    fetch ${name}-draft \"${m.repo}\" \"${m.draft.file}\" \"${m.revision}\" ${draftsDir}";
-
   # Speculative decoding and the context window are both per model, and neither
   # can be a command-line flag: `--ctx-size` on the CLI outranks the preset, so a
   # per-model window is only reachable through this file. The `[*]` section is
@@ -137,48 +149,13 @@
         spec-draft-n-max = ${toString m.draft.nMax}
       ''
       + lib.optionalString (m.draft.type != "none" && m.draft.file != null) ''
-        spec-draft-model = ${draftsDir}/${m.draft.file}
+        spec-draft-model = ${draftsDir}/${baseNameOf m.draft.file}
       ''
       + "\n");
 
   modelsPreset = pkgs.writeText "llama-models.ini" (
     presetGlobal + lib.concatStrings (lib.mapAttrsToList presetSection cfg.models)
   );
-
-  llamaFetch = pkgs.writeShellScriptBin "llama-fetch" (lib.concatStringsSep "\n" (
-    [
-      "set -euo pipefail"
-      ""
-      "fetch() {"
-      "  echo \"==> $1: $3\""
-      "  ${hf} download \"$2\" \"$3\" --revision \"$4\" --local-dir \"$5\""
-      # huggingface-hub writes 0600 under the caller's umask, and the service is
-      # a DynamicUser: weights it cannot read are the one failure that looks like
-      # a corrupt model. Weights are not secret, so make what was just written
-      # world-readable. Tolerant on purpose: -R also visits the directory itself,
-      # which root owns here (2775 root:users, already readable and writable), and
-      # a test.sh-less `set -eux` aborted the whole fetch on exactly that.
-      "  chmod -R a+rX \"$5\" 2>/dev/null || true"
-      "}"
-      ""
-      "case \"\${1:-all}\" in"
-    ]
-    ++ lib.concatMap (n: fetchLine n cfg.models.${n}) (lib.attrNames cfg.models)
-    ++ (
-      ["  all)"]
-      ++ lib.concatMap (n: fetchAllLine n cfg.models.${n}) (lib.attrNames cfg.models)
-      ++ [
-        "    ;;"
-        "  *)"
-        "    echo \"unknown model: $1 (try ${modelNames}, or all)\" >&2"
-        "    exit 2"
-        "    ;;"
-        "esac"
-        ""
-        "echo \"in ${modelsDir} - a running server picks the file up on its next start\""
-      ]
-    )
-  ));
 in {
   options.device.app.ai = {
     # Declared here rather than derived from the tree: this module is
@@ -262,8 +239,9 @@ in {
           revision = lib.mkOption {
             type = lib.types.str;
             description = ''
-              Commit the download is pinned to, so llama-fetch is reproducible and
-              a re-upload upstream cannot swap the weights under a running config.
+              Commit the download is pinned to, so the store path is reproducible
+              and a re-upload upstream cannot swap the weights under a running
+              config.
             '';
           };
           file = lib.mkOption {
@@ -271,6 +249,15 @@ in {
             description = ''
               The GGUF in that repository. The id clients use is this file name
               without .gguf, so renaming the file renames the model.
+            '';
+          };
+          sha256 = lib.mkOption {
+            type = lib.types.str;
+            description = ''
+              Hash of that file in SRI form ("sha256-<base64>"). Hugging Face
+              publishes it as the LFS object id of the revision, so it can be
+              filled without downloading; a mismatch fails the build instead of
+              serving different weights.
             '';
           };
           ctx = lib.mkOption {
@@ -311,6 +298,14 @@ in {
                     keeps in its own directory keeps that directory.
                   '';
                 };
+                sha256 = lib.mkOption {
+                  type = lib.types.nullOr lib.types.str;
+                  default = null;
+                  description = ''
+                    Hash of the head in the same SRI form as the weights. Unused
+                    when the head is fused into them.
+                  '';
+                };
                 nMax = lib.mkOption {
                   type = lib.types.ints.positive;
                   default = 3;
@@ -335,6 +330,7 @@ in {
           repo = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF";
           revision = "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d";
           file = "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf";
+          sha256 = "sha256-CyFSXpcmcO1Z4YEuFwsnwmNVOB8GVuzE4lYX7OfaxYs=";
           # 128K, and it costs about a tenth of decode: measured on this card with
           # its head on, 79.6 t/s at 64K against 72.0 at 128K, in the same VRAM
           # (14966 against 15022 MiB - fit spills differently, not more). The
@@ -355,6 +351,7 @@ in {
           repo = "unsloth/gemma-4-12B-it-qat-GGUF";
           revision = "980b060c40a8539ac159e0501a3e0f66a6365af3";
           file = "gemma-4-12B-it-qat-UD-Q4_K_XL.gguf";
+          sha256 = "sha256-kP1E4p4NfP/rD9ANxzz9q57QsOlTBuz3gh6mNMlAw3A=";
           # 128K of its 256K trained window: the 12B's attention is sliding-window
           # (1024 tokens), so the extra window costs a fraction of a GiB, and this
           # is the model that summarises pages and holds long drafts.
@@ -364,6 +361,7 @@ in {
           draft = {
             type = "draft-mtp";
             file = "MTP/mtp-gemma-4-12B-it-Q8_0.gguf";
+            sha256 = "sha256-9Y3/mOzxcHnDZLEgWVS6hXY6AK0HbFWVBA2wqCjq7Bs=";
           };
           note = ''
             The small one: 12B dense, 6.72 GB, multimodal, with four times the
@@ -393,6 +391,7 @@ in {
           repo = "ggml-org/gpt-oss-20b-GGUF";
           revision = "ef9b12f2ff56c69cf32153a02784e7a3c88bf524";
           file = "gpt-oss-20b-MXFP4.gguf";
+          sha256 = "sha256-J81sQyx2csuBKpL2Ec87p7vDWSgmK7HhJT/07mrjWQE=";
           # 64K, not the trained 128K it was given first. The sliding-window
           # argument (24 blocks on a 128-token window, so the cache is small) held
           # for VRAM but not for speed: measured on this card with the eagle3 head
@@ -405,6 +404,7 @@ in {
           draft = {
             type = "draft-eagle3";
             file = "eagle3-gpt-oss-20b-Q8_0.gguf";
+            sha256 = "sha256-aVX5inAel6jJafP/M76LoXs1vWDlrJYljSxC1xDH1j8=";
             # 2, not the engine default of 3: the eagle3 head's third token is
             # usually rejected, and drafting it costs a verification step anyway.
             # Measured on this card at 64K with ubatch 1024, three turns per
@@ -441,12 +441,12 @@ in {
           repo = "unsloth/Qwen3.8-27B-GGUF";
           revision = "4ca720788d1e01f1bff70c033e0d0028fd02e502";
           file = "Qwen3.8-27B-UD-IQ3_S.gguf";
+          sha256 = "sha256-2EfiweSqJ25Le46a12KAUOYeFl1Jq5lUB7w2Z3pvOGQ=";
           # No draft head, although the repository publishes one: measured on
           # this card at 512 tokens it takes the model from 38.7 t/s to 15.8,
           # i.e. the MTP head is not the one this 3-bit conversion was made for
           # and every drafted token is verified and thrown away. The head is
-          # therefore not even fetched - `llama-fetch qwen27` gets the weights
-          # alone.
+          # therefore not pinned at all - only the weights are in the store.
           note = ''
             The dense alternative, and the reason it is 3 bits rather than 4:
             IQ4_XS is 14.25 GB, which leaves this card nothing for a cache, while
@@ -473,6 +473,7 @@ in {
           repo = "unsloth/gemma-4-E2B-it-GGUF";
           revision = "0314792d7f1f7e229411f620751375812bb9faf2";
           file = "gemma-4-E2B-it-Q4_K_M.gguf";
+          sha256 = "sha256-dAGFsh0izrg6EcOqYq1YQu8yxw9gltdWu+6FoeTsNLg=";
           note = ''
             The title model: the smallest of the family the other two come from,
             for the one job that needs no more than this - Hermes asks for a
@@ -502,10 +503,9 @@ in {
         };
       };
       description = ''
-        Models the router serves, keyed by the name llama-fetch takes. The key is
-        only a label for fetching; the model id a client uses is the file name.
-        Adding a model is one entry here, a rebuild, and `llama-fetch <name>` - no
-        other file changes.
+        Models the router serves. The key is a label for this file; the model id
+        a client uses is the file name. Adding a model is one entry here and a
+        rebuild - the weights, the head and the preset section all follow from it.
       '';
     };
 
@@ -522,14 +522,6 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    # root:users 2775, the same shape as the rest of /Vault: any desktop user can
-    # fetch a model here without sudo once the directory exists, and the service,
-    # which runs as a DynamicUser, can read what they wrote.
-    systemd.tmpfiles.rules = [
-      "d ${modelsDir} 2775 root users - -"
-      "d ${draftsDir} 2775 root users - -"
-    ];
-
     services.llama-cpp = {
       enable = true;
       inherit package;
@@ -540,8 +532,8 @@ in {
 
         # No `model` key, deliberately: llama-server with no model argument
         # starts as the router over these files instead of loading one of them.
-        # The directory is scanned on start, so a newly fetched model appears
-        # after a restart of the service.
+        # The directory is a link farm in the store, so what it holds is fixed by
+        # the generation the service was started from.
         "models-dir" = modelsDir;
         "models-max" = cfg.maxResidentModels;
 
@@ -689,11 +681,9 @@ in {
       # module turns it on for the CPU case.
       MemoryDenyWriteExecute = lib.mkForce false;
 
-      # The weights are mmapped off /Vault, so never start before it is mounted.
-      RequiresMountsFor = [modelsDir];
+      # The weights are mmapped out of the store, which is mounted before the
+      # service is started, so there is no mount to wait for any more.
     };
-
-    environment.systemPackages = [llamaFetch];
 
     networking.hosts = lib.mkIf (cfg.expose && config.device.security.reverse-proxy.enable) {
       "127.0.0.1" = ["ai.lan"];

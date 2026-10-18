@@ -162,6 +162,18 @@ for gfx1201. Keep or drop the model on that result.
 
 ## Recently done (do not re-do)
 
+- Weights are store paths now, not runtime downloads. Every model entry carries
+  `sha256` (Hugging Face's LFS object id is the file's sha256, so a pin is filled
+  in without downloading anything), `--models-dir` and the draft directory are
+  `linkFarm`s over those fixed-output files, and `llama-fetch` is gone with the
+  tmpfiles rules that used to create `/Vault/llama/*`. 55 GB now sits in `/nix`,
+  which is its own 1.9 TB mount with 688 GB free - not the 32 GB root. The price
+  is that a revision bump leaves the old copy until the next GC and that a model
+  can no longer be deleted by hand. The migration cost no bandwidth: the files
+  already on /Vault were seeded with `nix store add-file`, which produces exactly
+  the path `fetchurl` names for the same bytes (verified on one file before
+  trusting it for 54 GB).
+
 - The local server serves five models and four of them decode with a draft head.
   `agent` (35B-A3B) carries its head fused in the MTP repository's own quants;
   `quick` (gemma 4 12B) takes `MTP/mtp-gemma-4-12B-it-Q8_0.gguf`, the new `oss`
