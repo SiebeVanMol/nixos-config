@@ -1,15 +1,17 @@
-# Nushell configuration: disable banner, set shorthand aliases.
+# Nushell configuration: disable banner, set shorthand aliases, and hand
+# completions to fish.
 #
-# Carapace is deliberately absent. Its `_carapace nushell` output is still the
-# pre-0.116 `{|spans| ...}` external completer, which nushell 0.116 parses with
-# `Positional completer input deprecated` on the first completion of every
-# session, and keeping it working means carrying a rewritten copy of that
-# bridge in this repository - a copy to keep in step with carapace releases for
-# completions only one shell uses. Nothing else relied on it (the bash
-# integration was never enabled), so the package is gone rather than patched.
-# Revisit if carapace starts emitting the record-style completer, or if
-# external-command flag completion is missed enough to pay for the copy.
-{
+# Completions live in `fish.nu`, which drives fish's completion engine from
+# nushell's external-completer hook. Only fish's binary is wanted, so it is a
+# package here rather than `programs.fish.enable`, which would also configure
+# fish as a login shell with its own config and completion directories.
+#
+# Carapace stays out. nixpkgs ships 1.7.3, whose `_carapace nushell` output is
+# the pre-0.116 `{|spans| ...}` completer that nushell 0.116 warns about on the
+# first completion of every session. Carapace-bin 1.8.1 fixes that, and todo.md
+# says what to do when nixpkgs catches up; until then fish's engine is the one
+# that both works and is declarative end to end.
+{pkgs, ...}: {
   programs.nushell = {
     enable = true;
 
@@ -20,5 +22,13 @@
       clr = "clear";
       fetch = "fastfetch";
     };
+
+    extraConfig = ''
+      source ${./fish.nu}
+    '';
   };
+
+  # The completer in `fish.nu` shells out to `fish --command`, so the binary has
+  # to be on PATH.
+  home.packages = [pkgs.fish];
 }
