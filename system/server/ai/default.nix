@@ -4,18 +4,16 @@
 # Two models for two jobs. `agent` is what an agent loop thinks with: a 35B
 # mixture-of-experts whose expert tensors live in RAM, so a token pays only for
 # the ~3B parameters it activates. `quick` is a small dense model for a question
-# or a page summary, and `tiny` titles sessions. `oss` and `qwen27` are the two
-# alternatives to `agent`, both of them recommendations rather than guesses:
-# gpt-oss-20b activates 3.6B and fits the card outright, with the best
-# tool-calling measured in its size class, while Qwen3.8-27B is a dense 27B at
-# 3 bits whose hybrid attention keeps a long window nearly free.
+# or a page summary, and `tiny` titles sessions. `oss` is the alternative to
+# `agent`, a recommendation rather than a guess: gpt-oss-20b activates 3.6B and
+# fits the card outright, with the best tool-calling measured in its size class.
 #
-# Four of the five decode with a draft head, which is the largest single win
+# Three of the four decode with a draft head, which is the largest single win
 # available on this card: generation is bandwidth-bound, so a head that guesses
 # the next few tokens correctly lets the engine verify them in one pass instead
-# of one per token. `agent` carries its head fused in the same file; `quick`,
-# `qwen27` and `oss` need a second one, which lives outside --models-dir because
-# the router would otherwise offer a 0.5-1.4 GB head to clients as a model.
+# of one per token. `agent` carries its head fused in the same file; `quick` and
+# `oss` need a second one, which lives outside --models-dir because the router
+# would otherwise offer a 0.5-1.4 GB head to clients as a model.
 # They are wired per model through a preset INI, because a head is only valid
 # against the revision it shipped with - see the note on `models`.
 #
@@ -208,7 +206,7 @@ in {
         14.27 GiB free, leaving nothing for a browser. 1 stayed the default
         while there were two models.
 
-        With five it is still 2, and `tiny` is the reason: Hermes asks that model for
+        With four it is still 2, and `tiny` is the reason: Hermes asks that model for
         a session title at the start of every session, and at models-max 1 the
         request would unload whichever chat model was resident - a title costing
         a 75 s reload of the agent model on the next turn. The pairs that happen
@@ -434,38 +432,6 @@ in {
             exchange. Owners of this card report ~92 t/s through ROCm and
             several hundred t/s of prefill, so it is also the fastest thing here
             per token by a wide margin.
-          '';
-        };
-
-        qwen27 = {
-          repo = "unsloth/Qwen3.8-27B-GGUF";
-          revision = "4ca720788d1e01f1bff70c033e0d0028fd02e502";
-          file = "Qwen3.8-27B-UD-IQ3_S.gguf";
-          sha256 = "sha256-2EfiweSqJ25Le46a12KAUOYeFl1Jq5lUB7w2Z3pvOGQ=";
-          # No draft head, although the repository publishes one: measured on
-          # this card at 512 tokens it takes the model from 38.7 t/s to 15.8,
-          # i.e. the MTP head is not the one this 3-bit conversion was made for
-          # and every drafted token is verified and thrown away. The head is
-          # therefore not pinned at all - only the weights are in the store.
-          note = ''
-            The dense alternative, and the reason it is 3 bits rather than 4:
-            IQ4_XS is 14.25 GB, which leaves this card nothing for a cache, while
-            IQ3_S is 12.04 GB and leaves ~2.5 GiB. A dense model does not spill
-            gracefully - every weight is read on every token - so the quant has
-            to fit outright or the speed is lost to the trade the MoE entries
-            above make deliberately.
-
-            What makes 3 bits tolerable here is the architecture: a hybrid with
-            only every fourth block doing full attention, so KV costs roughly
-            10 KiB/token instead of a plain 27B's hundreds - a 64K window is
-            ~0.6 GiB, which is what lets a dense 27B hold an agent's context at
-            all. Owners of this card report ~36 t/s decode and ~1.4K t/s prefill
-            on this exact quant, and call it smarter than the 9B and the 26B-A4B
-            despite the bit depth.
-
-            Not in Hermes' catalog, so its tool-calling template is worth testing
-            before trusting it with an agent loop; `agent` remains the default
-            for that job.
           '';
         };
 

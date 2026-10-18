@@ -79,17 +79,6 @@ DNS-rebinding hardening rather than the key disclosure the login fix closed - wh
 is why it is written here instead of being folded into that work. Check whether the
 other three applications report it before writing the convergence.
 
-## 6. Qwen3.8-27B prefills at 37 t/s
-
-Measured on this card with the service's own flags: 38.7 t/s decode over 512
-tokens and 37 t/s prefill, 14.8 GB resident (it fits, no spill), and that is
-with no draft head - the MTP head the repository publishes takes it to 15.8 t/s,
-so it is not fetched. Decode is close to what owners report; prefill is a third
-of it, and prefill is what an agent's 20-40k prompt actually pays. The likely cause
-is the 3-bit IQ3 path on Vulkan rather than the model, so the cheap experiment is
-`device.app.ai.backend = "rocm"` - one line, and the HIP build is already written
-for gfx1201. Keep or drop the model on that result.
-
 ## Notes
 
 - Measuring local speed: 512 tokens, the service's own flags, and the card
@@ -133,6 +122,16 @@ for gfx1201. Keep or drop the model on that result.
   no one asking - title generation at session start is the known one.
 
 ## Recently done (do not re-do)
+
+- Qwen3.8-27B is out of the model set (`system/server/ai/default.nix`): four
+  models now, and the `qwen27` alias is gone with it. It measured 38.7 t/s decode
+  and 37 t/s prefill at 512 tokens on this card, 14.8 GB resident, no draft head
+  (the published MTP head took it to 15.8, so it was never pinned) - the prefill
+  was a third of what owners report for the same quant, which is what an agent's
+  20-40k prompt pays, and the ROCm experiment was never run to explain it. Its
+  weights are now unreferenced and the next GC reclaims them; the entry can come
+  back from the pin in this repository's history if the prefill question matters
+  again.
 
 - The flake lints the shell files in the tree (`checks.x86_64-linux.shell`,
   shellcheck over every `*.sh`): `test.sh` and `homepage-env.sh` were only

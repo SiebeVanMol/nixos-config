@@ -109,7 +109,7 @@ in {
         };
       }
       # The host runs its own llama-server in router mode (system/server/ai) on
-      # loopback:8080, serving five models. Naming the endpoint makes them
+      # loopback:8080, serving four models. Naming the endpoint makes them
       # selectable and not merely detectable: `llamacpp` resolves to this server
       # instead of depending on the port probe alone, and the aliases give /model
       # names to switch with. The ids are the router's - one per GGUF file name -
@@ -182,17 +182,10 @@ in {
             base_url = aiEndpoint;
           };
 
-          # The two alternatives to `local`: the one that fits the card outright
-          # with the best tool-calling measured in its size class, and the 3-bit
-          # dense 27B whose cheap attention buys a long window.
+          # The alternative to `local`: the one that fits the card outright with
+          # the best tool-calling measured in its size class.
           oss = {
             model = osConfig.device.app.ai.modelIds.oss;
-            provider = "custom";
-            base_url = aiEndpoint;
-          };
-
-          qwen27 = {
-            model = osConfig.device.app.ai.modelIds.qwen27;
             provider = "custom";
             base_url = aiEndpoint;
           };
