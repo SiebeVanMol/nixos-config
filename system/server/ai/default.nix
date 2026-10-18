@@ -611,6 +611,14 @@ in {
 
         # q8_0 halves the cache for no measurable quality cost, which on a 16 GiB
         # card is the difference between a 64K window and a 32K one.
+        #
+        # q4_0 is not an option here, and that is a decision rather than a
+        # measurement: the 9070 XT numbers invite it (delta PPL 0.004 against
+        # q8_0, "quality-free" by perplexity, and it is what makes a 96K window
+        # fit), but a cache that is cheap by perplexity is still a cache whose
+        # errors accumulate across a long agent session, where they compound
+        # instead of averaging out. Long context is bought by picking a model
+        # with a cheap cache, not by degrading the one it has.
         "cache-type-k" = "q8_0";
         "cache-type-v" = "q8_0";
 
