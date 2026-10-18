@@ -263,7 +263,27 @@ for gfx1201. Keep or drop the model on that result.
   carries the three fields with the password read from the file, a second run is
   a no-op, a method set by hand (`basic`) is left alone, an API that ignores the
   change is reported by the read-back rather than assumed, and a missing password
-  file leaves the UI open and says so.
+  file leaves the UI open and says so. Measured live since (all four apps accept
+  the file's password through the proxy and refuse a lowercased or space-padded
+  one), which is the half a fake server cannot cover; what remains unchecked is a
+  browser, since nothing in this shell can drive one.
+- Seerr's copy of each application's root folder is converged. Seerr sends its
+  own `activeDirectory` with every request as `rootFolderPath`, and no field
+  owned it, so the library move from `/Vault/Jellyfin` to `/Vault/Media` reached
+  Sonarr's root folder and every series but not the requester: every series
+  request died on `RootFolderExistsValidator: Root folder
+  '/Vault/Jellyfin/Shows' does not exist` and was marked FAILED, while
+  `servarr-sync` reported `seerr: sonarr link already correct` (measured in the
+  journal: four such requests, two on Oct 6 and two on Oct 18). Movie requests
+  would have failed the same way; none had been tried. `seerr_directory_fixes`
+  replaces a field only when it names a root folder the application does not
+  have - a valid one is a choice, not drift - taking the declared root folder
+  from `root_folders` or the application's only one, and warning instead of
+  guessing when there are several. Verified against fake Seerr and Sonarr
+  servers: stale converge, second run a no-op, a deliberate `Anime` folder left
+  alone, ambiguity warned, single root folder used with no declaration.
+  Not yet observed live: the links still hold the stale path until the next
+  switch or the 05:00 timer run, which needs root.
 - Soularr's two API keys no longer travel as command-line arguments (a root
   process's environment is readable only by root, its argv by every local user),
   and its `config.ini` is owned by the service account at 0400 instead of being

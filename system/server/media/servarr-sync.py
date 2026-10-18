@@ -688,7 +688,73 @@ def quality_profile_id(port, version, key, name):
     return None
 
 
-def sync_seerr_link(service, spec, key, seerr, asserting):
+# Seerr keeps its OWN copy of each application's root folder and sends it with
+# every request as `rootFolderPath`, so a library move has to reach it as well.
+# It did not: lib/media.nix moved /Vault/Jellyfin to /Vault/Media, servarr-sync
+# re-pointed Sonarr's root folder and every series, and Seerr went on asking for
+# /Vault/Jellyfin/Shows until Sonarr answered
+#
+#   RootFolderPath: Root folder '/Vault/Jellyfin/Shows' does not exist
+#
+# and the request was marked FAILED - while this file reported "sonarr link
+# already correct", because the root folder was not a field it managed.
+#
+# A root folder the application really has is left exactly as it is: pointing
+# anime requests at a separate "Anime" root folder is a choice, not drift. Only
+# a copy of a folder the application no longer has is replaced, and only when
+# the replacement is unambiguous.
+DIRECTORY_SUFFIX = "Directory"
+
+
+def seerr_directory_fixes(target, spec, declared):
+    """The link's root-folder fields that need a different path, for the caller.
+
+    Every field whose name ends in `Directory` and whose value is an absolute
+    path is one of these copies: `activeDirectory` for everything, plus
+    `activeAnimeDirectory`/`active4kDirectory` and their anime variants where
+    the application has them. A value the application does not have as a root
+    folder can only produce a 400, so it is worth converging whatever it says.
+
+    The replacement is the root folder this repository declares for the
+    application when the application really has it, otherwise the application's
+    only root folder. With several candidates and no declaration, which one is
+    meant is a guess - warn and leave them alone.
+    """
+    fields = [
+        (name, value)
+        for name, value in target.items()
+        if name.endswith(DIRECTORY_SUFFIX) and isinstance(value, str) and value.startswith("/")
+    ]
+    if not fields:
+        return {}
+
+    port, version, key = spec["port"], spec["version"], spec["key"]
+    valid = {
+        os.path.normpath(folder.get("path") or "")
+        for folder in call(port, version, key, "GET", "/rootfolder") or []
+    }
+    stale = [(name, value) for name, value in fields if os.path.normpath(value) not in valid]
+    if not stale:
+        return {}
+
+    if declared and os.path.normpath(declared) in valid:
+        replacement = declared
+    elif len(valid) == 1:
+        replacement = next(iter(valid))
+    else:
+        warn(
+            f"seerr: {', '.join(name for name, _ in stale)} name root folder(s) the "
+            f"application does not have, and it offers {len(valid)} to choose from; "
+            f"leaving them alone"
+        )
+        return {}
+
+    for name, value in stale:
+        log(f"seerr: {name} points at {value}, which is gone; using {replacement}")
+    return {name: replacement for name, _ in stale}
+
+
+def sync_seerr_link(service, spec, key, seerr, asserting, declared_root=None):
     """Keep one SeerrNG service link able to reach its application.
 
     Returns True when the link was actually patched, so the caller knows whether
@@ -703,7 +769,8 @@ def sync_seerr_link(service, spec, key, seerr, asserting):
       * uses the documented update route, PUT /settings/<service>/<id>, which
         takes a SINGLE object - POST on that path means "create", so using it
         to update would have added a duplicate instance,
-      * changes only hostname, port, useSsl and apiKey,
+      * changes only hostname, port, useSsl, apiKey, the root folder(s) it sends
+        and the quality profile named below,
       * never creates an instance and never deletes one,
       * converges the quality profile ONLY when the sync config names one for
         this service, and only through a field the link already exposes. This
@@ -711,6 +778,11 @@ def sync_seerr_link(service, spec, key, seerr, asserting):
         Sonarr and Radarr: their own root folders carry no such field, so the
         requesting application is what decides. The import directory, 4K flag
         and rule choices are still left alone - those are yours.
+
+    The root folder is converged only when it names something the application
+    does not have (see seerr_directory_fixes): a stale copy is a request that
+    cannot succeed, while a valid one is a decision this file has no business
+    second-guessing.
     """
     port = seerr.get("port", SEERR_PORT)
     payload = call_seerr(key, f"/api/v1/settings/{service}", port=port)
@@ -749,6 +821,11 @@ def sync_seerr_link(service, spec, key, seerr, asserting):
             if name_field:
                 desired[name_field] = wanted
 
+    # A root folder the application no longer has is a request that cannot
+    # succeed, so it is converged whatever the rest of the link says.
+    for field, value in seerr_directory_fixes(target, spec, declared_root).items():
+        desired[field] = value
+
     # `asserting` is a parameter, not a call made here: the marker it reflects is
     # per BOOT. Read inside this per-link function, the first link that drifted
     # set it and the links after it in the same run saw False, so they left their
@@ -778,8 +855,9 @@ def sync_seerr_link(service, spec, key, seerr, asserting):
     return True
 
 
-def sync_seerr(seerr, apps):
+def sync_seerr(seerr, apps, root_folders=None):
     """Converge every SeerrNG service link that this stack manages."""
+    root_folders = root_folders or {}
     path = seerr.get("settings", SEERR_SETTINGS)
     try:
         with open(path, encoding="utf-8") as handle:
@@ -804,7 +882,9 @@ def sync_seerr(seerr, apps):
             # left over from a removed application, say), so its link is left
             # exactly as it is.
             continue
-        converged = sync_seerr_link(service, spec, key, seerr, asserting) or converged
+        converged = sync_seerr_link(
+            service, spec, key, seerr, asserting, root_folders.get(service)
+        ) or converged
 
     if asserting and converged:
         mark_seerr_keys_asserted()
@@ -1076,7 +1156,11 @@ def main():
 
     if "seerr" in config:
         try:
-            sync_seerr(config["seerr"], {n: s for n, s in ready.items() if n != "prowlarr"})
+            sync_seerr(
+                config["seerr"],
+                {n: s for n, s in ready.items() if n != "prowlarr"},
+                config.get("root_folders", {}),
+            )
         except ApiError as error:
             warn(f"seerr: {error}")
             failures += 1
