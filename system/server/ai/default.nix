@@ -602,6 +602,22 @@ in {
         "cache-type-k" = "q8_0";
         "cache-type-v" = "q8_0";
 
+        # Prefix reuse, and the measurement first, because the obvious claim is
+        # wrong: the same 4403-token prompt sent twice returned prompt_ms 4174 then
+        # 16 - and it returns 16 with or without this flag. llama.cpp already
+        # matches a common prefix against the slot's cache, so an ordinary agent
+        # turn, where each request appends to the last, is cached either way and
+        # this flag is not what buys it.
+        #
+        # What it adds is the case where the common prefix breaks before its end.
+        # When a long session fills the window the oldest messages drop out of the
+        # middle and everything after them shifts; 256 is the shortest run of
+        # tokens worth shifting KV positions for rather than re-running prefill
+        # over the surviving tail. Below the floor it neither costs nor does
+        # anything, which is the right side to err on for a flag whose failure
+        # mode would be a subtly worse prompt than the one that was sent.
+        "cache-reuse" = 256;
+
         # One slot: the agent is the only client, and each extra slot multiplies
         # the KV cache.
         parallel = 1;
