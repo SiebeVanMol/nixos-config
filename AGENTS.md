@@ -4,9 +4,31 @@ NixOS + Home Manager flake for three machines: hosts `nixos-desktop`,
 `nixos-laptop` and `alex-desktop`. The `nixosConfigurations` attribute is
 `alex-desktop` as well — the directory is `hosts/AlexDesktop` and its hostname
 is `alex-desktop`, and `test.sh` compares the hostname case-insensitively for
-that reason. `hosts/` names each machine's users, `users/<name>/` is the
-per-user tree, `system/` the shared system tree, `home/` the shared Home
-Manager tree, `lib/` the helpers, `overlays/` the package overrides.
+that reason.
+
+`flake.nix` is the entry point and only that: the inputs, one table naming each
+machine, its `./hosts` directory and its users, and the outputs derived from it
+(`nixosConfigurations`, `homeConfigurations`, `checks`, `packages`).
+
+## Where things live
+
+One question per directory, so the path answers what is in here:
+
+| Path | Holds |
+| --- | --- |
+| `hosts/<Host>/` | one machine: its `hardware-configuration.nix` and the `device.*` toggles it switches on |
+| `system/` | everything machine-wide and shared by all three: accounts, boot and locale in `default.nix`; features in `app/ hardware/ security/ wm/`; recurring jobs in `maintenance/`; long-running services in `server/` |
+| `home/` | the Home Manager settings every user gets — `core.nix` pulls in the shell, Hyprland, wallpapers, input method and desktop apps |
+| `users/<name>/` | one person: `home.nix` (imports `home/core.nix` plus their own files), programs, editor, browser, and anything personal — `hermes.nix` for Snowy |
+| `lib/` | plain functions, never modules: the `/Vault` layout, btrfs mounts, *arr facts, the webhook client, `import-dir` |
+| `overlays/` | packages nixpkgs lacks or carries too old, each pinned by hash in the file that uses it |
+
+A few features legitimately straddle two trees, and they are named here so
+nobody has to discover it: the local model server (`system/server/ai`) is read
+through `osConfig` by `users/snowyrenard/hermes.nix`, and the shell is
+`home/shell/*` against the default shell set in `system/default.nix`. Both are
+deliberate — a user module needs the machine's port and model ids, and the
+shell has to be the same program for the account and the session.
 
 ## Verification
 
