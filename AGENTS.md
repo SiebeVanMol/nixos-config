@@ -71,9 +71,18 @@ under `device`. `checks.x86_64-linux.toggles` fails if a module there declares
 none and is not named in its unconditional list, so the naming rule cannot rot
 silently. Nothing generates those options: `options` is where they are.
 
+Scripts are **nushell**: `pkgs.writers.writeNuBin` (or `writeNu` for a
+non-executable), or a `.nu` file a module reads. Not bash - `parse`, `to json`,
+`http post`, `str`, `path` and tables replace sed/awk/jq/curl/coreutils
+pipelines, and the data is typed at every step. A shell that needs bash anyway
+says why in its header comment.
+
 The Python beside the modules (`system/server/media/`,
-`system/server/minecraft/`) is checked by the flake. Shell is only `bash -n`
-clean, so read it before trusting it.
+`system/server/minecraft/`) is checked by the flake, and
+`checks.x86_64-linux.shell` shellchecks the `*.sh` files that remain. A nushell
+script is parsed by nothing: `nu --ide-check 10 <file>` reports diagnostics on
+stdout and still exits 0, so the build of a nu script proves only that the file
+exists. Run it before trusting it.
 
 ## Open work
 

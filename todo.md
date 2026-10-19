@@ -50,6 +50,18 @@ after it is pushed.
 
 ## 4. Smaller
 
+- Scripts are nushell (`AGENTS.md`), and six shell scripts have not been ported
+  yet. Converted so far: `lib/alert-webhook.nix` and `lib/arr-api-key.nix`, both
+  now `writeNuBin` with no curl, jq, sed or PATH inputs at all, and both checked
+  by running them (truncation, exit codes, both config.xml layouts). Remaining,
+  smallest first: `homepage-env.sh` with `system/server/media/homepage.nix`;
+  `prune-generations` and the weekly report in `system/maintenance/reclaim.nix`;
+  the two udev hooks in `system/hardware/usb-automount.nix` (their session scan
+  is already verified against a fake `/run/user`); the daily check in
+  `system/maintenance/monitoring.nix` (the largest - arrays, `df`/`awk`/`btrfs`/
+  `smartctl` parsing); and `test.sh`, last because it is the gate itself and a
+  bug there breaks every verification. Each one is behaviour-verified by running
+  it, since no check parses a nu script.
 - Browser search engines and bookmarks are written out in full in both users'
   modules (`users/snowyrenard/browser.nix:96-291`,
   `users/alexander/browser.nix:26-181`) and have already drifted: one sends
