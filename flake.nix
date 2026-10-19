@@ -74,6 +74,7 @@
     buildSystem = {
       host,
       users,
+      overlays,
     }:
       nixpkgs.lib.nixosSystem {
         # Modules receive the user list as `usernames`, and the shared /Vault
@@ -92,18 +93,11 @@
           nix-minecraft.nixosModules.minecraft-servers
           vpn-confinement.nixosModules.default
 
-          # Overlays adding packages nixpkgs does not carry. They apply to the
-          # whole system, so they get their own module instead of being folded
-          # into the Home Manager one below.
+          # Only the overlay groups this host names. They apply to the whole
+          # system, so they get their own module instead of being folded into
+          # the Home Manager one below.
           {
-            nixpkgs.overlays = [
-              nur.overlays.default
-              nix-minecraft.overlay
-              (import ./overlays/amethyst-mod-manager.nix)
-              (import ./overlays/seerrng.nix)
-              (import ./overlays/soularr.nix)
-              (import ./overlays/houndarr.nix)
-            ];
+            nixpkgs.overlays = nixpkgs.lib.concatMap (group: overlayGroups.${group}) overlays;
           }
 
           # Home Manager: declarative per-user package and dotfile management.
@@ -135,15 +129,37 @@
       nixos-desktop = {
         dir = "nixos-desktop";
         users = ["snowyrenard"];
+        # The only machine that runs the media stack.
+        overlays = ["nur" "amethyst" "media"];
       };
       nixos-laptop = {
         dir = "nixos-laptop";
         users = ["snowyrenard"];
+        overlays = ["nur" "amethyst"];
       };
       alex-desktop = {
         dir = "AlexDesktop";
         users = ["alexander"];
+        # alexander's browser takes the add-ons; nothing else here is used.
+        overlays = ["nur"];
       };
+    };
+
+    # Overlays by consumer, so a host names what it needs instead of listing
+    # six: nur carries the firefox add-ons both users' browsers take, amethyst
+    # is the mod manager snowyrenard's NXM handlers name, media is the three
+    # packages only system/server/media refers to (behind device.app.jellyfin
+    # and device.app.music), and minecraft is what the disabled minecraft tree
+    # would need.
+    overlayGroups = {
+      nur = [nur.overlays.default];
+      amethyst = [(import ./overlays/amethyst-mod-manager.nix)];
+      media = [
+        (import ./overlays/seerrng.nix)
+        (import ./overlays/soularr.nix)
+        (import ./overlays/houndarr.nix)
+      ];
+      minecraft = [nix-minecraft.overlay];
     };
 
     nixosConfigurations =
@@ -151,7 +167,7 @@
         _: machine:
           buildSystem {
             host = machine.dir;
-            users = machine.users;
+            inherit (machine) users overlays;
           }
       )
       hosts;

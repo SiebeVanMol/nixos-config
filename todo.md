@@ -11,22 +11,7 @@ syntax-checked the Python it touched. It could not rebuild or switch anything
 **read-verified, not measured**: re-check the named lines before acting, and
 treat every "after the change" claim as something to test.
 
-## 1. Narrow the overlay surface
-
-`flake.nix` applies five third-party overlays to every host, but `alex-desktop`
-never enables jellyfin and uses none of the media packages. The comment at
-`flake.nix:31-34` already argues the per-user pattern for agent software, which
-is also how hermes is imported.
-
-Measured, not assumed: the dendritic spike on branch `dendritic-spike` builds
-`alex-desktop` with nur alone - the media overlays and `nix-minecraft.overlay`
-dropped - and its toplevel derivation is byte-identical to the real one. So
-gating them is safe for that host; what is left is the per-host decision for
-the other two (the laptop runs no media either, but snowyrenard's browser
-handlers name `amethyst-mod-manager`, so the amethyst overlay has to stay where
-that user lives) and re-evaluating all three afterwards.
-
-## 2. Traps in the (currently disabled) Minecraft tree
+## 1. Traps in the (currently disabled) Minecraft tree
 
 No host enables it, so these matter on the day it is re-enabled:
 
@@ -44,7 +29,7 @@ No host enables it, so these matter on the day it is re-enabled:
   placeholders), no generator in the tree, and the pack-bump note at
   `default.nix:14-16` covers only the URL and hash.
 
-## 3. Alex's git identity
+## 2. Alex's git identity
 
 `users/alexander/programs.nix:66-72` sets `git.settings.user` to Snowy Renard /
 snowyrenard@gmail.com, so every commit made on that machine is authored as
@@ -53,7 +38,7 @@ Snowy. It dates from the initial copy of the user directory and survived the
 out from the repo, but nothing says so - and authorship is painful to correct
 after it is pushed.
 
-## 4. Smaller
+## 3. Smaller
 
 - Scripts are nushell (`AGENTS.md`); ported so far: `alert-webhook`,
   `arr-api-key`, `homepage-env` (was 91 lines of bash with an embedded Python
@@ -86,7 +71,7 @@ after it is pushed.
   on the live instance once, then keep the per-series call only for the
   `episode` mode.
 
-## 5. The *arr apps accept any Host header
+## 4. The *arr apps accept any Host header
 
 `radarr reports warning: Allowed Hosts is not configured` - the daily health check
 prints it on every run. The same `config/host` PUT that converged the web-UI login
@@ -171,6 +156,14 @@ the same options are not re-argued from scratch.
 
 ## Recently done (do not re-do)
 
+- Overlays apply per host instead of to all three (`flake.nix`'s
+  `overlayGroups` table and each host row's `overlays` list): nur everywhere
+  for the browser add-ons, amethyst where snowyrenard's NXM handlers live, the
+  media three only on nixos-desktop, and the minecraft overlay kept for the
+  disabled tree. `pkgs.seerrng` and `pkgs.amethyst-mod-manager` now resolve on
+  exactly the hosts that use them, and all three toplevel drvPaths are
+  unchanged - the spike had already measured that dropping them from
+  alex-desktop moves nothing.
 - Qwen3.8-27B is out of the model set (`system/server/ai/default.nix`): four
   models now, and the `qwen27` alias is gone with it. It measured 38.7 t/s decode
   and 37 t/s prefill at 512 tokens on this card, 14.8 GB resident, no draft head
