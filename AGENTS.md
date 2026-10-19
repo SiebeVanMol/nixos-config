@@ -43,6 +43,13 @@ them silently disagreeing is a session that starts a shell the account does not
 have. `device.shell.program` is now the only place that fact lives, with
 `device.shell.terminal` beside it for the terminal.
 
+The flake's own commands live in `lib/flake-packages.nix` and run as
+`nix run .#<name>`; `nix run .#tasks` is the menu over them, plus the tasks that
+act on the checkout rather than being a program (`test`, `fmt`, `switch`,
+`hm-switch`, `flake-update`, `gc`). The menu discovers the packages from
+`packages.<system>` and each one's `meta.description`, so a new helper needs no
+second list — but it does need a description, or it appears blank.
+
 ## Verification
 
 `./test.sh` is the single entry point and the only thing that counts as a

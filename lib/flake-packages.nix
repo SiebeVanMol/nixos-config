@@ -13,56 +13,86 @@
 in {
   # Run the formatter and then nixos-rebuild, with --flake filled in and sudo
   # added for the subcommands that need it.
-  rebuild = pkgs.writeShellScriptBin "rebuild" ''
-    set -euo pipefail
+  # A description on the result: `writeShellScriptBin` takes no `meta`, and
+  # `nix run .#tasks` reads `meta.description` for every task it lists.
+  rebuild =
+    (pkgs.writeShellScriptBin "rebuild" ''
+      set -euo pipefail
 
-    # Find the flake root (directory containing flake.nix).
-    ROOT="$(pwd)"
-    while [[ "$ROOT" != "/" && ! -f "$ROOT/flake.nix" ]]; do
-      ROOT="$(dirname "$ROOT")"
-    done
-    if [[ ! -f "$ROOT/flake.nix" ]]; then
-      echo "error: could not find flake.nix from $(pwd)" >&2
-      exit 1
-    fi
+      # Find the flake root (directory containing flake.nix).
+      ROOT="$(pwd)"
+      while [[ "$ROOT" != "/" && ! -f "$ROOT/flake.nix" ]]; do
+        ROOT="$(dirname "$ROOT")"
+      done
+      if [[ ! -f "$ROOT/flake.nix" ]]; then
+        echo "error: could not find flake.nix from $(pwd)" >&2
+        exit 1
+      fi
 
-    cd "$ROOT"
-    ${pkgs.nix}/bin/nix fmt .
+      cd "$ROOT"
+      ${pkgs.nix}/bin/nix fmt .
 
-    # Only add --flake if the user didn't already pass one.
-    if [[ "$*" != *"--flake"* ]]; then
-      set -- --flake "$ROOT" "$@"
-    fi
+      # Only add --flake if the user didn't already pass one.
+      if [[ "$*" != *"--flake"* ]]; then
+        set -- --flake "$ROOT" "$@"
+      fi
 
-    needs_sudo=false
-    for arg in "$@"; do
-      case "$arg" in
-        switch|boot|test|rollback|build-vm-with-bootloader)
-          needs_sudo=true
-          ;;
-      esac
-    done
+      needs_sudo=false
+      for arg in "$@"; do
+        case "$arg" in
+          switch|boot|test|rollback|build-vm-with-bootloader)
+            needs_sudo=true
+            ;;
+        esac
+      done
 
-    if $needs_sudo; then
-      exec sudo nixos-rebuild "$@"
-    else
-      exec nixos-rebuild "$@"
-    fi
-  '';
+      if $needs_sudo; then
+        exec sudo nixos-rebuild "$@"
+      else
+        exec nixos-rebuild "$@"
+      fi
+    '')
+    .overrideAttrs (old: {
+      meta =
+        (old.meta or {})
+        // {
+          description = "format the tree, then nixos-rebuild with --flake filled in (sudo for switch/test/boot)";
+        };
+    });
 
   # Read-only dump of the two services whose configuration lives only in their own
   # databases (Prowlarr's indexers and SeerrNG's service links). Both APIs are
   # root-only: `sudo nix run .#servarr-export`. Prints a paste-ready Nix snippet
   # with every private field marked; never writes to either service.
+  # What this repository can do: `nix run .#tasks` lists every command the flake
+  # exports plus the tasks that act on the checkout, and runs the one you pick.
+  # The list is discovered from `packages.<system>` and each entry's `meta`, so a
+  # new helper appears here without an edit to a second list.
+  tasks = pkgs.writers.writeNuBin "tasks" {
+    makeWrapperArgs = [
+      "--prefix"
+      "PATH"
+      ":"
+      (pkgs.lib.makeBinPath [pkgs.nix pkgs.git pkgs.coreutils])
+    ];
+  } (builtins.readFile ./tasks.nu);
+
   # Update the pins in overlays/: `nix run .#update-overlays -- --check` reports
   # only, which is what the weekly timer runs; without it the pins that are
   # behind are updated by nix-update and built. The script and its PATH
   # substitution live in lib/overlay-updater.nix, because the timer builds the
   # same thing and two copies of the substitution would drift.
-  update-overlays = import ./overlay-updater.nix {inherit pkgs;};
+  update-overlays = (import ./overlay-updater.nix {inherit pkgs;}).overrideAttrs (old: {
+    meta =
+      (old.meta or {})
+      // {
+        description = "compare the overlay pins against upstream and update the ones that can be (`-- --check` to only report)";
+      };
+  });
 
   servarr-export = pkgs.writeShellApplication {
     name = "servarr-export";
+    meta.description = "dump Prowlarr indexers and Seerr service links as a Nix snippet (sudo, read-only)";
     runtimeInputs = [pkgs.python3];
     text = ''
       exec ${pkgs.writers.writePython3Bin "servarr-sync-export" {
@@ -81,6 +111,7 @@ in {
   # search reaches every indexer and the public trackers rate-limit bursts.
   servarr-sweep = pkgs.writeShellApplication {
     name = "servarr-sweep";
+    meta.description = "ask every *arr app to search for better releases of the whole library (sudo; --apply to act)";
     runtimeInputs = [pkgs.python3];
     text = ''
       exec ${pkgs.writers.writePython3Bin "servarr-sweep" {
@@ -106,6 +137,7 @@ in {
   # whose duration moved - see the module docstring.
   media-recode = pkgs.writeShellApplication {
     name = "media-recode";
+    meta.description = "re-encode the library's over-encoded tail, measured by bits-per-pixel (sudo; --apply to act)";
     runtimeInputs = [pkgs.python3 pkgs.ffmpeg];
     text = ''
       # ffmpeg dlopen()s AMD's AMF runtime rather than linking it, so

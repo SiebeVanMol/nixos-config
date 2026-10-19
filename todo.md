@@ -176,6 +176,13 @@ the same options are not re-argued from scratch.
 
 ## Recently done (do not re-do)
 
+- `nix run .#tasks` is the menu: it lists every command the flake exports (discovered
+  from `packages.<system>` and their `meta.description`) plus the checkout tasks
+  (test, fmt, switch, hm-switch, flake-update, gc), marks the ones that need root,
+  and runs the pick with the arguments passed through (`-- update-overlays
+  --check`). Four helpers gained `meta.description` so they no longer appear
+  blank. The overlay packages and `tasks` itself are excluded with the reason in
+  the script: they are exported for nix-update, not to be run.
 - The daily health check is nushell (`system/maintenance/health-check.nu`, read by
   monitoring.nix with the tool paths, mounts and two binaries substituted in).
   Verified two ways: on this host it prints "nixos health check: all clear" and
