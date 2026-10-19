@@ -38,7 +38,23 @@ Snowy. It dates from the initial copy of the user directory and survived the
 out from the repo, but nothing says so - and authorship is painful to correct
 after it is pushed.
 
-## 3. Smaller
+## 3. Bring the overlay pins up to date
+
+Measured with `nix run .#update-overlays -- --check` (which now exists, and which
+`system/maintenance/overlays.nix` runs weekly on the desktop and laptop):
+
+- **seerrng**: pinned 3.19.3, upstream 3.67.0 - forty-eight tags behind. The bump
+  is not mechanical: the newest release's `package.json` wants `engines.node`
+  `^24.15.0` while the overlay pins `nodejs-slim_22` (pnpm refuses to run), and
+  `nix-update` then cannot prefetch `pnpmDeps` either, so it reverts and reports.
+  Order: bump the node pin, regenerate `pnpmDeps`, then the version and src hash.
+- **soularr**: pinned as `unstable-2026-07-31`, but upstream now tags releases
+  (newest 1.2.2), so it is a change of fetch shape - `rev` to `tag` - not a bump.
+- **amethyst-mod-manager**: 2.5.3 against 2.5.5; an AppImage whose URL carries
+  the version and whose derivation has no `position`, so version, URL and hash
+  are a hand edit (`nix store prefetch-file <url>`).
+
+## 4. Smaller
 
 - Scripts are nushell (`AGENTS.md`); ported so far: `alert-webhook`,
   `arr-api-key`, `homepage-env` (was 91 lines of bash with an embedded Python
@@ -49,7 +65,8 @@ after it is pushed.
   against a fake `/run/user`); the daily check in `system/maintenance/monitoring.nix`
   (the largest - service lists, `df`/`btrfs`/`smartctl` parsing); and `test.sh`,
   last because it is the gate itself and a bug there breaks every verification.
-  Each is behaviour-verified by running it, since no check parses a nu script -
+  Each is behaviour-verified by running it, since `checks.x86_64-linux.nu` only
+  parses - 
   `prune-generations` is the exception: it deletes generations, so its counting
   and its `nix-env` invocation were tested against a fixture with a stubbed
   command rather than run.
@@ -71,7 +88,7 @@ after it is pushed.
   on the live instance once, then keep the per-series call only for the
   `episode` mode.
 
-## 4. The *arr apps accept any Host header
+## 5. The *arr apps accept any Host header
 
 `radarr reports warning: Allowed Hosts is not configured` - the daily health check
 prints it on every run. The same `config/host` PUT that converged the web-UI login
@@ -156,6 +173,18 @@ the same options are not re-argued from scratch.
 
 ## Recently done (do not re-do)
 
+- The overlay pins are now addressable and watched: `packages.x86_64-linux` exports
+  the four overlay packages so `nix-update` has an attribute to rewrite and
+  `nix build .#seerrng` works; `overlays/update.nu` (run as
+  `nix run .#update-overlays [-- --check]`) compares each pin against upstream via
+  the GitHub API, updates the mechanical ones with a build as the proof and a
+  revert on failure, and names why the other two are hand work;
+  `system/maintenance/overlays.nix` runs `--check` weekly on the hosts that hold
+  the checkout and posts what it finds to the alert webhook.
+- `checks.x86_64-linux.nu` runs `nu --ide-check` over every `*.nu` and fails on
+  error diagnostics, which closes the gap where a nu script was parsed by
+  nothing (verified with a deliberately broken fixture: the check named the file
+  and the diagnostic).
 - Overlays apply per host instead of to all three (`flake.nix`'s
   `overlayGroups` table and each host row's `overlays` list): nur everywhere
   for the browser add-ons, amethyst where snowyrenard's NXM handlers live, the

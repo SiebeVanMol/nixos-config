@@ -22,7 +22,7 @@ One question per directory, so the path answers what is in here:
 | `features/` | one thing that exists on both sides: `hermes/` holds `system.nix` (the model server) and `home.nix` (the agent that reads it) |
 | `users/<name>/` | one person: `home.nix` (imports `home/core.nix` plus their own files), programs, editor, browser, and anything personal |
 | `lib/` | plain functions, never modules: the `/Vault` layout, btrfs mounts, *arr facts, the webhook client, `import-dir` |
-| `overlays/` | packages nixpkgs lacks or carries too old, each pinned by hash in the file that uses it |
+| `overlays/` | packages nixpkgs lacks or carries too old, each pinned by hash in the file that uses it, with `overlays/update.nu` comparing those pins against upstream |
 
 A feature that exists on both sides gets a `features/<name>/` directory with a
 `system.nix` and a `home.nix`, because the machine half and the user half then
@@ -91,10 +91,12 @@ says why in its header comment.
 
 The Python beside the modules (`system/server/media/`,
 `system/server/minecraft/`) is checked by the flake, and
-`checks.x86_64-linux.shell` shellchecks the `*.sh` files that remain. A nushell
-script is parsed by nothing: `nu --ide-check 10 <file>` reports diagnostics on
-stdout and still exits 0, so the build of a nu script proves only that the file
-exists. Run it before trusting it.
+`checks.x86_64-linux.shell` shellchecks the `*.sh` files that remain.
+`checks.x86_64-linux.nu` is what parses the nushell: `nu --ide-check 10 <file>`
+prints diagnostics on stdout and still exits 0, so the check makes the error
+severity lines fatal (the type hints are not problems). It covers `*.nu` files in
+the tree; a nushell string inside a module is only parsed when that module's
+program is built, which for a `writeNuBin` means the file is read, not run.
 
 ## Open work
 
