@@ -54,6 +54,13 @@ in {
   # databases (Prowlarr's indexers and SeerrNG's service links). Both APIs are
   # root-only: `sudo nix run .#servarr-export`. Prints a paste-ready Nix snippet
   # with every private field marked; never writes to either service.
+  # Update the pins in overlays/: `nix run .#update-overlays -- --check` reports
+  # only, which is what the weekly timer runs; without it the pins that are
+  # behind are updated by nix-update and built. The script and its PATH
+  # substitution live in lib/overlay-updater.nix, because the timer builds the
+  # same thing and two copies of the substitution would drift.
+  update-overlays = import ./overlay-updater.nix {inherit pkgs;};
+
   servarr-export = pkgs.writeShellApplication {
     name = "servarr-export";
     runtimeInputs = [pkgs.python3];

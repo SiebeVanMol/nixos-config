@@ -6,6 +6,11 @@
   ];
 
   device = {
+    # The overlay pins in overlays/ are only watched where the checkout lives;
+    # the weekly check posts what it finds to the alert webhook.
+    maintenance.overlays = {
+      enable = true;
+    };
     hardware = {
       amd.enable = true;
       backlight.enable = true;

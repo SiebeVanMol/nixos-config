@@ -162,6 +162,16 @@
       minecraft = [nix-minecraft.overlay];
     };
 
+    # The overlay packages as first-class outputs, for two practical reasons:
+    # `nix build .#seerrng` builds one pin on its own, and `nix-update` can only
+    # rewrite a version and hash it can name as an attribute. Until now these
+    # four existed only inside a host's configuration, which is why the pins in
+    # overlays/ had no address for a tool to find - and why they could sit
+    # behind upstream without anyone noticing.
+    overlayPackages = pkgs.extend (
+      nixpkgs.lib.composeManyExtensions (overlayGroups.amethyst ++ overlayGroups.media)
+    );
+
     nixosConfigurations =
       nixpkgs.lib.mapAttrs (
         _: machine:
@@ -303,6 +313,12 @@
 
     # The flake's own helper commands live in lib/flake-packages.nix; this
     # file stays an entry point: inputs, hosts, and where each piece lives.
-    packages.x86_64-linux = import ./lib/flake-packages.nix {inherit pkgs;};
+    # The helper commands (lib/flake-packages.nix) plus the four overlay
+    # packages, which are addressable here and nowhere else: `nix-update` needs
+    # an attribute to rewrite, and `nix build .#seerrng` should work without a
+    # host in the middle.
+    packages.x86_64-linux =
+      (import ./lib/flake-packages.nix {inherit pkgs;})
+      // {inherit (overlayPackages) seerrng soularr houndarr amethyst-mod-manager;};
   };
 }
