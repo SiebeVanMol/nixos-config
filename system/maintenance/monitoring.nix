@@ -94,6 +94,8 @@
         done <<< "$failed"
       fi
 
+      # shellcheck disable=SC2043  # one entry is normal: the laptop's only
+      # btrfs mount is /, and the list is baked in per host, not a glob.
       for mount in ${mountsArg}; do
         [ -d "$mount" ] || continue
 
