@@ -14,6 +14,15 @@ in {
   imports = [zen-browser.homeModules.default];
   home.sessionVariables.BROWSER = "zen-beta";
 
+  # The zen-browser module writes its generated profile into ~/.config/zen, but this
+  # browser keeps its profile in ~/.zen/snowyrenard - that is the tree with cookies,
+  # prefs.js and the lock while it runs. Module `settings` therefore land in a
+  # profile nothing reads (checked: prefs.js in ~/.zen still had the old value), so
+  # the one pref that matters here is written where Firefox looks at startup.
+  home.file.".zen/snowyrenard/user.js".text = ''
+    user_pref("zen.view.window.scheme", 2);
+  '';
+
   programs.zen-browser = {
     enable = true;
 
