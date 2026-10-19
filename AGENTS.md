@@ -32,13 +32,15 @@ one person uses never lands in another person's home. Hermes is the example:
 the model server was `system/server/ai/` and the agent `users/snowyrenard/`,
 and the second read the first through `osConfig` across the gap.
 
-A directory here is earned by spanning both sides, not by being interesting.
-`system/app/steam.nix` and `home/hyprland.nix` stay where they are: a thing
-that is only machine-wide or only in someone's home is not a feature by this
-definition. One deliberate straddle remains and is named here so nobody has to
-discover it: the shell is `home/shell/*` against the default shell set in
-`system/default.nix`, because it has to be the same program for the account and
-the session.
+A directory here is earned by spanning both sides with real configuration on
+each, not by being interesting. `system/app/steam.nix` and `home/hyprland.nix`
+stay where they are: a thing that is only machine-wide or only in someone's home
+is not a feature by this definition. One straddle remains and is named here so
+nobody has to discover it: the shell is `home/shell/*` against
+`shell = pkgs.nushell` in `system/default.nix`. It keeps its place in `home/`
+because the machine half is one line - the account and the session have to name
+the same program - and a directory for that would be ceremony rather than
+structure.
 
 ## Verification
 
