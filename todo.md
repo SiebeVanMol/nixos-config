@@ -160,6 +160,29 @@ the same options are not re-argued from scratch.
 
 ## Recently done (do not re-do)
 
+- Apps follow caelestia's scheme, and two silent failures that had been hiding it
+  are fixed. What the investigation established:
+  - Caelestia themes external apps itself, from a `theme` block in
+    `~/.config/caelestia/cli.json`; every flag defaults to on, and `apply_colours`
+    runs on every scheme and wallpaper change. GTK (gtk.css for GTK4, gtk-theme and
+    `color-scheme` through dconf), Qt (needs `qtengine`, which nixpkgs does not
+    ship), terminal palettes (OSC sequences written into every /dev/pts), btop,
+    htop, nvtop, cava, fuzzel, Discord (needs `sass`), spicetify, pandora, zed,
+    warp, chromium policies.
+  - Three things were needed for the ones that exist here: `adw-gtk3`, because
+    apply_gtk writes the `adw-gtk3-dark` name and GTK3 falls back to its default
+    theme when that resolves to nothing; `color_theme = "caelestia"` in btop's
+    settings, or the generated theme file is ignored; and the GTK3 light/dark
+    variant, because caelestia writes `adw-gtk3-dark` in *both* modes, so light mode
+    kept dark chrome - theme-apply.nu now picks the variant that matches `mode`.
+  - `ExecStart` was a bare store path while `writeNuBin` produces a directory, so
+    caelestia-theme-apply died with status 203/EXEC on every trigger: the path unit
+    kept starting it, it kept dying in 2ms, and colours were never re-applied. It
+    needs `lib.getExe`.
+  - The path unit had also died with `unit-start-limit-hit`, because each rapid
+    wallpaper change rewrites scheme.json and restarts the oneshot, and five
+    failures in ten seconds is systemd's default limit. `StartLimitIntervalSec = 0`
+    on the service fixes that; the unit is idempotent, so the limit bought nothing.
 - Wallpapers are changed on command (`SUPER+ALT+W` from everything,
   `SUPER+ALT+1` from `Art`) and Hyprland no longer reloads when it happens.
   What the investigations established, since none of it is guessable:

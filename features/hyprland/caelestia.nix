@@ -20,9 +20,10 @@
   # ./theme-apply.nu for the whole story.
   themeApplyScript = pkgs.writers.writeNuBin "caelestia-theme-apply" (
     lib.replaceStrings
-    ["HYPRCTL" "SCHEME"]
+    ["HYPRCTL" "DCONF" "SCHEME"]
     [
       "${pkgs.hyprland}/bin/hyprctl"
+      "${pkgs.dconf}/bin/dconf"
       "${config.home.homeDirectory}/.local/state/caelestia/scheme.json"
     ]
     (builtins.readFile ./theme-apply.nu)
@@ -33,10 +34,17 @@ in {
     caelestia-shell.homeManagerModules.default
   ];
 
-  # The CLI is a separate package from the shell service and is not pulled into the
-  # profile by the module, so `caelestia wallpaper -r` and friends were unavailable
-  # both in a terminal and to any bind that named them plainly.
-  home.packages = [config.programs.caelestia.cli.package];
+  # Two packages caelestia's theming writes settings for but does not install:
+  # - the CLI is separate from the shell service, so `caelestia wallpaper -r` and
+  #   friends were unavailable in a terminal and to any bind naming them plainly;
+  # - `adw-gtk3`, because apply_gtk() runs `dconf write .../gtk-theme 'adw-gtk3-dark'`
+  #   and GTK3 apps fall back to the default theme when that name resolves to
+  #   nothing. GTK4 apps need no theme package: they read the generated
+  #   ~/.config/gtk-4.0/gtk.css and the `color-scheme` preference directly.
+  home.packages = [
+    config.programs.caelestia.cli.package
+    pkgs.adw-gtk3
+  ];
 
   programs.caelestia = {
     enable = true;
@@ -106,10 +114,22 @@ in {
       Description = "Apply caelestia theme to hyprland";
       After = ["graphical-session.target"];
       PartOf = ["graphical-session.target"];
+      # Every wallpaper change and every scheme change rewrites scheme.json, and each
+      # rewrite starts this oneshot again. With systemd's default limit (5 starts in
+      # 10s) a few quick wallpaper changes set the limit, and the *path* unit then
+      # fails with "unit-start-limit-hit" and stays dead: the borders - and now the
+      # GTK theme - silently stop following caelestia until the session restarts.
+      # Disabling the limit is correct here because the unit is idempotent and cheap.
+      StartLimitIntervalSec = 0;
     };
     Service = {
       Type = "oneshot";
-      ExecStart = themeApplyScript;
+      # `lib.getExe`, not the store path itself: writeNuBin produces a *directory*
+      # with bin/<name> inside, and pointing ExecStart at the directory fails with
+      # status 203/EXEC. That is how this unit had been failing silently on every
+      # trigger before it was caught - the path unit kept starting it, it kept
+      # dying in 2ms, and nothing ever re-applied the colours.
+      ExecStart = lib.getExe themeApplyScript;
     };
   };
 

@@ -103,6 +103,11 @@ in {
       package = pkgs.btop-rocm;
 
       settings = {
+        # Caelestia writes ~/.config/btop/themes/caelestia.theme from the current
+        # colour scheme and sends btop SIGUSR2, which re-reads it. Naming the theme
+        # here is what makes btop follow the shell's light/dark and wallpaper colours
+        # instead of ignoring the generated file.
+        color_theme = "caelestia";
         theme_background = false;
         update_ms = 1000;
         check_temp = true;

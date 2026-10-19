@@ -12,8 +12,9 @@
 # running compositor instead: the border takes the new colours and nothing else in
 # the session is touched.
 #
-# HYPRCTL and SCHEME are substituted by caelestia.nix.
+# HYPRCTL, DCONF and SCHEME are substituted by caelestia.nix.
 const hyprctl = "HYPRCTL"
+const dconf = "DCONF"
 const scheme = "SCHEME"
 
 # home.nix builds the active border from primary and tertiary (c1/c2), so the live
@@ -25,6 +26,22 @@ const scheme = "SCHEME"
 def lua_border [primary: string, second: string] {
   let pair = ([("rgb(" + $primary + ")") ("rgb(" + $second + ")")] | str join '", "')
   'hl.config({general = {col = {active_border = {colors = {"' + $pair + '"}}}}})'
+}
+
+# GTK3 has no notion of a light/dark variant - the theme *name* is the switch - and
+# caelestia's own GTK step writes 'adw-gtk3-dark' whatever the mode is, so light mode
+# would keep dark chrome around the scheme colours. adw-gtk3 ships both variants, so
+# pick the one that matches and let gsettings carry it; GTK4 apps need nothing here,
+# they read gtk.css and the color-scheme preference that caelestia already writes.
+def gtk_theme [mode: string] {
+  if $mode != "light" and $mode != "dark" {
+    return
+  }
+  let theme = (if $mode == "light" { "adw-gtk3" } else { "adw-gtk3-dark" })
+  let answer = (do -i { ^$dconf write /org/gnome/desktop/interface/gtk-theme $"'($theme)'" | complete })
+  if $answer.exit_code != 0 {
+    print -e $"theme-apply: dconf write failed: ($answer.stderr | str trim)"
+  }
 }
 
 def main [] {
@@ -39,7 +56,8 @@ def main [] {
   # miss below ends in "leave the border alone".
   # `open` on a .json file already parses it, so it needs --raw: handing a record
   # to `from json` is "only string input data is supported".
-  let colours = (open --raw $scheme | from json | get --optional colours)
+  let document = (open --raw $scheme | from json)
+  let colours = ($document | get --optional colours)
   if $colours == null {
     print -e "theme-apply: the scheme has no colours block, leaving the border alone"
     return
@@ -53,6 +71,8 @@ def main [] {
   }
 
   let second = (if $tertiary == "" { $primary } else { $tertiary })
+  gtk_theme ($document | get --optional mode | default "")
+
   # `complete` rather than a bare call: hyprctl reports a Lua error on stdout with
   # exit 7, and a bare external call would abort the script before anything is
   # printed, leaving the service log with a failure and no reason in it.
