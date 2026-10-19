@@ -13,13 +13,18 @@ treat every "after the change" claim as something to test.
 
 ## 1. Narrow the overlay surface
 
-`flake.nix:99` applies five third-party overlays to every host, but
-`alex-desktop` never enables jellyfin (`hosts/AlexDesktop/default.nix:25-28`,
-`system/options.nix:50-52`) and uses none of the media packages. Gating them
-means re-evaluating all three hosts afterwards: any shared module naming
-`pkgs.seerrng` would fail on a host that skips the overlay. The comment at
+`flake.nix` applies five third-party overlays to every host, but `alex-desktop`
+never enables jellyfin and uses none of the media packages. The comment at
 `flake.nix:31-34` already argues the per-user pattern for agent software, which
 is also how hermes is imported.
+
+Measured, not assumed: the dendritic spike on branch `dendritic-spike` builds
+`alex-desktop` with nur alone - the media overlays and `nix-minecraft.overlay`
+dropped - and its toplevel derivation is byte-identical to the real one. So
+gating them is safe for that host; what is left is the per-host decision for
+the other two (the laptop runs no media either, but snowyrenard's browser
+handlers name `amethyst-mod-manager`, so the amethyst overlay has to stay where
+that user lives) and re-evaluating all three afterwards.
 
 ## 2. Traps in the (currently disabled) Minecraft tree
 
