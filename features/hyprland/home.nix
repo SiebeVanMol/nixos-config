@@ -63,6 +63,11 @@
         -------------------
         hl.env("XCURSOR_SIZE", 16)
         hl.env("HYPRCURSOR_SIZE", 16)
+        -- `caelestia wallpaper -r [DIR]` reads this at import time; without it a
+        -- terminal or bind falls back to ~/Pictures/Wallpapers, the symlink
+        -- caelestia's FileSystemModel refuses to follow. home.sessionVariables does
+        -- not reach a UWSM session, so it is set here, where binds inherit it.
+        hl.env("CAELESTIA_WALLPAPERS_DIR", os.getenv("HOME") .. "/Pictures/Backgrounds")
 
         -- Caelestia writes its colour scheme (and Hyprland border colours) to
         -- ~/.config/hypr/scheme/current.lua; source it and let background.lua override.
@@ -77,6 +82,16 @@
         end)
 
         hl.config({
+          -- Hyprland reloads itself whenever its config files change, and a reload
+          -- re-applies the cursor theme and drops pointer state for every surface,
+          -- which leaves the cursor broken in a running game. Caelestia rewrites
+          -- ~/.config/hypr/scheme/current.lua on every wallpaper change, so the
+          -- reload used to arrive exactly when a new picture was picked.
+          -- With this off, config changes land on an explicit `hyprctl reload`;
+          -- that is the price of a cursor that survives the session.
+          misc = {
+            disable_autoreload = true,
+          },
           general = {
             gaps_in = 5,
             gaps_out = 10,
@@ -164,6 +179,14 @@
 
         hl.bind(mod .. " + F",         hl.dsp.window.fullscreen({ "maximized", true }))
         hl.bind(mod .. " + SHIFT + F", hl.dsp.window.fullscreen({ "fullscreen", true }))
+
+        -- Wallpapers, on command. `caelestia wallpaper -r DIR` picks at random from
+        -- DIR (recursively) and re-derives the colour scheme; the launcher's
+        -- `>wallpaper` entry shows the same folder as a grid, and `>random` is the
+        -- same as the first line below. A new folder is one more line.
+        local wallpapers = os.getenv("HOME") .. "/Pictures/Backgrounds"
+        hl.bind(mod .. " + ALT + W", hl.dsp.exec_cmd("caelestia wallpaper -r " .. wallpapers))
+        hl.bind(mod .. " + ALT + 1", hl.dsp.exec_cmd("caelestia wallpaper -r " .. wallpapers .. "/Art"))
 
         hl.bind(mod .. " + left",  hl.dsp.focus({ direction = "left" }))
         hl.bind(mod .. " + right", hl.dsp.focus({ direction = "right" }))

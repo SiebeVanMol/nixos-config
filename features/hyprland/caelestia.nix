@@ -14,9 +14,19 @@
   caelestia-shell,
   ...
 }: let
-  themeApplyScript = pkgs.writeShellScript "caelestia-theme-apply" ''
-    ${pkgs.hyprland}/bin/hyprctl reload || true
-  '';
+  # Re-colours the borders with `hyprctl eval` instead of `hyprctl reload`: a reload
+  # re-applies the cursor theme and drops pointer state, and changing a wallpaper
+  # writes a new scheme, so reloading here broke the cursor mid-game. See
+  # ./theme-apply.nu for the whole story.
+  themeApplyScript = pkgs.writers.writeNuBin "caelestia-theme-apply" (
+    lib.replaceStrings
+    ["HYPRCTL" "SCHEME"]
+    [
+      "${pkgs.hyprland}/bin/hyprctl"
+      "${config.home.homeDirectory}/.local/state/caelestia/scheme.json"
+    ]
+    (builtins.readFile ./theme-apply.nu)
+  );
 in {
   imports = [
     # Caelestia desktop shell (Quickshell-based).

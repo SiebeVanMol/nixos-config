@@ -160,6 +160,30 @@ the same options are not re-argued from scratch.
 
 ## Recently done (do not re-do)
 
+- Wallpapers are changed on command (`SUPER+ALT+W` from everything,
+  `SUPER+ALT+1` from `Art`) and Hyprland no longer reloads when it happens.
+  What the investigations established, since none of it is guessable:
+  - `caelestia wallpaper -r [DIR]` takes an optional directory and recurses
+    (`rglob`) under it, so "pick from this subfolder" needs no upstream change;
+    only the launcher's picker is flat (shell PR #2135, "folder navigation", open).
+    Upstream has no time-based schedule in a release: PR #1203 (a `wallpaperSchedule`
+    of `{startTime, wallpaper}`) has been a draft since March, #1819 is an
+    interval-only rival, and the closed request #1308 was answered with "use a
+    systemd timer" - which is what the login-time rotation already is.
+  - A wallpaper change rewrites the colour scheme, and the theme step used to
+    finish with `hyprctl reload`. That reload is what broke the cursor in games:
+    it re-applies the cursor theme and drops pointer state for every surface.
+  - Hyprland 0.56 parses Lua, so `hyprctl keyword` refuses outright ("keyword
+    can't work with non-legacy parsers. Use eval."); the live path is
+    `hyprctl eval 'hl.config({...})'`, which returns `ok` and touches nothing else.
+    Lua tables take braces, not brackets - `{colors = {"rgb(..)"}}`, and a failed
+    eval exits 7 with the reason on stdout, so the script uses `complete`.
+  - `misc.disable_autoreload = true` stops the reload-on-file-change too, since
+    caelestia rewrites `scheme/current.lua` whenever the wallpaper changes. The
+    cost is explicit: config edits now land on `hyprctl reload`, including after a
+    rebuild.
+  - `open` on a `.json` file already parses it; handing the result to `from json`
+    is "only string input data is supported", hence `open --raw`.
 - The overlay pins are current, all four, and `nix run .#update-overlays -- --check`
   exits 0: seerrng 3.19.3 -> 3.67.0, soularr unstable-2026-07-31 -> 1.2.2,
   amethyst 2.5.3 -> 2.5.5, houndarr unchanged. Three things had to be true first,
