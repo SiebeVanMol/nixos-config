@@ -23,9 +23,19 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    vpn-confinement.url = "github:Maroka-chan/VPN-Confinement";
+    # Both follow the top-level nixpkgs. Without `follows` each brought its own
+    # pinned nixpkgs into flake.lock - by 2026-10 two copies existed, the second
+    # from January - and only the overlay and the module are used, both of which are
+    # applied to this flake's `pkgs`, so the extra copy was pure eval and fetch cost.
+    vpn-confinement = {
+      url = "github:Maroka-chan/VPN-Confinement";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
-    nix-minecraft.url = "github:Infinidoge/nix-minecraft";
+    nix-minecraft = {
+      url = "github:Infinidoge/nix-minecraft";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     # Nous Research's agent harness. Imported per-user (see
     # features/hermes/home.nix) rather than for every user: it is an agent
