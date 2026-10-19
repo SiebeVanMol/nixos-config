@@ -71,7 +71,11 @@ const plain = {
   "hm-switch": {
     order: 2
     label: "Apply just my home folder"
-    note: "no password; for changes to programs, the shell and desktop settings"
+    # `home-manager.useUserPackages = true`: home.packages are installed into the
+    # NixOS per-user profile, which only a system rebuild writes. Saying "changes to
+    # programs" here promised something this task cannot do - neovim was declared,
+    # built into the HM generation, and still absent from PATH.
+    note: "no password; dotfiles, settings and user units - a new program needs option 1"
     danger: false
   }
   "test": {

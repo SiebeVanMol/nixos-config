@@ -73,6 +73,7 @@ in {
       jetbrains.pycharm
       jetbrains.rust-rover
       jetbrains.rider
+      neovim
       mono
       godot-mono
     ]

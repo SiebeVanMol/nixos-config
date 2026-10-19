@@ -79,6 +79,12 @@ Two traps:
 Evals and builds are slow here and are the normal cost of changing anything:
 run them rather than reporting that they would pass.
 
+One exception: `home-manager.useUserPackages = true` puts `home.packages` into the
+NixOS per-user profile, which only `nixos-rebuild` writes. A Home-Manager-only
+switch activates dotfiles, settings and user units, but a **newly declared program
+stays absent from PATH** until the full rebuild (it is in the generation's
+`home-path`, just not linked anywhere the session sees).
+
 Home Manager changes have a second, shorter path that needs no root:
 `home-manager switch --flake .#<user>@<host>` activates exactly the generation
 `nixos-rebuild switch` would, because the flake re-exports each host's
