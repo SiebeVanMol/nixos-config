@@ -181,7 +181,11 @@ def tasks [] {
   | append ($extras | each {|task|
       $task
       | insert source "checkout"
-      | upsert run (if $task.name == "hm-switch" { ["home-manager" "switch" "--flake" $self] } else { $task.run })
+      # `nix run .#home-manager`: the NixOS module installs the Home Manager
+      # *library*, not its CLI, so a bare `home-manager` here fails with "command not
+      # found". The flake exposes the CLI from its locked input, so this activates the
+      # same generation nixos-rebuild would, with the same version.
+      | upsert run (if $task.name == "hm-switch" { ["nix" "run" ".#home-manager" "--" "switch" "--flake" $self] } else { $task.run })
     })
   # Ordered for a reader, not alphabetically: the everyday actions first, the
   # irreversible one last, and anything unrecognised after the ones with wording.

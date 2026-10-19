@@ -375,6 +375,13 @@
     # host in the middle.
     packages.x86_64-linux =
       (import ./lib/flake-packages.nix {inherit pkgs;})
-      // {inherit (overlayPackages) seerrng soularr houndarr amethyst-mod-manager;};
+      // {inherit (overlayPackages) seerrng soularr houndarr amethyst-mod-manager;}
+      // {
+        # The Home Manager CLI from the *locked* input. The NixOS module brings the
+        # library, not the command, so `home-manager switch` - the no-root path the
+        # task menu offers - had nothing to run. Taking it from the input keeps the
+        # version identical to the one NixOS itself would activate.
+        home-manager = home-manager.packages.x86_64-linux.home-manager;
+      };
   };
 }
