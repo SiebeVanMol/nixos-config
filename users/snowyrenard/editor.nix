@@ -6,6 +6,17 @@
 in {
   home.sessionVariables.EDITOR = "hx";
 
+  # Neovim, as a second editor. The configuration is plain Lua under ./nvim so
+  # the same tree runs on the Ubuntu machines at school, where there is no root
+  # and 4 GB of home - see users/snowyrenard/nvim/README.md.
+  #
+  # `programs.neovim` is deliberately not used: it writes its own init.vim into
+  # ~/.config/nvim, which would collide with the tree symlinked below. The store
+  # path is read-only, which is why plugins.lua keeps lazy's lockfile in
+  # ~/.local/state/nvim instead of beside the config.
+  home.packages = [pkgs.neovim];
+  xdg.configFile."nvim".source = ./nvim;
+
   programs.helix = {
     enable = true;
     defaultEditor = true;
