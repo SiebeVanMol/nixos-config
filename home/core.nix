@@ -10,7 +10,7 @@
   };
 
   imports = [
-    ./shell
+    ../features/shell/home
 
     ./hyprland.nix
     ./wallpapers.nix

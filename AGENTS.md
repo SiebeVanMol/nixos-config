@@ -19,7 +19,7 @@ One question per directory, so the path answers what is in here:
 | `hosts/<Host>/` | one machine: its `hardware-configuration.nix` and the `device.*` toggles it switches on |
 | `system/` | everything machine-wide and shared by all three: accounts, boot and locale in `default.nix`; features in `app/ hardware/ security/ wm/`; recurring jobs in `maintenance/`; long-running services in `server/` |
 | `home/` | the Home Manager settings every user gets — `core.nix` pulls in the shell, Hyprland, wallpapers, input method and desktop apps |
-| `features/` | one thing that exists on both sides: `hermes/` holds `system.nix` (the model server) and `home.nix` (the agent that reads it) |
+| `features/` | one thing that exists on both sides: `hermes/` (the model server and the agent that reads it) and `shell/` (which shell an account logs into, the configuration Home Manager writes for it, and the terminal that launches it) |
 | `users/<name>/` | one person: `home.nix` (imports `home/core.nix` plus their own files), programs, editor, browser, and anything personal |
 | `lib/` | plain functions, never modules: the `/Vault` layout, btrfs mounts, *arr facts, the webhook client, `import-dir` |
 | `overlays/` | packages nixpkgs lacks or carries too old, each pinned by hash in the file that uses it, with `overlays/update.nu` comparing those pins against upstream |
@@ -32,15 +32,16 @@ one person uses never lands in another person's home. Hermes is the example:
 the model server was `system/server/ai/` and the agent `users/snowyrenard/`,
 and the second read the first through `osConfig` across the gap.
 
-A directory here is earned by spanning both sides with real configuration on
-each, not by being interesting. `system/app/steam.nix` and `home/hyprland.nix`
-stay where they are: a thing that is only machine-wide or only in someone's home
-is not a feature by this definition. One straddle remains and is named here so
-nobody has to discover it: the shell is `home/shell/*` against
-`shell = pkgs.nushell` in `system/default.nix`. It keeps its place in `home/`
-because the machine half is one line - the account and the session have to name
-the same program - and a directory for that would be ceremony rather than
-structure.
+A directory here is earned by spanning both sides, and the test is "one fact,
+one place" rather than "how many lines". `system/app/steam.nix` and
+`home/hyprland.nix` stay where they are: a thing that is only machine-wide or
+only in someone's home is not a feature by this definition. The shell is a
+feature with a one-line machine half, and that is exactly why: three places had
+to name the same program - the account's `shell`, the Home Manager
+configuration's `programs.nushell`, and the terminal's `shell =` - and one of
+them silently disagreeing is a session that starts a shell the account does not
+have. `device.shell.program` is now the only place that fact lives, with
+`device.shell.terminal` beside it for the terminal.
 
 ## Verification
 

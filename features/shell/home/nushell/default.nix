@@ -15,16 +15,28 @@
 # `programs.carapace.enableNushellIntegration = true` on a newer nixpkgs is the
 # one-line route back; the fish bridge is the other, as a closure in
 # `extraConfig` plus `pkgs.fish` in `home.packages`.
+#
+# `mkIf`, not a conditional import: `imports` is evaluated before the option
+# system has values, so reading `osConfig.device.shell.program` there is an
+# infinite recursion. The file is always imported and does nothing unless nushell
+# is the shell the account logs into.
 {
-  programs.nushell = {
-    enable = true;
+  config,
+  lib,
+  osConfig,
+  ...
+}: {
+  config = lib.mkIf (osConfig.device.shell.program == "nushell") {
+    programs.nushell = {
+      enable = true;
 
-    settings = {
-      show_banner = false;
-    };
-    shellAliases = {
-      clr = "clear";
-      fetch = "fastfetch";
+      settings = {
+        show_banner = false;
+      };
+      shellAliases = {
+        clr = "clear";
+        fetch = "fastfetch";
+      };
     };
   };
 }
