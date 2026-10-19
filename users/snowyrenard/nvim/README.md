@@ -19,12 +19,13 @@ missing. It installs, all inside `~/.local`:
 
 | What | Where | Size |
 | --- | --- | --- |
-| Neovim 0.12.6 (official tarball) | `~/.local/opt/nvim` | 40 MB |
+| Neovim 0.12.6, **only if** the machine's own `nvim` is missing or older than 0.11 | `~/.local/opt/nvim` | 40 MB |
 | ripgrep + fd (static) | `~/.local/bin` | 5 MB |
 | clangd, binary + builtin headers only | `~/.local/opt/clangd` | 165 MB |
 | plugins (lazy.nvim + onedark) | `~/.local/share/nvim` | ~5 MB |
 
-That is roughly 215 MB, and it refuses to run with less than 600 MB free.
+That is ~175 MB when the machine already ships a new-enough Neovim, ~215 MB when
+it does not, and the script refuses to run with less than 600 MB free.
 
 ## On NixOS
 
@@ -35,6 +36,11 @@ downloaded.
 
 ## Why it is shaped like this
 
+- **Neovim 0.11 is the floor.** `vim.lsp.config`, `vim.diagnostic.jump` and
+  `vim.uv` arrive in 0.11, and distributions are behind it (Ubuntu 24.04 ships
+  0.9.5), so `init.lua` refuses to load on anything older with one readable
+  message, and the bootstrap only downloads a Neovim when the local one fails
+  that test.
 - **No tree-sitter plugin.** Neovim 0.12 ships parsers for C, Lua, Markdown,
   Vim, Vimdoc and query. `init.lua` starts them with `pcall`, so C is
   highlighted on a machine with no compiler and no download.

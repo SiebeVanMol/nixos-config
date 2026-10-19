@@ -42,7 +42,29 @@ fetch() { # url destination
   fi
 }
 
-# The whole install is about 215 MB; refuse to start below 600 MB free so a
+# Is the Neovim the machine already has new enough?
+#
+# The config needs 0.11 (vim.lsp.config, vim.diagnostic.jump, vim.uv), and the
+# version shipped by the distribution is frequently older: Ubuntu 24.04 has
+# 0.9.5. So the tarball below is only for a machine with no Neovim or with one
+# too old - a machine that already has 0.11 or later keeps its own.
+nvim_is_new_enough() {
+  local exe raw version major minor
+  exe=$(command -v nvim 2>/dev/null) || return 1
+  raw=$("$exe" --version 2>/dev/null) || return 1
+  # Parsed with shell expansion alone: this runs before anything is installed,
+  # so it may not assume awk or head exist on the machine.
+  version=${raw#NVIM v}
+  version=${version%%$'\n'*}
+  major=${version%%.*}
+  minor=${version#*.}
+  minor=${minor%%.*}
+  case $major in '' | *[!0-9]*) return 1 ;; esac
+  case $minor in '' | *[!0-9]*) return 1 ;; esac
+  [ "$major" -gt 0 ] || [ "$minor" -ge 11 ]
+}
+
+# The whole install is about 175-215 MB; refuse to start below 600 MB free so a
 # half-finished download can never be what fills the disk.
 free_mb=$(df -Pk "$HOME" | awk 'NR == 2 {print int($4 / 1024)}')
 if [ "$free_mb" -lt 600 ]; then
@@ -50,17 +72,22 @@ if [ "$free_mb" -lt 600 ]; then
   exit 1
 fi
 
-# Neovim, from the official tarball. No FUSE, no AppImage, no root.
-if [ ! -x "$OPT/nvim/bin/nvim" ]; then
-  echo "==> neovim $NVIM_VERSION"
-  tarball=$SRC/nvim.tar.gz
-  fetch "https://github.com/neovim/neovim/releases/download/v$NVIM_VERSION/nvim-linux-$ARCH.tar.gz" "$tarball"
-  rm -rf "$OPT/nvim"
-  mkdir -p "$OPT/nvim"
-  tar -xzf "$tarball" -C "$OPT/nvim" --strip-components=1
-  rm -f "$tarball"
+# Neovim, from the official tarball - only when the machine has none, or one
+# older than 0.11. No FUSE, no AppImage, no root.
+if nvim_is_new_enough; then
+  echo "==> keeping the installed neovim ($(nvim --version | head -n1))"
+else
+  echo "==> neovim $NVIM_VERSION (no nvim on PATH, or older than 0.11)"
+  if [ ! -x "$OPT/nvim/bin/nvim" ]; then
+    tarball=$SRC/nvim.tar.gz
+    fetch "https://github.com/neovim/neovim/releases/download/v$NVIM_VERSION/nvim-linux-$ARCH.tar.gz" "$tarball"
+    rm -rf "$OPT/nvim"
+    mkdir -p "$OPT/nvim"
+    tar -xzf "$tarball" -C "$OPT/nvim" --strip-components=1
+    rm -f "$tarball"
+  fi
+  ln -sfn "$OPT/nvim/bin/nvim" "$BIN/nvim"
 fi
-ln -sfn "$OPT/nvim/bin/nvim" "$BIN/nvim"
 
 # Static search tools: ripgrep for :grep and <leader>fg, fd for the file picker.
 if [ ! -x "$BIN/rg" ]; then

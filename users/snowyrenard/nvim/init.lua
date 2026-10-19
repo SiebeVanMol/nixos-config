@@ -6,6 +6,23 @@
 -- tree-sitter parsers (Neovim 0.12 already ships the C one), no undo or swap
 -- files, and exactly one place that knows which OS this is - config/lsp.lua,
 -- where the flag decides what gets downloaded, never how the editor behaves.
+
+-- 0.11 is the floor: vim.lsp.config, vim.diagnostic.jump and vim.uv do not
+-- exist before it. A machine's own Neovim is whatever the distribution shipped
+-- (Ubuntu 24.04 has 0.9.5), so this runs before anything else and says so
+-- plainly - otherwise the first filetype callback raises a stack trace that
+-- names a function the user never called.
+if vim.fn.has("nvim-0.11") ~= 1 then
+  vim.api.nvim_echo({
+    {
+      ("this config needs Neovim 0.11 or newer, found %d.%d"):format(vim.version().major, vim.version().minor),
+      "ErrorMsg",
+    },
+    {"run users/snowyrenard/nvim/scripts/bootstrap.sh, which installs one into ~/.local", "WarningMsg"},
+  }, true, {})
+  return
+end
+
 vim.g.mapleader = " "
 vim.g.maplocalleader = "\\"
 
