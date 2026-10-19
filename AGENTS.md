@@ -34,7 +34,7 @@ and the second read the first through `osConfig` across the gap.
 
 A directory here is earned by spanning both sides, and the test is "one fact,
 one place" rather than "how many lines". `system/app/steam.nix` and
-`home/hyprland.nix` stay where they are: a thing that is only machine-wide or
+`home/caelestia.nix` stay where they are: a thing that is only machine-wide or
 only in someone's home is not a feature by this definition. The shell is a
 feature with a one-line machine half, and that is exactly why: three places had
 to name the same program - the account's `shell`, the Home Manager

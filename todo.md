@@ -77,7 +77,7 @@ Measured with `nix run .#update-overlays -- --check` (which now exists, and whic
   `search.nixos.org/options` ignores), and `release=master` appears on only one.
   Worth one shared value of `{engines, bookmarks}`; keep the container/extension
   setup - and the two browsers - per user.
-- `home/hyprland.nix:153` binds SUPER+SHIFT+E to `hyprshutdown`, which nothing
+- `features/hyprland/home.nix:153` binds SUPER+SHIFT+E to `hyprshutdown`, which nothing
   installs, with `hyprctl dispatch 'hl.dsp.exit()'` as the fallback. Whether
   this Hyprland accepts the Lua-style dispatcher name is unverified - check it
   on the running compositor before changing, and add the package if the fade is
