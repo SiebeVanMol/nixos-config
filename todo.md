@@ -79,6 +79,36 @@ DNS-rebinding hardening rather than the key disclosure the login fix closed - wh
 is why it is written here instead of being folded into that work. Check whether the
 other three applications report it before writing the convergence.
 
+## Considered and deferred
+
+Decided, not open — kept here with the condition that would reopen each one, so
+the same options are not re-argued from scratch.
+
+- **Cross-class `features/<name>/{system,home}.nix`.** Would co-locate the few
+  things that straddle the two trees: the model server in `system/server/ai` that
+  `users/snowyrenard/hermes.nix` reads through `osConfig`, and `home/shell/*`
+  against the shell `system/default.nix` sets. Rejected for now: a new directory
+  convention plus an aggregation rule for two features, when a table in
+  `AGENTS.md` answers the same question. Reopen if a third or fourth feature
+  straddles, or if the two halves of one start drifting apart.
+- **Dendritic (flake-parts + `import-tree`).** Would replace the host table and
+  the module lists with named aspects, and hold a feature's system and user
+  halves in one file. Rejected for now: a framework and a concept (aspect
+  classes) to save two short import lists, and it makes "why is this applied
+  here?" harder rather than easier. Reopen if the machine list grows past a
+  handful, or if composing variants by name becomes the normal way work happens.
+  Nothing currently blocks it: the modules are ordinary NixOS and Home Manager
+  modules, `lib/` holds plain functions, and `homeConfigurations` is derived from
+  the same host table any rewrite would use.
+- **Subflakes / flake partitions.** Would give each component its own lock.
+  Rejected: a NixOS module always evaluates against the host's package set, so a
+  nested lock buys bookkeeping rather than independence, and per-subflake
+  `nix flake update` is how the stale `nixpkgs` in `nix-minecraft` came about.
+- **Generating options from the tree.** Removed in the toggle commit: modules
+  declare their own `device.<area>.<file>.enable` and
+  `checks.x86_64-linux.toggles` enforces the convention. Not coming back — the
+  options were real but less findable than the metaprogram making them.
+
 ## Notes
 
 - Measuring local speed: 512 tokens, the service's own flags, and the card
