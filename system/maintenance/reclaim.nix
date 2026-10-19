@@ -48,30 +48,36 @@
   # The one webhook client, shared with monitoring.nix's daily health check.
   alertWebhook = import ../../lib/alert-webhook.nix {inherit pkgs;};
 
-  pruneGenerations = pkgs.writeShellApplication {
-    name = "prune-generations";
-    runtimeInputs = [pkgs.nix];
-    text = ''
-      # Counted with a glob rather than `ls | grep`, which breaks on names that
-      # are not plain alphanumerics - and these are symlinks named <n>-link.
-      generation_count() {
-        local count=0 profile
-        for profile in /nix/var/nix/profiles/system-*-link; do
-          [ -e "$profile" ] && count=$((count + 1))
-        done
-        printf '%s' "$count"
-      }
-
+  pruneGenerations =
+    pkgs.writers.writeNuBin "prune-generations" {
+      # `nix-env` is the one external command the script runs.
+      makeWrapperArgs = [
+        "--prefix"
+        "PATH"
+        ":"
+        (lib.makeBinPath [pkgs.nix])
+      ];
+    } ''
       # Old system generations pin whole closures in the store, so the weekly GC
-      # cannot free those packages while a generation still refers to them. Drop
-      # all but the newest few and the next collection actually reclaims them.
-      before="$(generation_count)"
-      nix-env --profile /nix/var/nix/profiles/system \
-        --delete-generations +${toString keepGenerations}
-      after="$(generation_count)"
-      echo "system generations: ''${before} before, ''${after} after (keeping ${toString keepGenerations})"
+      # cannot free those packages while a generation still refers to them. Drop all
+      # but the newest few and the next collection actually reclaims them.
+      #
+      # Counted with `glob` rather than a directory listing, which breaks on names
+      # that are not plain alphanumerics - and these are symlinks named <n>-link. A
+      # dangling profile symlink is not a generation; the `path exists` filter is
+      # the `[ -e ]` test the shell version used.
+      def main [] {
+        let pattern = "/nix/var/nix/profiles/system-*-link"
+        let keep = ${toString keepGenerations}
+        let count = {|| glob $pattern | where {|p| $p | path exists } | length }
+
+        let before = (do $count)
+        ^nix-env --profile /nix/var/nix/profiles/system --delete-generations $"+($keep)"
+        let after = (do $count)
+
+        print $"system generations: ($before) before, ($after) after - keeping ($keep)"
+      }
     '';
-  };
 
   report = pkgs.writeShellApplication {
     name = "disk-care-report";
