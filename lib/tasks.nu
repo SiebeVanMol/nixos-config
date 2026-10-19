@@ -1,7 +1,8 @@
 # What this repository can do, in one place - and then does it.
 #
 #   nix run .#tasks                    # pick from a list
-#   nix run .#tasks -- --list          # just print the list
+#   nix run .#tasks -- --list          # print the list
+#   nix run .#tasks -- --json          # the same list, for scripts
 #   nix run .#tasks -- <name> [args…]  # run one directly
 #
 # The list is discovered rather than maintained: every attribute under
@@ -12,11 +13,18 @@
 #
 # The extras below are the tasks that are not packages, because they act on the
 # checkout rather than being a program: the gate, the formatter, the two switch
-# paths, and the input update. Anything needing root says so in the list instead
-# of failing halfway through.
+# paths, and the input update. Anything needing root says so before it runs
+# instead of failing halfway through.
 #
 # Every task runs with its own argv and passes extra arguments straight through,
 # so `-- update-overlays --check` reaches the updater's own flag.
+
+# Style constants in one place: `ansi` codes are easy to get subtly wrong, and a
+# colour that only appears in one branch looks like an oversight.
+const accent = "green_bold"
+const dim = "dark_gray"
+const warn = "yellow"
+const bad = "red_bold"
 
 # Not flake packages. `run` is argv, not a shell string: no word splitting and no
 # quoting rules to get wrong.
@@ -35,7 +43,7 @@ const extras = [
   }
   {
     name: "switch"
-    description: "rebuild and activate this host (sudo; Home Manager rides along)"
+    description: "rebuild and activate this host (Home Manager rides along)"
     run: ["sudo" "nixos-rebuild" "switch" "--flake" "."]
     root: true
   }
@@ -69,6 +77,10 @@ const needs_root = ["servarr-export" "servarr-sweep"]
 # menu cannot offer to open itself.
 const not_tasks = ["amethyst-mod-manager" "houndarr" "seerrng" "soularr" "tasks"]
 
+def host [] {
+  open /proc/sys/kernel/hostname | str trim
+}
+
 # The flake's packages with the description each declares. One `nix eval` rather
 # than one per package: this runs before the menu, and the menu is not worth four
 # seconds.
@@ -84,6 +96,7 @@ def discovered [] {
     {
       name: $row.name
       description: $row.description
+      source: "command"
       # `--` so arguments reach the app rather than nix: `nix run .#x -- --check`.
       run: ["nix" "run" $".#($row.name)" "--"]
       root: ($row.name in $needs_root)
@@ -96,45 +109,70 @@ def discovered [] {
 # two names come from the machine this is running on.
 def self-attribute [] {
   let user = ($env.USER? | default (do { ^id -un } | str trim))
-  let host = (open /proc/sys/kernel/hostname | str trim)
-  $".#($user)@($host)"
+  $".#($user)@(host)"
 }
 
 def tasks [] {
   let self = (self-attribute)
   (discovered)
   | append ($extras | each {|task|
-      if $task.name == "hm-switch" {
-        $task | upsert run ["home-manager" "switch" "--flake" $self]
-      } else {
+      let task = (
         $task
-      }
+        | insert source "checkout"
+        | upsert run (if $task.name == "hm-switch" { ["home-manager" "switch" "--flake" $self] } else { $task.run })
+      )
+      $task
     })
   | sort-by name
 }
 
-# A plain aligned list rather than a table: `input list` draws its own frame, and
-# this is what gets printed when there is no terminal to pick from.
+def headline [count: int] {
+  $"(ansi $accent)nixos-config(ansi reset)(ansi $dim) · (host) · ($count) tasks(ansi reset)"
+}
+
+# Aligned columns, a dim description, and the root marker in yellow: the three
+# things that make eleven rows scannable rather than a wall of text.
+def row [task: record, width: int] {
+  let name = ($task.name | fill --width $width --alignment left)
+  let description = (if $task.description == "" { $"(ansi $dim)no description(ansi reset)" } else { $task.description })
+  let marker = (if $task.root { $"(ansi $warn)  · sudo(ansi reset)" } else { "" })
+  $"  (ansi $accent)($name)(ansi reset)($description)($marker)"
+}
+
+def section [title: string, rows: list, width: int] {
+  if ($rows | is-empty) {
+    return ""
+  }
+  let body = ($rows | each {|task| row $task $width} | str join (char nl))
+  $"\n(ansi $dim)($title)(ansi reset)\n($body)"
+}
+
 def as-text [list: list] {
   # Padded to the longest name: `fill` returns the value untouched when it is
   # already longer than the width, which silently collapsed the column.
   let width = (($list | get name | str length | math max) + 2)
-  $list
-  | each {|task|
-    let name = ($task.name | fill --width $width --alignment left)
-    let note = (if $task.root { "  [needs root]" } else { "" })
-    $"  ($name)($task.description)($note)"
-  }
+  [
+    (headline ($list | length))
+    (section "commands" ($list | where source == "command") $width)
+    (section "checkout" ($list | where source == "checkout") $width)
+    ""
+    $"(ansi $dim)nix run .#tasks -- <name> [args…]   ·   no argument: pick from a list(ansi reset)"
+  ]
   | str join (char nl)
 }
 
 def run-task [task: record, rest: list<string>] {
   let argv = ($task.run | append $rest)
-  print $"running: ($argv | str join ' ')"
+  if $task.root {
+    print $"(ansi $warn)needs root - sudo will ask for your password(ansi reset)"
+  }
+  print $"(ansi $dim)→ ($argv | str join ' ')(ansi reset)"
   ^$argv.0 ...($argv | skip 1)
   let code = $env.LAST_EXIT_CODE
-  if $code != 0 {
-    print -e $"($task.name): exit ($code)"
+  if $code == 0 {
+    print $"(ansi $accent)✓(ansi reset) ($task.name)"
+  } else {
+    print -e $"(ansi $bad)✗(ansi reset) ($task.name): exit ($code)"
     exit $code
   }
 }
@@ -143,9 +181,10 @@ def run-task [task: record, rest: list<string>] {
 # nushell parses `-- tasks update-overlays --check` as an unknown flag of this
 # command. `--wrapped` hands them to `$rest` unchanged.
 def --wrapped main [
-  name?: string # a task name, or --list
+  name?: string # a task name, or --list / --json
   ...rest: string # passed to the task unchanged
   --list (-l) # print the tasks and exit
+  --json (-j) # the task list as JSON, for scripts
 ] {
   # `nix run .#tasks` from a subdirectory would evaluate `.#` there, and every
   # task assumes the checkout root.
@@ -162,17 +201,39 @@ def --wrapped main [
   # name replaced the flag with this table.
   let all = (tasks)
 
-  if $list or ($name == "--list") {
-    print (as-text $all)
-    print ""
-    print "nix run .#tasks -- <name> [args…]    (or no argument, to pick from a list)"
+  # `--wrapped` swallows unknown flags into `$rest`, so `--list` and `--json` can
+  # arrive as the flag, as the first positional, or as a rest element depending on
+  # how the shell split them. All three are accepted rather than one being
+  # silently treated as a task name.
+  let flags = ($rest | append (if $name == null { [] } else { [$name] }))
+  let wants_json = ($json or ($flags | any {|flag| $flag in ["--json" "-j"]}))
+  let wants_list = ($list or ($flags | any {|flag| $flag in ["--list" "-l"]}))
+
+  if $wants_json {
+    # `print`: a bare `to json` is a value nothing consumes, so with only that
+    # pipeline the flag printed nothing at all.
+    print ($all | select name source description root run | to json)
     return
   }
 
-  if $name != null {
-    let task = ($all | where name == $name | first)
+  if $wants_list {
+    print (as-text $all)
+    return
+  }
+
+  if $name != null and not ($name | str starts-with "-") {
+    let exact = ($all | where name == $name)
+    # A prefix is enough when it names one task: typing `rebui` beats being told
+    # there is no task called that. Two matches is a question, not a guess.
+    let partial = ($all | where {|task| $task.name | str starts-with $name})
+    let task = (if ($exact | is-empty) { if ($partial | length) == 1 { $partial | first } } else { $exact | first })
     if $task == null {
-      print -e $"no task named '($name)'"
+      if ($partial | is-empty) {
+        print -e $"(ansi $bad)✗(ansi reset) no task named '($name)'"
+      } else {
+        print -e $"(ansi $bad)✗(ansi reset) '($name)' matches ($partial | get name | str join ', ')"
+      }
+      print ""
       print (as-text $all)
       exit 1
     }
@@ -182,18 +243,25 @@ def --wrapped main [
 
   # Interactive: `input list` needs a terminal. Piped or under cron it would
   # otherwise fail with a stack trace, so fall back to printing the list.
+  print (headline ($all | length))
+  print $"(ansi $dim)type to filter · ↑/↓ to move · enter runs · esc cancels(ansi reset)"
   let chosen = (
     try {
-      $all | input list --fuzzy -d {|task| $"($task.name): ($task.description)"}
+      $all | input list --fuzzy -d {|task|
+        let marker = (if $task.root { "  · sudo" } else { "" })
+        $"($task.name): ($task.description)($marker)"
+      }
     } catch {
       null
     }
   )
   if $chosen == null {
+    print ""
     print (as-text $all)
     print ""
-    print "no terminal to pick from - run `nix run .#tasks -- <name>`"
+    print $"(ansi $dim)no terminal to pick from - run `nix run .#tasks -- <name>`(ansi reset)"
     return
   }
+  print ""
   run-task $chosen $rest
 }
