@@ -10,7 +10,7 @@
   pkgs,
   ...
 }: let
-  # The shared *arr key reader; homepage-env.sh calls it instead of keeping its
+  # The shared *arr key reader; homepage-env.nu calls it instead of keeping its
   # own copy of the config.xml search.
   arrKey = import ../../../lib/arr-api-key.nix {inherit pkgs;};
 
@@ -22,11 +22,16 @@
     builtins.toJSON (arrApps.withPorts config.device.media.services)
   );
 
-  envScript = pkgs.writeShellApplication {
-    name = "homepage-env";
-    runtimeInputs = [pkgs.coreutils pkgs.python3 pkgs.jq arrKey];
-    text = builtins.readFile ./homepage-env.sh;
-  };
+  envScript = pkgs.writers.writeNuBin "homepage-env" {
+    # `arr-api-key` is the shell-out for the *arr keys, and `chmod` is the one
+    # external nu has no builtin for: both come from here rather than from PATH.
+    makeWrapperArgs = [
+      "--prefix"
+      "PATH"
+      ":"
+      (lib.makeBinPath [arrKey pkgs.coreutils])
+    ];
+  } (builtins.readFile ./homepage-env.nu);
 
   envFile = "/run/homepage-dashboard/env";
 in {
