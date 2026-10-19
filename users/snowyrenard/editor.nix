@@ -8,7 +8,9 @@ in {
 
   # Neovim, as a second editor. The configuration is plain Lua under ./nvim so
   # the same tree runs on the Ubuntu machines at school, where there is no root
-  # and 4 GB of home - see users/snowyrenard/nvim/README.md.
+  # and 4 GB of home - see users/snowyrenard/nvim/README.md. There the editor
+  # comes from the machine's own packages, exactly as it does from this line on
+  # NixOS; only the tools around it are fetched into ~/.local.
   #
   # `programs.neovim` is deliberately not used: it writes its own init.vim into
   # ~/.config/nvim, which would collide with the tree symlinked below. The store

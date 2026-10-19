@@ -18,7 +18,7 @@ if vim.fn.has("nvim-0.11") ~= 1 then
       ("this config needs Neovim 0.11 or newer, found %d.%d"):format(vim.version().major, vim.version().minor),
       "ErrorMsg",
     },
-    {"run users/snowyrenard/nvim/scripts/bootstrap.sh, which installs one into ~/.local", "WarningMsg"},
+    {"this machine's Neovim has to be 0.11 or newer: vim.lsp.config, vim.diagnostic.jump and vim.uv arrive there", "WarningMsg"},
   }, true, {})
   return
 end

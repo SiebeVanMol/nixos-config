@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
-# Install this config on a machine with no sudo, no nix and 4 GB of home.
+# Install this config on a machine with no sudo and 4 GB of home.
 #
 # Why bash and not nushell, against this repository's rule: the script's whole
-# job is to put the first tools on a machine that has none of them. Nushell is
-# one of the things it would have to install first, so bash is the only shell
-# that is guaranteed to be there. Everything else here is deliberately the
-# smallest thing that runs: a Neovim tarball (40 MB extracted) instead of a
-# package manager, static ripgrep and fd, and clangd trimmed down to the binary
-# and the builtin headers it reads - its bundled compiler-rt libraries are 70 MB
-# of sanitizer runtime that a language server never loads.
+# job is to put the first tools on a machine that has almost none of them.
+# Nushell is one of the things it would have to install first, so bash is the
+# only shell that is guaranteed to be there.
+#
+# Neovim itself is deliberately not installed here. The editor belongs to the
+# machine - the same rule that makes Home Manager install pkgs.neovim on NixOS -
+# so this script only checks the one it finds and refuses to continue if it is
+# too old. Everything else is deliberately the smallest thing that runs: static
+# ripgrep and fd, and clangd trimmed down to the binary and the builtin headers
+# it reads, dropping the 70 MB of sanitizer runtime that a language server never
+# loads.
 set -euo pipefail
 
-NVIM_VERSION=0.12.6
 CLANGD_VERSION=23.1.0
 CLANGD_MAJOR=23
 RG_VERSION=14.1.1
@@ -29,7 +32,6 @@ esac
 OPT=$HOME/.local/opt
 BIN=$HOME/.local/bin
 SRC=$HOME/.local/src
-mkdir -p "$OPT" "$BIN" "$SRC"
 
 fetch() { # url destination
   if command -v curl >/dev/null 2>&1; then
@@ -72,22 +74,17 @@ if [ "$free_mb" -lt 600 ]; then
   exit 1
 fi
 
-# Neovim, from the official tarball - only when the machine has none, or one
-# older than 0.11. No FUSE, no AppImage, no root.
-if nvim_is_new_enough; then
-  echo "==> keeping the installed neovim ($(nvim --version | head -n1))"
-else
-  echo "==> neovim $NVIM_VERSION (no nvim on PATH, or older than 0.11)"
-  if [ ! -x "$OPT/nvim/bin/nvim" ]; then
-    tarball=$SRC/nvim.tar.gz
-    fetch "https://github.com/neovim/neovim/releases/download/v$NVIM_VERSION/nvim-linux-$ARCH.tar.gz" "$tarball"
-    rm -rf "$OPT/nvim"
-    mkdir -p "$OPT/nvim"
-    tar -xzf "$tarball" -C "$OPT/nvim" --strip-components=1
-    rm -f "$tarball"
-  fi
-  ln -sfn "$OPT/nvim/bin/nvim" "$BIN/nvim"
+# Neovim is the machine's responsibility, so the only thing done about it here
+# is a version check: 0.11 is the floor (vim.lsp.config, vim.diagnostic.jump,
+# vim.uv), and stopping with one sentence beats downloading a second editor that
+# shadows the system one, drifts from it, and costs 40 MB of a 4 GB home.
+if ! nvim_is_new_enough; then
+  echo "neovim 0.11 or newer is required, and none was found on PATH." >&2
+  echo "the config serves a 0.11+ editor; this script never installs one." >&2
+  exit 1
 fi
+
+mkdir -p "$OPT" "$BIN" "$SRC"
 
 # Static search tools: ripgrep for :grep and <leader>fg, fd for the file picker.
 if [ ! -x "$BIN/rg" ]; then
