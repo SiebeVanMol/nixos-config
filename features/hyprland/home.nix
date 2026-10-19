@@ -5,7 +5,15 @@
   config,
   ...
 }: {
-  imports = [./wayland.nix];
+  # The session's own pieces, kept beside the bindings they belong to: the
+  # Wayland/GTK environment (wayland.nix), the Quickshell desktop shell and its
+  # theme integration (caelestia.nix), and the wallpaper symlink that exists
+  # because caelestia's FileSystemModel does not follow one (wallpapers.nix).
+  imports = [
+    ./wayland.nix
+    ./caelestia.nix
+    ./wallpapers.nix
+  ];
 
   wayland.windowManager.hyprland = {
     enable = true;

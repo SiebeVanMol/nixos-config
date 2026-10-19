@@ -68,7 +68,7 @@ in {
     # The top-level "theme" block is no longer recognised by this caelestia
     # version (it emits `Unknown option "theme"`); the theme is applied by the
     # caelestia-theme-apply service watching scheme.json instead.
-    # Launch terminal apps via foot's client (see ./shell/terminals.nix).
+    # Launch terminal apps via foot's client (see ../shell/home/foot.nix).
     d.setdefault('general', {}).setdefault('apps', {})['terminal'] = ['${lib.getExe' pkgs.foot "footclient"}']
     # Idle lock disabled: the auto-lock fired mid-game (gamepad input does not
     # reset idle). The entry stays but disabled, because an empty "timeouts" list
