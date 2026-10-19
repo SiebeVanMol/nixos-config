@@ -28,9 +28,9 @@ all inside `~/.local`:
 | --- | --- | --- |
 | ripgrep + fd (static) | `~/.local/bin` | 5 MB |
 | clangd, binary + builtin headers only | `~/.local/opt/clangd` | 165 MB |
-| LazyVim and its plugins (29 repositories) | `~/.local/share/nvim` | 105 MB |
+| LazyVim and its plugins (29 repositories) | `~/.local/share/nvim` | 124 MB |
 
-That is ~275 MB, and the script refuses to run with less than 600 MB free. The
+That is ~295 MB, and the script refuses to run with less than 600 MB free. The
 first start clones the plugins; every start after that is offline.
 
 ## On NixOS
