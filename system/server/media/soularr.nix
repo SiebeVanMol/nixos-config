@@ -29,6 +29,11 @@
   slskdUrl = "http://${config.vpnNamespaces.wg0.namespaceAddress}:5030";
 in {
   config = lib.mkIf config.device.app.jellyfin.enable {
+    # The overlay that builds `pkgs.soularr` is applied here rather
+    # than to the whole host from flake.nix: it is needed exactly where this
+    # service is enabled, so a machine without the media stack never evaluates the
+    # pin. The flake still exposes the package as `.#soularr` for nix-update.
+    nixpkgs.overlays = [(import ../../../overlays/soularr.nix)];
     users.users.soularr = {
       isSystemUser = true;
       group = "users";

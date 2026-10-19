@@ -2,9 +2,15 @@
 {
   pkgs,
   config,
+  nur,
   zen-browser,
   ...
-}: {
+}: let
+  # nur is applied to this user's package set rather than to the host's: the
+  # add-ons are the only thing taken from it, and a host-level overlay would
+  # evaluate the whole NUR tree for every machine.
+  firefox-addons = (nur.overlays.default pkgs pkgs).nur.repos.rycee.firefox-addons;
+in {
   imports = [zen-browser.homeModules.default];
   home.sessionVariables.BROWSER = "zen-beta";
 
@@ -90,7 +96,7 @@
 
       extensions = {
         force = true;
-        packages = with pkgs.nur.repos.rycee.firefox-addons; [
+        packages = with firefox-addons; [
           ublock-origin
           darkreader
           sponsorblock

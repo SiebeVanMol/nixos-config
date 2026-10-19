@@ -2,8 +2,11 @@
 {
   pkgs,
   config,
+  nur,
   ...
-}: {
+}: let
+  firefox-addons = (nur.overlays.default pkgs pkgs).nur.repos.rycee.firefox-addons;
+in {
   home.sessionVariables.BROWSER = "firefox";
 
   programs = {
@@ -15,7 +18,7 @@
 
         extensions = {
           force = true;
-          packages = with pkgs.nur.repos.rycee.firefox-addons; [
+          packages = with firefox-addons; [
             ublock-origin
             darkreader
             bitwarden

@@ -126,6 +126,11 @@
   } (builtins.readFile ./houndarr-config.py);
 in {
   config = lib.mkIf config.device.app.jellyfin.enable {
+    # The overlay that builds `pkgs.houndarr` is applied here rather
+    # than to the whole host from flake.nix: it is needed exactly where this
+    # service is enabled, so a machine without the media stack never evaluates the
+    # pin. The flake still exposes the package as `.#houndarr` for nix-update.
+    nixpkgs.overlays = [(import ../../../overlays/houndarr.nix)];
     # Makes `instanceHost` resolve to this host at a non-loopback address. The
     # *arr apps already listen on `*`, so nothing else is needed for Houndarr
     # to reach them at http://${instanceHost}:<port>.

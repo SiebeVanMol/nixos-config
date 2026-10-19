@@ -3,6 +3,11 @@
   # The compilers, build tools and language servers he programs with have one
   # home and one definition: users/snowyrenard/programming.nix.
   programming = import ./programming.nix {inherit pkgs;};
+  # Applied here instead of to the host's pkgs: this user is the only consumer, and
+  # a host-level overlay would build the AppImage wrapper for a machine that never
+  # names the package. The flake still exposes it as .#amethyst-mod-manager so
+  # overlays/update.nu has an attribute to rewrite.
+  amethyst-mod-manager = (import ../../overlays/amethyst-mod-manager.nix pkgs pkgs).amethyst-mod-manager;
 in {
   home.packages = with pkgs;
     [

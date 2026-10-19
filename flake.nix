@@ -23,14 +23,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Both follow the top-level nixpkgs. Without `follows` each brought its own
-    # pinned nixpkgs into flake.lock - by 2026-10 two copies existed, the second
-    # from January - and only the overlay and the module are used, both of which are
-    # applied to this flake's `pkgs`, so the extra copy was pure eval and fetch cost.
-    vpn-confinement = {
-      url = "github:Maroka-chan/VPN-Confinement";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    # vpn-confinement declares no inputs of its own, so it has nothing to follow -
+    # saying `inputs.nixpkgs.follows` here only earns "override for a non-existent
+    # input 'nixpkgs'" at every evaluation.
+    vpn-confinement.url = "github:Maroka-chan/VPN-Confinement";
+
+    # nix-minecraft does pin its own nixpkgs; following the top-level one keeps a
+    # second, older copy out of flake.lock. Its overlay and module are applied to
+    # this flake's pkgs anyway, so the copy was only ever used by its own checks.
 
     nix-minecraft = {
       url = "github:Infinidoge/nix-minecraft";
@@ -84,7 +84,6 @@
     buildSystem = {
       host,
       users,
-      overlays,
     }:
       nixpkgs.lib.nixosSystem {
         # Modules receive the user list as `usernames`, and the shared /Vault
@@ -102,13 +101,6 @@
           # Third-party modules for Minecraft server and VPN network namespaces.
           nix-minecraft.nixosModules.minecraft-servers
           vpn-confinement.nixosModules.default
-
-          # Only the overlay groups this host names. They apply to the whole
-          # system, so they get their own module instead of being folded into
-          # the Home Manager one below.
-          {
-            nixpkgs.overlays = nixpkgs.lib.concatMap (group: overlayGroups.${group}) overlays;
-          }
 
           # Home Manager: declarative per-user package and dotfile management.
           home-manager.nixosModules.home-manager
@@ -139,37 +131,31 @@
       nixos-desktop = {
         dir = "nixos-desktop";
         users = ["snowyrenard"];
-        # The only machine that runs the media stack.
-        overlays = ["nur" "amethyst" "media"];
       };
       nixos-laptop = {
         dir = "nixos-laptop";
         users = ["snowyrenard"];
-        overlays = ["nur" "amethyst"];
       };
       alex-desktop = {
         dir = "AlexDesktop";
         users = ["alexander"];
-        # alexander's browser takes the add-ons; nothing else here is used.
-        overlays = ["nur"];
       };
     };
 
-    # Overlays by consumer, so a host names what it needs instead of listing
-    # six: nur carries the firefox add-ons both users' browsers take, amethyst
-    # is the mod manager snowyrenard's NXM handlers name, media is the three
-    # packages only system/server/media refers to (behind device.app.jellyfin
-    # and device.app.music), and minecraft is what the disabled minecraft tree
-    # would need.
+    # The four pins in overlays/, composed for the package outputs below and
+    # nothing else. Hosts no longer take an overlay list: each consumer applies its
+    # own overlay (system/server/media/*.nix inside the service's gate,
+    # users/snowyrenard/{programs,browser}.nix by importing the file), so a machine
+    # that does not use a pin never evaluates it. nur and nix-minecraft are not
+    # here - every host needs their modules or packages, and both are used through
+    # the input directly.
     overlayGroups = {
-      nur = [nur.overlays.default];
       amethyst = [(import ./overlays/amethyst-mod-manager.nix)];
       media = [
         (import ./overlays/seerrng.nix)
         (import ./overlays/soularr.nix)
         (import ./overlays/houndarr.nix)
       ];
-      minecraft = [nix-minecraft.overlay];
     };
 
     # The overlay packages as first-class outputs, for two practical reasons:
@@ -187,7 +173,7 @@
         _: machine:
           buildSystem {
             host = machine.dir;
-            inherit (machine) users overlays;
+            inherit (machine) users;
           }
       )
       hosts;

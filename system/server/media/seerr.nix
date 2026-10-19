@@ -7,6 +7,11 @@
   ...
 }: {
   config = lib.mkIf config.device.app.jellyfin.enable {
+    # The overlay that builds `pkgs.seerrng` is applied here rather
+    # than to the whole host from flake.nix: it is needed exactly where this
+    # service is enabled, so a machine without the media stack never evaluates the
+    # pin. The flake still exposes the package as `.#seerrng` for nix-update.
+    nixpkgs.overlays = [(import ../../../overlays/seerrng.nix)];
     # SeerrNG needs an ordinary (non-dynamic) account so that its state
     # directory is a real path rather than a symlink; see the serviceConfig
     # override below. It needs no /Vault access, so it stays out of the shared

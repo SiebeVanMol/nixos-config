@@ -160,6 +160,26 @@ the same options are not re-argued from scratch.
 
 ## Recently done (do not re-do)
 
+- Overlays are applied where their package is used, not by the host. `flake.nix` no
+  longer has a per-host `overlays = [...]` list: `system/server/media/{seerr,soularr,
+  houndarr}.nix` add their overlay inside the `device.app.jellyfin` gate, and
+  `users/snowyrenard/programs.nix` (amethyst) and `users/*/browser.nix` (nur's
+  add-ons, via `nur.overlays.default pkgs pkgs`) import the file into a `let`. So
+  enabling the media stack on another machine now brings its overlays with it
+  instead of needing a matching edit in `flake.nix`, and a machine that never names
+  a pin never evaluates it. Two dead groups went with it: `minecraft` (nothing
+  applies the overlay; only the module is imported) and `nur` (consumed by the
+  browsers now). Proof of neutrality: all three hosts' toplevel drvPaths are
+  byte-identical before and after, and the four pins still evaluate as
+  `.#packages.<system>` for `nix-update`.
+  - Still worth doing: the weekly `overlay-pins` check queries all four pins from
+    every machine that enables it, including the laptop, where the media three are
+    unused. Deriving the list from `device.app.jellyfin.enable` (plus amethyst, which
+    every host running the check installs) would make it match reality.
+  - `nix flake lock` also taught a small lesson: `vpn-confinement` declares no
+    inputs, so `inputs.nixpkgs.follows` on it produces "override for a non-existent
+    input 'nixpkgs'" at every evaluation. Only inputs that actually pull nixpkgs
+    need the line.
 - Apps follow caelestia's scheme, and two silent failures that had been hiding it
   are fixed. What the investigation established:
   - Caelestia themes external apps itself, from a `theme` block in

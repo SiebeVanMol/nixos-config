@@ -24,6 +24,15 @@ One question per directory, so the path answers what is in here:
 | `lib/` | plain functions, never modules: the `/Vault` layout, btrfs mounts, *arr facts, the webhook client, `import-dir` |
 | `overlays/` | packages nixpkgs lacks or carries too old, each pinned by hash in the file that uses it, with `overlays/update.nu` comparing those pins against upstream |
 
+An overlay is applied by whatever consumes its package, never by a host table:
+`system/server/media/*.nix` add theirs inside the service's own `mkIf`, and
+`users/snowyrenard/programs.nix` / `users/*/browser.nix` import the overlay file
+straight into a `let`. A machine that does not use a pin therefore never evaluates
+it, and enabling the service on a new machine brings its overlay along instead of
+needing a second edit in `flake.nix`. The flake keeps one composed package set
+(`packages.<system>`) so `nix build .#seerrng` and `nix-update` still have an
+address for every pin.
+
 A feature that exists on both sides gets a `features/<name>/` directory with a
 `system.nix` and a `home.nix`, because the machine half and the user half then
 sit beside each other instead of three directories apart. `features/default.nix`
