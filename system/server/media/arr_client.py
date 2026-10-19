@@ -145,27 +145,39 @@ def call(
     request.add_header("Accept", "application/json")
     if data is not None:
         request.add_header("Content-Type", "application/json")
-    deadline = time.monotonic() + retry_seconds
-    while True:
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                raw = response.read()
-            break
-        except urllib.error.HTTPError as error:
-            detail = error.read().decode("utf-8", "replace")[:DETAIL_CHARS]
-            raise ApiError(
-                f"{method or 'GET'} {path} -> HTTP {error.code}: {describe_error(detail)}",
-                status=error.code,
-            ) from error
-        except (urllib.error.URLError, OSError) as error:
-            if _restarting(error) and time.monotonic() < deadline:
-                time.sleep(RETRY_DELAY)
-                continue
-            raise ApiError(f"{method or 'GET'} {path} -> {error}") from error
+    try:
+        with open_with_retry(request, timeout, retry_seconds) as response:
+            raw = response.read()
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", "replace")[:DETAIL_CHARS]
+        raise ApiError(
+            f"{method or 'GET'} {path} -> HTTP {error.code}: {describe_error(detail)}",
+            status=error.code,
+        ) from error
+    except (urllib.error.URLError, OSError) as error:
+        raise ApiError(f"{method or 'GET'} {path} -> {error}") from error
     return decode(raw, path)
 
 
-def _restarting(error):
+def open_with_retry(request, timeout=DEFAULT_TIMEOUT, retry_seconds=RETRY_SECONDS):
+    """`urlopen`, retrying for as long as the connection is refused.
+
+    For the callers that do not go through `call`: torrent-cleanup polls the
+    download client's own API and gets the same treatment, because the same
+    timer-during-a-switch race applies to it.
+    """
+    deadline = time.monotonic() + retry_seconds
+    while True:
+        try:
+            return urllib.request.urlopen(request, timeout=timeout)
+        except (urllib.error.URLError, OSError) as error:
+            if restarting(error) and time.monotonic() < deadline:
+                time.sleep(RETRY_DELAY)
+                continue
+            raise
+
+
+def restarting(error):
     """True when the failure looks like "the service is restarting".
 
     urllib wraps a refused connection in URLError whose `reason` is the original

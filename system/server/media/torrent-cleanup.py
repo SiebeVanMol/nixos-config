@@ -81,7 +81,10 @@ def http_json(url, key=None, method="GET", body=None, timeout=30):
         request.add_header("X-Api-Key", key)
     if data is not None:
         request.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    # Retried like every *arr call: this runs on a timer, and a timer that fires
+    # while a switch is restarting transmission or one of the applications would
+    # otherwise fail the whole switch (see arr_client.RETRY_SECONDS).
+    with arr.open_with_retry(request, timeout) as response:
         raw = response.read()
     return json.loads(raw) if raw else None
 
@@ -98,7 +101,7 @@ class Transmission:
         if self.session:
             request.add_header("X-Transmission-Session-Id", self.session)
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with arr.open_with_retry(request, 30) as response:
                 return json.loads(response.read())
         except urllib.error.HTTPError as error:
             # Transmission answers the first request with 409 and the session id
