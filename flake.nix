@@ -263,6 +263,26 @@
 
     formatter.x86_64-linux = pkgs.alejandra;
 
+    # The flake's own helper commands live in lib/flake-packages.nix; this
+    # file stays an entry point: inputs, hosts, and where each piece lives.
+    # The helper commands plus the four overlay packages, which are addressable
+    # here and nowhere else: `nix-update` needs an attribute to rewrite, and
+    # `nix build .#seerrng` should work without a host in the middle.
+    #
+    # `nix run .#tasks` and `nix run .#home-manager` are both resolved out of
+    # this attribute, so dropping it takes the task menu and the no-root switch
+    # with it - the two commands this repository is meant to be driven by.
+    packages.x86_64-linux =
+      (import ./lib/flake-packages.nix {inherit pkgs;})
+      // {inherit (overlayPackages) seerrng soularr houndarr amethyst-mod-manager;}
+      // {
+        # The Home Manager CLI from the *locked* input. The NixOS module brings
+        # the library, not the command, so `home-manager switch` - the no-root
+        # path the task menu offers - would have nothing to run. Taking it from
+        # the input keeps the version identical to the one NixOS activates.
+        home-manager = home-manager.packages.x86_64-linux.home-manager;
+      };
+
     checks.x86_64-linux = {
       # Six checks, one shape. The reasoning for each lives at the top of its script
       # in lib/checks/, next to the code it explains.
