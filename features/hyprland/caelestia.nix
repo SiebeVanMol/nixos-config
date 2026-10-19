@@ -33,6 +33,11 @@ in {
     caelestia-shell.homeManagerModules.default
   ];
 
+  # The CLI is a separate package from the shell service and is not pulled into the
+  # profile by the module, so `caelestia wallpaper -r` and friends were unavailable
+  # both in a terminal and to any bind that named them plainly.
+  home.packages = [config.programs.caelestia.cli.package];
+
   programs.caelestia = {
     enable = true;
     systemd = {

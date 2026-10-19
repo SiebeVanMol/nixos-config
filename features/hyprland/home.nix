@@ -94,7 +94,12 @@
                   -- foot server (see ../shell/home/foot.nix).
                   local terminal = "sh -c 'TERMINAL=''${TERMINAL:-${lib.getExe' pkgs.foot "footclient"}}; exec $TERMINAL'"
                   -- Caelestia's launcher ("run menu") replaces rofi.
-                  local drun = "${config.programs.caelestia.cli.package}/bin/caelestia shell drawers toggle launcher"
+                  -- Caelestia's CLI is not on PATH (the module installs the shell
+                  -- service, not the CLI), so a bind that spells a bare `caelestia`
+                  -- exits with "command not found" and no visible sign - exactly how
+                  -- the wallpaper keys failed once.
+                  local caelestia = "${config.programs.caelestia.cli.package}/bin/caelestia"
+                  local drun = caelestia .. " shell drawers toggle launcher"
 
                   hl.config({
                     dwindle = {
@@ -247,7 +252,7 @@
                     return wallpapers .. "/" .. folder
                   end
           ${lib.concatMapStringsSep "\n" (
-              bind: "        hl.bind(\"${bind.key}\", hl.dsp.exec_cmd(\"caelestia wallpaper -r \" .. wallpaper_dir(\"${bind.folder}\")))"
+              bind: "        hl.bind(\"${bind.key}\", hl.dsp.exec_cmd(caelestia .. \" wallpaper -r \" .. wallpaper_dir(\"${bind.folder}\")))"
             )
             config.device.wallpaper.binds}
                   hl.bind(mod .. " + left",  hl.dsp.focus({ direction = "left" }))
