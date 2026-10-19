@@ -5,6 +5,9 @@
   lib,
   ...
 }: {
+  options.device.hardware.mesa.enable =
+    lib.mkEnableOption "Mesa drivers with 32-bit support and ROCm";
+
   config = lib.mkIf config.device.hardware.mesa.enable {
     hardware.graphics = {
       enable = true;

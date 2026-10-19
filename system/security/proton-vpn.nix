@@ -10,6 +10,9 @@
   pkgs,
   ...
 }: {
+  options.device.security.proton-vpn.enable =
+    lib.mkEnableOption "WireGuard tools for the ProtonVPN tunnel";
+
   config = lib.mkIf config.device.security.proton-vpn.enable {
     environment.systemPackages = [pkgs.wireguard-tools];
   };

@@ -6,6 +6,9 @@
   usernames,
   ...
 }: {
+  options.device.app.virtualization.enable =
+    lib.mkEnableOption "QEMU/KVM virtualisation with virt-manager";
+
   config = lib.mkIf config.device.app.virtualization.enable {
     virtualisation.libvirtd = {
       enable = true;

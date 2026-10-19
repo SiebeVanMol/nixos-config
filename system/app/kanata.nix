@@ -4,6 +4,9 @@
   lib,
   ...
 }: {
+  options.device.app.kanata.enable =
+    lib.mkEnableOption "the Kanata keyboard remapper and its layouts";
+
   config = lib.mkIf config.device.app.kanata.enable {
     hardware.uinput.enable = true;
 

@@ -6,6 +6,9 @@
   pkgs,
   ...
 }: {
+  options.device.hardware.backlight.enable =
+    lib.mkEnableOption "Brillo and DDC/CI brightness control";
+
   config = lib.mkIf config.device.hardware.backlight.enable {
     boot = {
       kernelModules = ["i2c-dev"];

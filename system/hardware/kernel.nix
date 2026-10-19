@@ -5,6 +5,9 @@
   pkgs,
   ...
 }: {
+  options.device.hardware.kernel.enable =
+    lib.mkEnableOption "the latest kernel, uinput and low swappiness";
+
   config = lib.mkIf config.device.hardware.kernel.enable {
     boot = {
       kernelPackages = pkgs.linuxPackages_latest;

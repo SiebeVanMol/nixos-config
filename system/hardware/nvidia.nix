@@ -5,6 +5,9 @@
   pkgs,
   ...
 }: {
+  options.device.hardware.nvidia.enable =
+    lib.mkEnableOption "the NVIDIA driver with modesetting and VA-API";
+
   config = lib.mkIf config.device.hardware.nvidia.enable {
     services.xserver.videoDrivers = ["nvidia"];
     hardware = {

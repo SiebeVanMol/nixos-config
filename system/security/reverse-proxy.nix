@@ -7,6 +7,9 @@
   lib,
   ...
 }: {
+  options.device.security.reverse-proxy.enable =
+    lib.mkEnableOption "the Caddy reverse proxy";
+
   # This module's file name (reverse-proxy.nix) is its toggle, so `enable` is
   # derived from the tree in system/options.nix. publicDomain is configuration
   # rather than a toggle, so it is declared here with everything else about the

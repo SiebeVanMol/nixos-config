@@ -13,6 +13,9 @@
 }: let
   internalNetworks = import ../../lib/internal-networks.nix {inherit lib;};
 in {
+  options.device.app.steam.enable =
+    lib.mkEnableOption "Steam with Remote Play, Proton GE and the gamemode client";
+
   config = lib.mkIf config.device.app.steam.enable {
     programs.steam = {
       enable = true;

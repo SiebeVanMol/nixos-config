@@ -6,6 +6,9 @@
   lib,
   ...
 }: {
+  options.device.hardware.lvm.enable =
+    lib.mkEnableOption "LVM cache and thin provisioning";
+
   config = lib.mkIf config.device.hardware.lvm.enable {
     boot.initrd.kernelModules = [
       "dm-cache-default"

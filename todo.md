@@ -217,16 +217,16 @@ other three applications report it before writing the convergence.
   written three times in `users/snowyrenard/hermes.nix`.
 - SeerrNG service keys are asserted once per boot for every app, not once per
   link (`system/server/media/servarr-sync.py`).
-- Host feature toggles are derived from the tree: a module in
-  `system/{app,hardware,security,wm}/` gets `device.<area>.<file>.enable` from
-  its own file name and its own description from its first comment line, so
-  adding a feature no longer edits `system/options.nix`. A module earns a toggle
-  by reading one, which is what keeps the unconditional modules in those
-  directories unconditional. The four features whose paths are not their option
-  names (jellyfin, music, ai, minecraft) declare their enable in their own
-  modules, as does `device.security.reverse-proxy.publicDomain`.
-  Verified behaviour-preserving: the full option surface is identical, and the
-  toplevel derivation path of all three hosts is unchanged by the migration.
+- Host feature toggles are declared by the module that owns them: a file in
+  `system/{app,hardware,security,wm}/` carries its own
+  `options.device.<area>.<file>.enable = lib.mkEnableOption "..."` beside the
+  `mkIf` that reads it, and `checks.x86_64-linux.toggles` fails if one is
+  missing or if an unconditional module is not named in that check. This
+  replaced `system/options.nix`, which generated the options from file names
+  and scraped their descriptions from the first comment line: the options were
+  real but less findable than the metaprogram making them. Verified
+  behaviour-preserving - same 25 option names and defaults, and the toplevel
+  derivation path of all three hosts is unchanged.
 - The media scripts share one *arr client (`system/server/media/arr_client.py`),
   which `lib/arr-client.nix` puts on PYTHONPATH in all seven places that build
   one of them. Six `api_key()` copies, six HTTP clients and three version probes

@@ -5,6 +5,9 @@
   lib,
   ...
 }: {
+  options.device.hardware.bluetooth.enable =
+    lib.mkEnableOption "Bluetooth, for the Caelestia shell's device panel";
+
   config = lib.mkIf config.device.hardware.bluetooth.enable {
     hardware.bluetooth.enable = true;
   };

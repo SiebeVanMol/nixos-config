@@ -43,6 +43,12 @@ that forced it, and often the alternative that was rejected and the failure it
 would have caused — several are longer than the code they explain. A change
 without its "why" is unfinished here. Alejandra owns the formatting.
 
+A feature is a file in `system/{app,hardware,security,wm}/`, and it declares its
+own `options.device.<area>.<file>.enable` — a host switches it on with one line
+under `device`. `checks.x86_64-linux.toggles` fails if a module there declares
+none and is not named in its unconditional list, so the naming rule cannot rot
+silently. Nothing generates those options: `options` is where they are.
+
 The Python beside the modules (`system/server/media/`,
 `system/server/minecraft/`) is checked by the flake. Shell is only `bash -n`
 clean, so read it before trusting it.

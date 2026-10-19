@@ -1,6 +1,7 @@
 # Base system configuration shared across all machines.
 # Creates a NixOS account for every user on the host, sets Nix/SSD/locale
-# defaults, and pulls in the option-defined hardware and security toggle modules.
+# defaults, and pulls in the hardware and security modules - each of which
+# declares its own toggle, so this file only decides which directories load.
 {
   usernames,
   pkgs,
@@ -14,7 +15,6 @@
 in {
   imports =
     [
-      ./options.nix
       ./server
     ]
     # Host-level maintenance: restic backups of the service state and secrets

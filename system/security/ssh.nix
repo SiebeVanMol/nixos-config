@@ -22,6 +22,9 @@
   libvirtSshProxy = builtins.readFile "${config.virtualisation.libvirtd.package}/etc/ssh/ssh_config.d/30-libvirt-ssh-proxy.conf";
   systemdSshProxy = builtins.readFile "${config.systemd.package}/lib/systemd/ssh_config.d/20-systemd-ssh-proxy.conf";
 in {
+  options.device.security.ssh.enable =
+    lib.mkEnableOption "the OpenSSH server, key-only with fail2ban";
+
   config = lib.mkMerge [
     {
       # Drop both Include lines, since their targets cannot be read from inside

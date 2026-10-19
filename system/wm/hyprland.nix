@@ -5,6 +5,9 @@
   lib,
   ...
 }: {
+  options.device.wm.hyprland.enable =
+    lib.mkEnableOption "the Hyprland compositor with UWSM session management";
+
   config = lib.mkIf config.device.wm.hyprland.enable {
     programs.hyprland.enable = true;
     programs.hyprland.withUWSM = true;

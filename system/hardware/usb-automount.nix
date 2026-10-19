@@ -100,6 +100,9 @@
     exit 0
   '';
 in {
+  options.device.hardware.usb-automount.enable =
+    lib.mkEnableOption "automounting USB storage straight from udev";
+
   config = lib.mkIf cfg.enable {
     services.udev.extraRules = ''
       # Mount USB storage that carries a filesystem. ENV{ID_FS_USAGE}=="filesystem"

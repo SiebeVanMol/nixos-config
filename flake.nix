@@ -252,6 +252,37 @@
           shellcheck $(find . -name '*.sh' -not -path './.git/*')
           touch "$out"
         '';
+
+      # The counterpart of shell: every feature module declares its own toggle
+      # (`options.device.<area>.<stem>.enable`), so the option is greppable in
+      # the file that owns it instead of being generated from the file name by
+      # a metaprogram. Modules that are deliberately unconditional declare none
+      # and are named here, which makes adding one a deliberate edit rather than
+      # the consequence of forgetting a line. This replaces `system/options.nix`,
+      # which produced the options; a check is all that generator was buying.
+      toggles =
+        pkgs.runCommand "toggle-check" {
+          nativeBuildInputs = [pkgs.gnugrep];
+          src = ./.;
+        } ''
+          cd "$src"
+          unconditional="system/security/web-jails.nix system/wm/fonts.nix system/wm/pipewire.nix system/wm/wayland.nix"
+          for f in system/{app,hardware,security,wm}/*.nix; do
+            area="''${f#system/}"
+            area="''${area%%/*}"
+            stem="$(basename "$f" .nix)"
+            grep -q "options\.device\.$area\.$stem\.enable" "$f" && continue
+            case " $unconditional " in
+              *" $f "*) ;;
+              *)
+                echo "$f declares no toggle and is not on the unconditional list" >&2
+                echo "either add options.device.$area.$stem.enable or name the file in that list" >&2
+                exit 1
+                ;;
+            esac
+          done
+          touch "$out"
+        '';
     };
 
     # The flake's own helper commands live in lib/flake-packages.nix; this
