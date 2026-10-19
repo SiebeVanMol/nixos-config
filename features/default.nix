@@ -12,12 +12,20 @@
 # personal like hermes, or by `home/core.nix` for something every user has, like
 # the shell - so a feature one person uses never lands in another person's home.
 #
-# A feature earns a directory here only by spanning both sides. Something that
-# is only system- or only user-side stays where it is: `system/app/steam.nix`
-# and `home/hyprland.nix` are not features by this definition.
+# A feature earns a directory here only by spanning both sides, and the test is
+# "one fact, one place" rather than size: `device.shell.program` is one line of
+# machine configuration, and it is here because the account's shell, the Home
+# Manager configuration for it and the terminal that launches it all have to name
+# the same program. Something that is only system- or only user-side stays where
+# it is, which is most of the tree: `system/app/steam.nix` and
+# `home/caelestia.nix` are not features by this definition.
+#
+# `checks.x86_64-linux.features` holds the rule to it: a directory here must have
+# both halves and its machine half must be imported below.
 {
   imports = [
     ./hermes/system.nix
     ./shell/system.nix
+    ./hyprland/system.nix
   ];
 }

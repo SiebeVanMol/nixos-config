@@ -29,7 +29,7 @@
         -- The keybind now re-reads the freshly generated value at launch time and
         -- falls back to footclient's store path if even that is missing.
         -- $TERMINAL is a foot *client*, so the window still goes through the
-        -- foot server (see ./shell/terminals.nix).
+        -- foot server (see ../shell/home/foot.nix).
         local terminal = "sh -c 'TERMINAL=''${TERMINAL:-${lib.getExe' pkgs.foot "footclient"}}; exec $TERMINAL'"
         -- Caelestia's launcher ("run menu") replaces rofi.
         local drun = "${config.programs.caelestia.cli.package}/bin/caelestia shell drawers toggle launcher"

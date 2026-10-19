@@ -12,7 +12,7 @@
   imports = [
     ../features/shell/home
 
-    ./hyprland.nix
+    ../features/hyprland/home.nix
     ./wallpapers.nix
     ./caelestia.nix
     ./input-method.nix

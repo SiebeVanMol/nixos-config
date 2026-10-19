@@ -19,7 +19,7 @@ One question per directory, so the path answers what is in here:
 | `hosts/<Host>/` | one machine: its `hardware-configuration.nix` and the `device.*` toggles it switches on |
 | `system/` | everything machine-wide and shared by all three: accounts, boot and locale in `default.nix`; features in `app/ hardware/ security/ wm/`; recurring jobs in `maintenance/`; long-running services in `server/` |
 | `home/` | the Home Manager settings every user gets — `core.nix` pulls in the shell, Hyprland, wallpapers, input method and desktop apps |
-| `features/` | one thing that exists on both sides: `hermes/` (the model server and the agent that reads it) and `shell/` (which shell an account logs into, the configuration Home Manager writes for it, and the terminal that launches it) |
+| `features/` | one thing that exists on both sides: `hermes/` (the model server and the agent that reads it), `shell/` (which shell an account logs into, the configuration Home Manager writes for it, the terminal that launches it) and `hyprland/` (the compositor session and the bindings) |
 | `users/<name>/` | one person: `home.nix` (imports `home/core.nix` plus their own files), programs, editor, browser, and anything personal |
 | `lib/` | plain functions, never modules: the `/Vault` layout, btrfs mounts, *arr facts, the webhook client, `import-dir` |
 | `overlays/` | packages nixpkgs lacks or carries too old, each pinned by hash in the file that uses it, with `overlays/update.nu` comparing those pins against upstream |

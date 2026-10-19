@@ -306,6 +306,39 @@
           exit "$rc"
         '';
 
+      # A feature is two halves of one thing, so a directory under features/ must
+      # carry both, and its machine half must be imported below or it never loads.
+      # The counterpart of `toggles`: a convention is worth having only if half of
+      # it cannot go missing quietly - a home-only directory filed here would be
+      # exactly that, and it belongs in home/ with the rest of the one-sided
+      # configuration.
+      features =
+        pkgs.runCommand "feature-halves-check" {
+          nativeBuildInputs = [pkgs.gnugrep];
+          src = ./.;
+        } ''
+          cd "$src"
+          rc=0
+          for d in features/*/; do
+            d="''${d%/}"
+            name="''${d#features/}"
+            # a half is `half.nix` or a `half/` directory with a default.nix
+            # (shell's user half is a directory of its own files).
+            for half in system home; do
+              if [ ! -e "$d/$half.nix" ] && [ ! -e "$d/$half/default.nix" ]; then
+                echo "$d: no $half.nix - a feature has both halves"
+                rc=1
+              fi
+            done
+            if ! grep -qF "    ./$name/system.nix" features/default.nix; then
+              echo "$d: not imported by features/default.nix, so it never loads"
+              rc=1
+            fi
+          done
+          if [ "$rc" -eq 0 ]; then touch "$out"; fi
+          exit "$rc"
+        '';
+
       # The counterpart of shell: every feature module declares its own toggle
       # (`options.device.<area>.<stem>.enable`), so the option is greppable in
       # the file that owns it instead of being generated from the file name by
