@@ -30,7 +30,7 @@
 # Hermes already speaks this protocol. It probes 127.0.0.1:8080 for /props,
 # fingerprints llama-server by its build_info (the router answers it, with no
 # model argument), reads the model list from /models, and adopts what it finds.
-# The user side of the wiring is users/snowyrenard/hermes.nix.
+# The user side of the wiring is features/hermes/home.nix.
 #
 # `enable` and the knobs below are this service's own: they are declared in this
 # file, because the module's path is not its option name and the tree cannot
@@ -156,9 +156,10 @@
   );
 in {
   options.device.app.ai = {
-    # Declared here rather than derived from the tree: this module is
-    # server/ai/default.nix, whose path is not its option name.
-    enable = lib.mkEnableOption "llama.cpp inference server (system/server/ai, sized by device.app.ai.backend)";
+    # Declared here rather than derived from the tree: this file's path is not
+    # its option name, and `checks.toggles` wants the option to exist in the
+    # module that owns the service.
+    enable = lib.mkEnableOption "llama.cpp inference server (sized by device.app.ai.backend)";
 
     backend = lib.mkOption {
       type = lib.types.enum ["vulkan" "rocm"];
@@ -481,7 +482,7 @@ in {
       default = lib.mapAttrs (_: m: lib.removeSuffix ".gguf" m.file) cfg.models;
       description = ''
         Model id each GGUF answers to, derived the way llama.cpp derives it.
-        Clients name these - users/snowyrenard/hermes.nix reads them for its
+        Clients name these - features/hermes/home.nix reads them for its
         aliases - so a rename here renames the model everywhere.
       '';
     };

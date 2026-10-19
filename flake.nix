@@ -28,7 +28,7 @@
     nix-minecraft.url = "github:Infinidoge/nix-minecraft";
 
     # Nous Research's agent harness. Imported per-user (see
-    # users/snowyrenard/hermes.nix) rather than for every user: it is an agent
+    # features/hermes/home.nix) rather than for every user: it is an agent
     # for one person, whose credentials and memory belong to that person.
     # nixpkgs follows the top-level input so uv2nix resolves against the same
     # package set instead of a second pinned copy.
@@ -184,7 +184,7 @@
     # rebuild, which continues to carry Home Manager with it.
     #
     # Taken from the NixOS side rather than assembled again for two reasons:
-    # `users/snowyrenard/hermes.nix` reads `osConfig` (the local model ids and
+    # `features/hermes/home.nix` reads `osConfig` (the local model ids and
     # the loopback port), which only exists inside a NixOS evaluation, and a
     # second module list would be free to drift from the first.
     #

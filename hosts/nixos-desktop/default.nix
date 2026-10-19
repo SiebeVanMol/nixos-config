@@ -37,12 +37,12 @@
       #
       # Off for a day at the owner's request, because any request woke a model
       # and held its weights on the card for the whole fifteen-minute idle
-      # window (`sleep-idle-seconds` in system/server/ai) - VRAM this machine
+      # window (`sleep-idle-seconds` in features/hermes/system.nix) - VRAM this machine
       # wants back while it is being used for something else. Back on with that
       # window cut to five minutes, which is the compromise the same complaint
       # asks for: a model still sleeps, it just stops costing the card ten
       # minutes earlier. Everything else stayed declared while it was off, and
-      # users/snowyrenard/hermes.nix gates its llamacpp endpoint, model aliases,
+      # features/hermes/home.nix gates its llamacpp endpoint, model aliases,
       # local cron default and the local aux slots on this one flag.
       ai.enable = true;
       minecraft.enable = false;

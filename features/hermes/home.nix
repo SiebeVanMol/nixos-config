@@ -108,8 +108,8 @@ in {
           language_id = "csharp";
         };
       }
-      # The host runs its own llama-server in router mode (system/server/ai) on
-      # loopback:8080, serving four models. Naming the endpoint makes them
+      # The host runs its own llama-server in router mode (the system.nix
+      # beside this file) on loopback:8080, serving four models. Naming the endpoint makes them
       # selectable and not merely detectable: `llamacpp` resolves to this server
       # instead of depending on the port probe alone, and the aliases give /model
       # names to switch with. The ids are the router's - one per GGUF file name -
@@ -229,8 +229,8 @@ in {
         # the check decides whether a step escalates, never the model's confidence.
         #
         # Concurrency stays at the runtime default: the router serves one model at
-        # a time (`models-max` in system/server/ai), so parallel children queue
-        # behind a single slot rather than finishing faster.
+        # a time (`models-max` in the system.nix beside this file), so parallel
+        # children queue behind a single slot rather than finishing faster.
         delegation = {
           provider = "llamacpp";
           model = osConfig.device.app.ai.modelIds.oss;

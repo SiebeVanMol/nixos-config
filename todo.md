@@ -88,8 +88,8 @@ Decided, not open — kept here with the condition that would reopen each one, s
 the same options are not re-argued from scratch.
 
 - **Cross-class `features/<name>/{system,home}.nix`.** Would co-locate the few
-  things that straddle the two trees: the model server in `system/server/ai` that
-  `users/snowyrenard/hermes.nix` reads through `osConfig`, and `home/shell/*`
+  things that straddle the two trees: the model server in `features/hermes/system.nix` that
+  `features/hermes/home.nix` reads through `osConfig`, and `home/shell/*`
   against the shell `system/default.nix` sets. Rejected for now: a new directory
   convention plus an aggregation rule for two features, when a table in
   `AGENTS.md` answers the same question. Reopen if a third or fourth feature
@@ -149,7 +149,7 @@ the same options are not re-argued from scratch.
   (`hosts/nixos-desktop/default.nix`, `ai.enable = false`): a model holds its
   weights on the card for the fifteen-minute idle window after any request, and
   the owner wanted that VRAM back. It is a switch away from coming back, and
-  nothing in `users/snowyrenard/hermes.nix` needed editing because the whole
+  nothing in `features/hermes/home.nix` needed editing because the whole
   local block (endpoint, aliases, cron default, aux slots) is gated on that flag.
   If it is re-enabled, the open question to measure is what still wakes it with
   no one asking - title generation at session start is the known one.
@@ -164,7 +164,7 @@ the same options are not re-argued from scratch.
   exactly the hosts that use them, and all three toplevel drvPaths are
   unchanged - the spike had already measured that dropping them from
   alex-desktop moves nothing.
-- Qwen3.8-27B is out of the model set (`system/server/ai/default.nix`): four
+- Qwen3.8-27B is out of the model set (`features/hermes/system.nix`): four
   models now, and the `qwen27` alias is gone with it. It measured 38.7 t/s decode
   and 37 t/s prefill at 512 tokens on this card, 14.8 GB resident, no draft head
   (the published MTP head took it to 15.8, so it was never pinned) - the prefill
@@ -255,7 +255,7 @@ the same options are not re-argued from scratch.
 - `reclaim.nix` takes its `/Vault` paths from `lib/media.nix`, and its weekly
   "unfinished fragments" figure now counts all three incomplete trees it sweeps.
 - The llama-server endpoint is derived from `device.app.ai.port` instead of being
-  written three times in `users/snowyrenard/hermes.nix`.
+  written three times in `features/hermes/home.nix`.
 - SeerrNG service keys are asserted once per boot for every app, not once per
   link (`system/server/media/servarr-sync.py`).
 - Host feature toggles are declared by the module that owns them: a file in

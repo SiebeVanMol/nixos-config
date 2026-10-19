@@ -111,7 +111,7 @@ a workstream is finished, not one per commit.
 
 ## Hermes, which this repository installs
 
-`users/snowyrenard/hermes.nix` owns the install, and the module runs in managed
+`features/hermes/home.nix` owns the install, and the module runs in managed
 mode: `hermes config set` and `hermes setup` refuse to run there, naming
 `home-manager switch` instead. Configuration is changed here, not at runtime.
 Settings go in `services.hermes-agent.settings`, files that belong in
