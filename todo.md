@@ -58,18 +58,21 @@ Measured with `nix run .#update-overlays -- --check` (which now exists, and whic
 
 - Scripts are nushell (`AGENTS.md`); ported so far: `alert-webhook`,
   `arr-api-key`, `homepage-env` (was 91 lines of bash with an embedded Python
-  heredoc for Bazarr) and `prune-generations`. What is left is the long tail with
-  real data wrangling in it, smallest first: the weekly report in
-  `system/maintenance/reclaim.nix`; the two udev hooks in
+  heredoc for Bazarr), `prune-generations`, and the daily health check
+  (`system/maintenance/health-check.nu`, which was awk/grep/sed inside
+  monitoring.nix). What is left, smallest first: the two udev hooks in
   `system/hardware/usb-automount.nix` (its session scan is already verified
-  against a fake `/run/user`); the daily check in `system/maintenance/monitoring.nix`
-  (the largest - service lists, `df`/`btrfs`/`smartctl` parsing); and `test.sh`,
-  last because it is the gate itself and a bug there breaks every verification.
-  Each is behaviour-verified by running it, since `checks.x86_64-linux.nu` only
-  parses - 
-  `prune-generations` is the exception: it deletes generations, so its counting
-  and its `nix-env` invocation were tested against a fixture with a stubbed
-  command rather than run.
+  against a fake `/run/user`); the weekly report in
+  `system/maintenance/reclaim.nix`; the bash one-liners in
+  `lib/flake-packages.nix` (`rebuild` and the three python wrappers, where the
+  shell only sets PATH/argv and `exec`s - the least value per conversion); and
+  `test.sh`, last because it is the gate itself and a bug there breaks every
+  verification.
+  Behaviour is verified by running the result. `checks.x86_64-linux.nu` only
+  parses, so a conversion needs either a real run (health check: "all clear"
+  before and after, plus a stubbed-fixture run that forces all twelve findings)
+  or a fixture (`prune-generations` deletes generations, so its counting and its
+  `nix-env` invocation were tested against a stubbed command).
 - Browser search engines and bookmarks are written out in full in both users'
   modules (`users/snowyrenard/browser.nix:96-291`,
   `users/alexander/browser.nix:26-181`) and have already drifted: one sends
@@ -173,6 +176,15 @@ the same options are not re-argued from scratch.
 
 ## Recently done (do not re-do)
 
+- The daily health check is nushell (`system/maintenance/health-check.nu`, read by
+  monitoring.nix with the tool paths, mounts and two binaries substituted in).
+  Verified two ways: on this host it prints "nixos health check: all clear" and
+  exits 0, as the bash version did; and against stubbed `systemctl`/`df`/`btrfs`/
+  `lsblk`/`smartctl`/`arr-health`/`alert-webhook`, its output is byte-identical to
+  the bash version's for the same fixtures (twelve findings, same order, same
+  webhook header, exit 1). Two nushell traps recorded in its comments: `(s)`
+  inside a `$"..."` string is read as a subexpression, and a `def` that takes a
+  parameter cannot receive piped input - it needs `$in`.
 - The overlay pins are now addressable and watched: `packages.x86_64-linux` exports
   the four overlay packages so `nix-update` has an attribute to rewrite and
   `nix build .#seerrng` works; `overlays/update.nu` (run as
