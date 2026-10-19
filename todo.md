@@ -179,6 +179,16 @@ the same options are not re-argued from scratch.
     caelestia-theme-apply died with status 203/EXEC on every trigger: the path unit
     kept starting it, it kept dying in 2ms, and colours were never re-applied. It
     needs `lib.getExe`.
+  - Zen browser follows the mode through `zen.view.window.scheme = 2` (0 dark,
+    1 light, 2 auto). The profile had 0, pinned dark. On 2 it reads
+    `prefers-color-scheme`, which on Wayland comes from the
+    `org.freedesktop.appearance` portal - the value caelestia's dconf write already
+    drives (verified through `busctl`: 1 in dark, 2 in light), so the browser flips
+    with the control centre and web pages follow because Firefox's
+    `layout.css.prefers-color-scheme.content-override` defaults to "system". The
+    browser chrome takes the mode but not the exact palette: Gecko cannot be
+    restyled at runtime, so matching caelestia's colours would mean a generated
+    `userChrome.css` that only applies on the next start.
   - The path unit had also died with `unit-start-limit-hit`, because each rapid
     wallpaper change rewrites scheme.json and restarts the oneshot, and five
     failures in ten seconds is systemd's default limit. `StartLimitIntervalSec = 0`

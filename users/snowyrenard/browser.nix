@@ -52,6 +52,14 @@
       isDefault = true;
 
       settings = {
+        # Zen's window scheme: 0 = dark, 1 = light, 2 = auto (follow the system
+        # colour scheme). The profile had 0, i.e. pinned dark, so the browser ignored
+        # caelestia entirely. On 2 it reads `prefers-color-scheme`, which on Wayland
+        # comes from the org.freedesktop.appearance portal - the same value caelestia
+        # writes when the mode changes (verified: 1 dark, 2 light), so switching mode
+        # in the control centre flips the browser live. Web pages follow the same
+        # signal because Firefox's content-override default is "system".
+        "zen.view.window.scheme" = 2;
         "zen.workspaces.continue-where-left-off" = true;
         "zen.view.compact.hide-tabbar" = true;
         "zen.view.compact.hide-toolbar" = true;
