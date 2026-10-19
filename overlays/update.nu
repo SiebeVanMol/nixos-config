@@ -54,9 +54,8 @@ const pins = [
     attr: "soularr"
     file: "overlays/soularr.nix"
     repo: "mrusse/soularr"
-    kind: "commits"
-    how: "manual"
-    manual: "upstream tags releases now; switch the fetch from rev to tag by hand"
+    kind: "tags"
+    how: "nix-update"
   }
   {
     attr: "houndarr"

@@ -38,23 +38,7 @@ Snowy. It dates from the initial copy of the user directory and survived the
 out from the repo, but nothing says so - and authorship is painful to correct
 after it is pushed.
 
-## 3. Bring the overlay pins up to date
-
-Measured with `nix run .#update-overlays -- --check` (which now exists, and which
-`system/maintenance/overlays.nix` runs weekly on the desktop and laptop):
-
-- **seerrng**: pinned 3.19.3, upstream 3.67.0 - forty-eight tags behind. The bump
-  is not mechanical: the newest release's `package.json` wants `engines.node`
-  `^24.15.0` while the overlay pins `nodejs-slim_22` (pnpm refuses to run), and
-  `nix-update` then cannot prefetch `pnpmDeps` either, so it reverts and reports.
-  Order: bump the node pin, regenerate `pnpmDeps`, then the version and src hash.
-- **soularr**: pinned as `unstable-2026-07-31`, but upstream now tags releases
-  (newest 1.2.2), so it is a change of fetch shape - `rev` to `tag` - not a bump.
-- **amethyst-mod-manager**: 2.5.3 against 2.5.5; an AppImage whose URL carries
-  the version and whose derivation has no `position`, so version, URL and hash
-  are a hand edit (`nix store prefetch-file <url>`).
-
-## 4. Smaller
+## 3. Smaller
 
 - Scripts are nushell (`AGENTS.md`); ported so far: `alert-webhook`,
   `arr-api-key`, `homepage-env` (was 91 lines of bash with an embedded Python
@@ -91,7 +75,7 @@ Measured with `nix run .#update-overlays -- --check` (which now exists, and whic
   on the live instance once, then keep the per-series call only for the
   `episode` mode.
 
-## 5. The *arr apps accept any Host header
+## 4. The *arr apps accept any Host header
 
 `radarr reports warning: Allowed Hosts is not configured` - the daily health check
 prints it on every run. The same `config/host` PUT that converged the web-UI login
@@ -176,6 +160,26 @@ the same options are not re-argued from scratch.
 
 ## Recently done (do not re-do)
 
+- The overlay pins are current, all four, and `nix run .#update-overlays -- --check`
+  exits 0: seerrng 3.19.3 -> 3.67.0, soularr unstable-2026-07-31 -> 1.2.2,
+  amethyst 2.5.3 -> 2.5.5, houndarr unchanged. Three things had to be true first,
+  each worth knowing next time:
+  - seerrng's new release wants `engines.node ^24.15.0`, and nixpkgs' `seerr`
+    recipe takes node and pnpm as *callPackage arguments* named after the versions
+    it pins (`nodejs-slim_22`, `pnpm_10`). A `let` binding in the overlay changes
+    only what the file computes - the build still ran node 22 and failed on the
+    same engine check. The bump goes through `.override`.
+  - GitHub's source tarball for 3.67.0 contains no `docs/` at all, while the
+    package's `prebuild` runs `current-batch:check`, which reads
+    `docs/maintainers/current-batch-acceptance-ledger.md`. A tarball checkout
+    cannot build the release; `fetchgit` can. (The repo also moved to
+    `snapetech-org`.)
+  - soularr needed `finalAttrs` rather than `_:` to use `tag = "v${version}"`,
+    since the source was pinned to a bare commit while upstream had no tags.
+  All three build: `nix build .#seerrng|soularr|amethyst-mod-manager`.
+  Runtime is untested - a 48-release jump of a Next.js app with a SQLite database
+  is the kind of thing that migrates on first start, so back up
+  `/var/lib/seerr` before switching and watch `journalctl -u seerr`.
 - `nix run .#tasks` is the menu: it lists every command the flake exports (discovered
   from `packages.<system>` and their `meta.description`) plus the checkout tasks
   (test, fmt, switch, hm-switch, flake-update, gc), marks the ones that need root,

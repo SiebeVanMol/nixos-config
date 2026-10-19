@@ -37,15 +37,18 @@ _final: prev: let
     slskd-api
   ]);
 in {
-  soularr = prev.stdenv.mkDerivation (_: {
+  soularr = prev.stdenv.mkDerivation (finalAttrs: {
     pname = "soularr";
-    version = "unstable-2026-07-31";
+    version = "1.2.2";
 
+    # Upstream tags releases now (v1.2.2), so this follows the tag rather than a
+    # bare commit: the `unstable-<date>` pin existed only because there were no
+    # tags to point at, and a tag is the version string a reader can check.
     src = prev.fetchFromGitHub {
       owner = "mrusse";
       repo = "soularr";
-      rev = "0700090ed1c539455b05af9e16ab1a5bf8b9baff";
-      hash = "sha256-IRgk6xGBQSb/fdh4eUlwKlVxR8gEAmp2Q4yzraJGoNQ=";
+      tag = "v${finalAttrs.version}";
+      hash = "sha256-gtz99+DiFjJZuq54qo5C+5Exx++S+ePzldgDM9NHAOA=";
     };
 
     nativeBuildInputs = [prev.makeWrapper];

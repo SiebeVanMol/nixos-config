@@ -12,10 +12,10 @@
 #
 # The nxm:// / ror2mm:// desktop entries live in users/snowyrenard/home.nix.
 _final: prev: let
-  version = "2.5.3";
+  version = "2.5.5";
   src = prev.fetchurl {
     url = "https://github.com/ChrisDKN/Amethyst-Mod-Manager/releases/download/v${version}/AmethystModManager-${version}-x86_64.AppImage";
-    hash = "sha256-trg9t3qzln7RTOjDyYA7UzpBlc+eZ+skpPlLgaQNPsg=";
+    hash = "sha256-9U7p9g+8WcD+BQV1Llfn08Mgeg2/dSVaaixVRI63Z9Q=";
   };
 
   unpacked = prev.runCommand "amethyst-mod-manager-${version}-unpacked" {} ''
