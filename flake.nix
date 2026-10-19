@@ -279,6 +279,33 @@
           touch "$out"
         '';
 
+      # A nushell script is parsed by nothing: `nu --ide-check` prints
+      # diagnostics on stdout and still exits 0, so a build of a .nu file proves
+      # only that the file exists. This makes the errors fatal - the counterpart
+      # of `shell` for the scripts that are not shell scripts. Hints are ignored
+      # (they are types, not problems), which is why the output is filtered
+      # rather than merely checked for emptiness.
+      nu =
+        pkgs.runCommand "nu-parse-check" {
+          nativeBuildInputs = [pkgs.nushell pkgs.ripgrep pkgs.findutils];
+          src = ./.;
+        } ''
+          cd "$src"
+          rc=0
+          for f in $(find . -name '*.nu' -not -path './.git/*'); do
+            # not `out`: that is the derivation's output path, and assigning to
+            # it is how this check failed to produce one the first time.
+            errors=$(nu --ide-check 10 "$f" | rg '"severity":"Error"' || true)
+            if [ -n "$errors" ]; then
+              echo "== $f"
+              echo "$errors"
+              rc=1
+            fi
+          done
+          if [ "$rc" -eq 0 ]; then touch "$out"; fi
+          exit "$rc"
+        '';
+
       # The counterpart of shell: every feature module declares its own toggle
       # (`options.device.<area>.<stem>.enable`), so the option is greppable in
       # the file that owns it instead of being generated from the file name by
