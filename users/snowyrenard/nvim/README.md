@@ -1,7 +1,11 @@
 # snowyrenard's Neovim
 
 One config, two machines: this flake's NixOS hosts, and the Ubuntu machines at
-school where there is no sudo and 4 GB of home.
+school where there is no sudo and 4 GB of home. It is built on [LazyVim][], so
+what you get is LazyVim's editor with onedark colours and its installers replaced
+by the machine's own packages.
+
+[LazyVim]: https://lazyvim.github.io
 
 ## On a school machine
 
@@ -9,6 +13,7 @@ school where there is no sudo and 4 GB of home.
 git clone --depth=1 --filter=blob:none --sparse https://codeberg.org/SnowyRenard/nixos-config.git ~/nvim
 cd ~/nvim && git sparse-checkout set users/snowyrenard/nvim
 users/snowyrenard/nvim/scripts/bootstrap.sh
+nvim
 ```
 
 `--depth=1 --sparse` matters: this repository's *history* is 1.65 GB, while the
@@ -23,9 +28,10 @@ all inside `~/.local`:
 | --- | --- | --- |
 | ripgrep + fd (static) | `~/.local/bin` | 5 MB |
 | clangd, binary + builtin headers only | `~/.local/opt/clangd` | 165 MB |
-| plugins (lazy.nvim + onedark) | `~/.local/share/nvim` | ~5 MB |
+| LazyVim and its plugins (29 repositories) | `~/.local/share/nvim` | 105 MB |
 
-That is ~175 MB, and the script refuses to run with less than 600 MB free.
+That is ~275 MB, and the script refuses to run with less than 600 MB free. The
+first start clones the plugins; every start after that is offline.
 
 ## On NixOS
 
@@ -40,18 +46,24 @@ downloaded.
   `vim.uv` arrive in 0.11, and distributions are behind it (Ubuntu 24.04 ships
   0.9.5), so `init.lua` refuses to load on anything older with one readable
   message, and the bootstrap stops on it rather than installing a second editor.
-- **No tree-sitter plugin.** Neovim 0.12 ships parsers for C, Lua, Markdown,
-  Vim, Vimdoc and query. `init.lua` starts them with `pcall`, so C is
-  highlighted on a machine with no compiler and no download.
-- **No Mason.** On NixOS its downloaded binaries do not run (they point at a
-  loader NixOS does not have), and on Ubuntu a single `clangd` is all the C
-  workflow needs. The LSP layer asks `PATH` and skips what is missing, so the
-  same Lua runs on both.
-- **No undo or swap files.** One undo file per edited file is the thing that
-  quietly eats a small home.
-- **No fuzzy finder plugin.** `<leader>ff` uses `vim.fs.find` and
-  `vim.ui.select`; if telescope is installed later it hooks into the same call.
+- **No Mason.** On NixOS the binaries Mason downloads do not run (they point at
+  a loader NixOS does not have), and on Ubuntu a single `clangd` is all the C
+  workflow needs - the bootstrap already puts it in `~/.local/bin`. So
+  `lua/plugins/lsp.lua` declares the servers and enables only those `PATH`
+  resolves; a missing one is skipped, never an error.
+- **No downloads for tree-sitter.** Neovim 0.12 bundles parsers for C, Lua,
+  Markdown, Vim, Vimdoc and query, and LazyVim starts them through `pcall`.
+  LazyVim's own list of 20 languages is cleared, which also stops it reaching
+  for the `tree-sitter` CLI (and then Mason) on every start.
+- **No undo or swap files.** LazyVim enables undo files; one per edited file
+  quietly eats a small home, so `lua/config/options.lua` turns them off and caps
+  the history file.
+- **The lockfile lives in `~/.local/state/nvim`.** On NixOS this directory
+  arrives as a read-only store symlink, and on Ubuntu it is the git checkout
+  that has to stay clean after editing.
 
-Keys: `<leader>ff` files, `<leader>fg` grep, `<leader>w` write, `gd` definition,
-`K` hover, `<leader>rn` rename, `<leader>ca` code action, `]d`/`[d` diagnostics,
-`<leader>n` norminette.
+## Keys
+
+LazyVim's own set, with one addition at the end: `<leader><space>` files,
+`<leader>/` grep, `<leader>ca` code action, `gd` definition, `K` hover,
+`]d`/`[d` diagnostics, `<leader>l` opens the Lazy UI, `<leader>n` norminette.
