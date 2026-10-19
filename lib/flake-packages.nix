@@ -1,5 +1,11 @@
 # The flake's own helper commands, kept out of flake.nix so that file stays a
 # readable entry point: inputs, hosts, and where each piece lives.
+#
+# Every command here is nushell (the repository's rule): each one is a `*.nu` file
+# beside this one, read and wrapped by `pkgs.writers.writeNuBin`, so `checks.nu`
+# parses it and no shell string hides inside a Nix file. The Python the three media
+# commands drive stays Python - the nushell part is the wrapper that gives it its
+# PYTHONPATH and defaults.
 {pkgs}: let
   # The shared *arr client every media script imports; on PYTHONPATH via the
   # wrapper each writer builds (lib/arr-client.nix explains the mechanism).
@@ -10,55 +16,58 @@
   # commands run outside any host. Passed with --set-default, so pointing a run
   # at a different file still wins.
   arrAppsJSON = pkgs.writeText "arr-apps.json" (import ./arr-apps.nix {lib = pkgs.lib;}).scriptsJSON;
-in {
-  # Run the formatter and then nixos-rebuild, with --flake filled in and sudo
-  # added for the subcommands that need it.
-  # A description on the result: `writeShellScriptBin` takes no `meta`, and
-  # `nix run .#tasks` reads `meta.description` for every task it lists.
-  rebuild =
-    (pkgs.writeShellScriptBin "rebuild" ''
-      set -euo pipefail
 
-      # Find the flake root (directory containing flake.nix).
-      ROOT="$(pwd)"
-      while [[ "$ROOT" != "/" && ! -f "$ROOT/flake.nix" ]]; do
-        ROOT="$(dirname "$ROOT")"
-      done
-      if [[ ! -f "$ROOT/flake.nix" ]]; then
-        echo "error: could not find flake.nix from $(pwd)" >&2
-        exit 1
-      fi
+  # The Python each command wraps. Built here rather than in the wrapper text so a
+  # `.nu` file holds no store path and stays ordinary nushell.
+  exportPython = pkgs.writers.writePython3Bin "servarr-sync-export" {
+    flakeIgnore = ["E501"];
+    makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
+  } (builtins.readFile ../system/server/media/servarr-sync.py);
 
-      cd "$ROOT"
-      ${pkgs.nix}/bin/nix fmt .
+  sweepPython = pkgs.writers.writePython3Bin "servarr-sweep" {
+    flakeIgnore = ["E501"];
+    makeWrapperArgs = [
+      "--set"
+      "PYTHONPATH"
+      "${arrClient}"
+      "--set-default"
+      "ARR_APPS"
+      "${arrAppsJSON}"
+    ];
+  } (builtins.readFile ../system/server/media/servarr-sweep.py);
 
-      # Only add --flake if the user didn't already pass one.
-      if [[ "$*" != *"--flake"* ]]; then
-        set -- --flake "$ROOT" "$@"
-      fi
+  recodePython = pkgs.writers.writePython3Bin "media-recode" {
+    flakeIgnore = ["E501"];
+    makeWrapperArgs = [
+      "--set"
+      "PYTHONPATH"
+      "${arrClient}"
+      "--set-default"
+      "ARR_APPS"
+      "${arrAppsJSON}"
+    ];
+  } (builtins.readFile ../system/server/media/media-recode.py);
 
-      needs_sudo=false
-      for arg in "$@"; do
-        case "$arg" in
-          switch|boot|test|rollback|build-vm-with-bootloader)
-            needs_sudo=true
-            ;;
-        esac
-      done
-
-      if $needs_sudo; then
-        exec sudo nixos-rebuild "$@"
-      else
-        exec nixos-rebuild "$@"
-      fi
-    '')
-    .overrideAttrs (old: {
+  # `writeNuBin` takes no `meta`, and `nix run .#tasks` reads `meta.description`
+  # for every task it lists, so the description is attached here.
+  describe = description: drv:
+    drv.overrideAttrs (old: {
       meta =
         (old.meta or {})
         // {
-          description = "format the tree, then nixos-rebuild with --flake filled in (sudo for switch/test/boot)";
+          inherit description;
         };
     });
+in {
+  # Format the tree, then nixos-rebuild, filling in --flake and adding sudo only
+  # for the subcommands that need it. `nix` comes from the wrapper's PATH;
+  # `nixos-rebuild` and `sudo` deliberately come from the caller's, so the command
+  # rebuilds the running system rather than a pinned copy of it.
+  rebuild = describe "format the tree, then nixos-rebuild with --flake filled in (sudo for switch/test/boot)" (
+    pkgs.writers.writeNuBin "rebuild" {
+      makeWrapperArgs = ["--prefix" "PATH" ":" (pkgs.lib.makeBinPath [pkgs.nix])];
+    } (builtins.readFile ./rebuild.nu)
+  );
 
   # Read-only dump of the two services whose configuration lives only in their own
   # databases (Prowlarr's indexers and SeerrNG's service links). Both APIs are
@@ -82,25 +91,15 @@ in {
   # behind are updated by nix-update and built. The script and its PATH
   # substitution live in lib/overlay-updater.nix, because the timer builds the
   # same thing and two copies of the substitution would drift.
-  update-overlays = (import ./overlay-updater.nix {inherit pkgs;}).overrideAttrs (old: {
-    meta =
-      (old.meta or {})
-      // {
-        description = "compare the overlay pins against upstream and update the ones that can be (`-- --check` to only report)";
-      };
-  });
+  update-overlays = describe "compare the overlay pins against upstream and update the ones that can be (`-- --check` to only report)" (
+    import ./overlay-updater.nix {inherit pkgs;}
+  );
 
-  servarr-export = pkgs.writeShellApplication {
-    name = "servarr-export";
-    meta.description = "dump Prowlarr indexers and Seerr service links as a Nix snippet (sudo, read-only)";
-    runtimeInputs = [pkgs.python3];
-    text = ''
-      exec ${pkgs.writers.writePython3Bin "servarr-sync-export" {
-        flakeIgnore = ["E501"];
-        makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
-      } (builtins.readFile ../system/server/media/servarr-sync.py)}/bin/servarr-sync-export --export "$@"
-    '';
-  };
+  servarr-export = describe "dump Prowlarr indexers and Seerr service links as a Nix snippet (sudo, read-only)" (
+    pkgs.writers.writeNuBin "servarr-export" {
+      makeWrapperArgs = ["--prefix" "PATH" ":" (pkgs.lib.makeBinPath [exportPython])];
+    } (builtins.readFile ./servarr-export.nu)
+  );
 
   # One-off "go and find better rips" sweep: ask each *arr application to search
   # its indexers for better releases of the whole library. Houndarr does the same
@@ -109,24 +108,11 @@ in {
   #   sudo nix run .#servarr-sweep -- --apply           # one search every 10s
   # Root because the API keys live in 0700 config files. The pacing matters: each
   # search reaches every indexer and the public trackers rate-limit bursts.
-  servarr-sweep = pkgs.writeShellApplication {
-    name = "servarr-sweep";
-    meta.description = "ask every *arr app to search for better releases of the whole library (sudo; --apply to act)";
-    runtimeInputs = [pkgs.python3];
-    text = ''
-      exec ${pkgs.writers.writePython3Bin "servarr-sweep" {
-        flakeIgnore = ["E501"];
-        makeWrapperArgs = [
-          "--set"
-          "PYTHONPATH"
-          "${arrClient}"
-          "--set-default"
-          "ARR_APPS"
-          "${arrAppsJSON}"
-        ];
-      } (builtins.readFile ../system/server/media/servarr-sweep.py)}/bin/servarr-sweep "$@"
-    '';
-  };
+  servarr-sweep = describe "ask every *arr app to search for better releases of the whole library (sudo; --apply to act)" (
+    pkgs.writers.writeNuBin "servarr-sweep" {
+      makeWrapperArgs = ["--prefix" "PATH" ":" (pkgs.lib.makeBinPath [sweepPython])];
+    } (builtins.readFile ./servarr-sweep.nu)
+  );
 
   # Temporary space measure: re-encode the library's over-encoded tail (remuxes),
   # measured by bits-per-pixel rather than a hand-written list, and refresh each
@@ -135,26 +121,21 @@ in {
   #   sudo nix run .#media-recode -- --apply   # needs ffmpeg with the encoder
   # Dry run by default; refuses an output that is not meaningfully smaller or
   # whose duration moved - see the module docstring.
-  media-recode = pkgs.writeShellApplication {
-    name = "media-recode";
-    meta.description = "re-encode the library's over-encoded tail, measured by bits-per-pixel (sudo; --apply to act)";
-    runtimeInputs = [pkgs.python3 pkgs.ffmpeg];
-    text = ''
-      # ffmpeg dlopen()s AMD's AMF runtime rather than linking it, so
-      # --encoder av1_amf (and hevc_amf) need it on the loader path or they fail
-      # with "cannot load AMF runtime", leaving only the weaker VAAPI option.
-      export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [pkgs.amf]}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-      exec ${pkgs.writers.writePython3Bin "media-recode" {
-        flakeIgnore = ["E501"];
-        makeWrapperArgs = [
-          "--set"
-          "PYTHONPATH"
-          "${arrClient}"
-          "--set-default"
-          "ARR_APPS"
-          "${arrAppsJSON}"
-        ];
-      } (builtins.readFile ../system/server/media/media-recode.py)}/bin/media-recode "$@"
-    '';
-  };
+  media-recode = describe "re-encode the library's over-encoded tail, measured by bits-per-pixel (sudo; --apply to act)" (
+    pkgs.writers.writeNuBin "media-recode" {
+      # ffmpeg dlopen()s AMD's AMF runtime rather than linking it, so --encoder
+      # av1_amf (and hevc_amf) fail with "cannot load AMF runtime" without it on
+      # the loader path, leaving only the weaker VAAPI option.
+      makeWrapperArgs = [
+        "--prefix"
+        "PATH"
+        ":"
+        (pkgs.lib.makeBinPath [recodePython pkgs.ffmpeg])
+        "--prefix"
+        "LD_LIBRARY_PATH"
+        ":"
+        (pkgs.lib.makeLibraryPath [pkgs.amf])
+      ];
+    } (builtins.readFile ./media-recode.nu)
+  );
 }

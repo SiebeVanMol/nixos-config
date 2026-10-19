@@ -71,11 +71,9 @@ const plain = {
   "hm-switch": {
     order: 2
     label: "Apply just my home folder"
-    # `home-manager.useUserPackages = true`: home.packages are installed into the
-    # NixOS per-user profile, which only a system rebuild writes. Saying "changes to
-    # programs" here promised something this task cannot do - neovim was declared,
-    # built into the HM generation, and still absent from PATH.
-    note: "no password; dotfiles, settings and user units - a new program needs option 1"
+    # `home-manager.useUserPackages = false`, so Home Manager owns ~/.nix-profile
+    # and this task installs programs by itself.
+    note: "no password; for changes to programs, the shell and desktop settings"
     danger: false
   }
   "test": {
@@ -142,7 +140,10 @@ const needs_root = ["servarr-export" "servarr-sweep"]
 # overlays/update.nu), not to be run: they are server daemons, and starting one
 # from a menu is not what exporting them was for. `tasks` excludes itself so the
 # menu cannot offer to open itself.
-const not_tasks = ["amethyst-mod-manager" "houndarr" "seerrng" "soularr" "tasks"]
+# `home-manager` is the CLI the flake exposes for `nix run .#home-manager`, not a
+# task of its own: listing it would offer "home-manager - A user environment
+# configurator" as entry 12 of the menu.
+const not_tasks = ["amethyst-mod-manager" "houndarr" "seerrng" "soularr" "tasks" "home-manager"]
 
 def host [] {
   open /proc/sys/kernel/hostname | str trim
