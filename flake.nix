@@ -81,6 +81,32 @@
       config.allowUnfree = true;
     };
 
+    # One shape for every check: a nushell script in lib/checks/ is the derivation's
+    # builder. `builder` + `args` rather than `runCommand`, so nushell is the program
+    # that runs and no bash is involved at all. The script reads the tree from
+    # `$env.src`, calls its linter through a `*_BIN` placeholder replaced here with an
+    # absolute store path (a custom builder gets none of stdenv's setup, so there is no
+    # PATH to find it on), and writes `$env.out` when it passes.
+    # `builtins.derivation`, not `mkDerivation`: mkDerivation keeps bash as the builder
+    # and only takes `args` from here, so the script arrived as a *bash* script
+    # ("syntax error near unexpected token `('"). A raw derivation honours `builder`.
+    # HOME is set because nushell wants a config directory and the sandbox's default
+    # ($HOME = /homeless-shelter) is not writable; /build is where the build runs.
+    check = name: script: bins:
+      builtins.derivation {
+        inherit (pkgs.stdenvNoCC) system;
+        name = "${name}-check";
+        builder = "${pkgs.nushell}/bin/nu";
+        args = [
+          (pkgs.writeText "${name}-check.nu" (
+            pkgs.lib.replaceStrings (builtins.attrNames bins) (builtins.attrValues bins) (builtins.readFile script)
+          ))
+        ];
+        src = ./.;
+        HOME = "/build";
+        NO_COLOR = "1";
+      };
+
     buildSystem = {
       host,
       users,
@@ -238,157 +264,27 @@
     formatter.x86_64-linux = pkgs.alejandra;
 
     checks.x86_64-linux = {
-      formatting =
-        pkgs.runCommand "nix-formatting-check" {
-          nativeBuildInputs = [pkgs.alejandra];
-          # `./.` is already the git-tracked tree, and cleanSourceWith's default
-          # filter (lib/sources.nix) drops nix-build `result` symlinks, so the
-          # hand-written filter that used to wrap this added nothing.
-          src = ./.;
-        } ''
-          cd "$src"
-          alejandra --check .
-          touch "$out"
-        '';
-
-      # The Python here was only ever linted as a side effect of a build: the
-      # media scripts get it from pkgs.writers.writePython3Bin, which runs
-      # flake8, but that leaves the shared arr_client module (read by
-      # writeTextDir, not linted) and every script no module builds unchecked.
-      # Same command as the writer runs, so a script that passes here cannot
-      # then fail its own build on a style rule.
-      python =
-        pkgs.runCommand "python-lint-check" {
-          nativeBuildInputs = [pkgs.python3Packages.flake8 pkgs.findutils];
-          src = ./.;
-        } ''
-          cd "$src"
-          flake8 --show-source --ignore=E501 $(find . -name '*.py' -not -path './.git/*')
-          touch "$out"
-        '';
-
-      # The shell that sits in the tree as files: `test.sh` and the scripts a
-      # module reads with `builtins.readFile` (`homepage-env.sh`), neither of
-      # which any build lints. Shell written inside a Nix string is still
-      # invisible here - but that shell belongs to `writeShellApplication`,
-      # whose own checkPhase runs shellcheck, so what is left is exactly these.
-      shell =
-        pkgs.runCommand "shell-lint-check" {
-          nativeBuildInputs = [pkgs.shellcheck pkgs.findutils];
-          src = ./.;
-        } ''
-          cd "$src"
-          shellcheck $(find . -name '*.sh' -not -path './.git/*')
-          touch "$out"
-        '';
-
-      # A nushell script is parsed by nothing: `nu --ide-check` prints
-      # diagnostics on stdout and still exits 0, so a build of a .nu file proves
-      # only that the file exists. This makes the errors fatal - the counterpart
-      # of `shell` for the scripts that are not shell scripts. Hints are ignored
-      # (they are types, not problems), which is why the output is filtered
-      # rather than merely checked for emptiness.
-      nu =
-        pkgs.runCommand "nu-parse-check" {
-          nativeBuildInputs = [pkgs.nushell pkgs.ripgrep pkgs.findutils];
-          src = ./.;
-        } ''
-          cd "$src"
-          rc=0
-          for f in $(find . -name '*.nu' -not -path './.git/*'); do
-            # not `out`: that is the derivation's output path, and assigning to
-            # it is how this check failed to produce one the first time.
-            errors=$(nu --ide-check 10 "$f" | rg '"severity":"Error"' || true)
-            if [ -n "$errors" ]; then
-              echo "== $f"
-              echo "$errors"
-              rc=1
-            fi
-          done
-          if [ "$rc" -eq 0 ]; then touch "$out"; fi
-          exit "$rc"
-        '';
-
-      # A feature is two halves of one thing, so a directory under features/ must
-      # carry both, and its machine half must be imported below or it never loads.
-      # The counterpart of `toggles`: a convention is worth having only if half of
-      # it cannot go missing quietly - a home-only directory filed here would be
-      # exactly that, and it belongs in home/ with the rest of the one-sided
-      # configuration.
-      features =
-        pkgs.runCommand "feature-halves-check" {
-          nativeBuildInputs = [pkgs.gnugrep];
-          src = ./.;
-        } ''
-          cd "$src"
-          rc=0
-          for d in features/*/; do
-            d="''${d%/}"
-            name="''${d#features/}"
-            # a half is `half.nix` or a `half/` directory with a default.nix
-            # (shell's user half is a directory of its own files).
-            for half in system home; do
-              if [ ! -e "$d/$half.nix" ] && [ ! -e "$d/$half/default.nix" ]; then
-                echo "$d: no $half.nix - a feature has both halves"
-                rc=1
-              fi
-            done
-            if ! grep -qF "    ./$name/system.nix" features/default.nix; then
-              echo "$d: not imported by features/default.nix, so it never loads"
-              rc=1
-            fi
-          done
-          if [ "$rc" -eq 0 ]; then touch "$out"; fi
-          exit "$rc"
-        '';
-
-      # The counterpart of shell: every feature module declares its own toggle
-      # (`options.device.<area>.<stem>.enable`), so the option is greppable in
-      # the file that owns it instead of being generated from the file name by
-      # a metaprogram. Modules that are deliberately unconditional declare none
-      # and are named here, which makes adding one a deliberate edit rather than
-      # the consequence of forgetting a line. This replaces `system/options.nix`,
-      # which produced the options; a check is all that generator was buying.
-      toggles =
-        pkgs.runCommand "toggle-check" {
-          nativeBuildInputs = [pkgs.gnugrep];
-          src = ./.;
-        } ''
-          cd "$src"
-          unconditional="system/security/web-jails.nix system/wm/fonts.nix system/wm/pipewire.nix system/wm/wayland.nix"
-          for f in system/{app,hardware,security,wm}/*.nix; do
-            area="''${f#system/}"
-            area="''${area%%/*}"
-            stem="$(basename "$f" .nix)"
-            grep -q "options\.device\.$area\.$stem\.enable" "$f" && continue
-            case " $unconditional " in
-              *" $f "*) ;;
-              *)
-                echo "$f declares no toggle and is not on the unconditional list" >&2
-                echo "either add options.device.$area.$stem.enable or name the file in that list" >&2
-                exit 1
-                ;;
-            esac
-          done
-          touch "$out"
-        '';
-    };
-
-    # The flake's own helper commands live in lib/flake-packages.nix; this
-    # file stays an entry point: inputs, hosts, and where each piece lives.
-    # The helper commands (lib/flake-packages.nix) plus the four overlay
-    # packages, which are addressable here and nowhere else: `nix-update` needs
-    # an attribute to rewrite, and `nix build .#seerrng` should work without a
-    # host in the middle.
-    packages.x86_64-linux =
-      (import ./lib/flake-packages.nix {inherit pkgs;})
-      // {inherit (overlayPackages) seerrng soularr houndarr amethyst-mod-manager;}
-      // {
-        # The Home Manager CLI from the *locked* input. The NixOS module brings the
-        # library, not the command, so `home-manager switch` - the no-root path the
-        # task menu offers - had nothing to run. Taking it from the input keeps the
-        # version identical to the one NixOS itself would activate.
-        home-manager = home-manager.packages.x86_64-linux.home-manager;
+      # Six checks, one shape. The reasoning for each lives at the top of its script
+      # in lib/checks/, next to the code it explains.
+      formatting = check "nix-formatting" ./lib/checks/formatting.nu {
+        ALEJANDRA_BIN = "${pkgs.alejandra}/bin/alejandra";
       };
+
+      python = check "python-lint" ./lib/checks/python.nu {
+        FLAKE8_BIN = "${pkgs.python3Packages.flake8}/bin/flake8";
+      };
+
+      shell = check "shell-lint" ./lib/checks/shell.nu {
+        SHELLCHECK_BIN = "${pkgs.shellcheck}/bin/shellcheck";
+      };
+
+      nu = check "nu-parse" ./lib/checks/nu.nu {
+        NU_BIN = "${pkgs.nushell}/bin/nu";
+      };
+
+      features = check "feature-halves" ./lib/checks/features.nu {};
+
+      toggles = check "toggle" ./lib/checks/toggles.nu {};
+    };
   };
 }
