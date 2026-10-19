@@ -106,7 +106,14 @@
           home-manager.nixosModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
-            home-manager.useUserPackages = true;
+            # false, so Home Manager owns its own profile at
+            # ~/.local/state/nix/profiles/home-manager (linked as ~/.nix-profile) and
+            # `home-manager switch` can install a program by itself. With `true` the
+            # packages go into the NixOS per-user profile, which only nixos-rebuild
+            # writes - a newly declared program was built into the generation and then
+            # stayed off PATH until a full system rebuild. `~/.nix-profile/bin` is on
+            # this system's default PATH (second entry), so nothing else is needed.
+            home-manager.useUserPackages = false;
             # Flake inputs are shared globally here, individually and under
             # `inputs`. Per-user values are derived by Home Manager from each
             # users.users.<name>, so they are NOT passed as specialArgs.
