@@ -1,30 +1,21 @@
 # What this repository can do, in one place - and then does it.
 #
-#   nix run .#tasks                    # pick from a list
-#   nix run .#tasks -- --list          # print the list
-#   nix run .#tasks -- --json          # the same list, for scripts
-#   nix run .#tasks -- <name> [args…]  # run one directly
+#   nix run .#tasks                    # numbered menu, then runs the number you type
+#   nix run .#tasks -- --list          # the same menu without running anything
+#   nix run .#tasks -- --json          # the list for scripts
+#   nix run .#tasks -- <name> [args…]  # run one directly, e.g. `-- test`
 #
 # The list is discovered rather than maintained: every attribute under
 # `packages.<system>` is a task (the flake's commands live there), and its
 # description comes from the derivation's own `meta.description`. A new helper in
-# lib/flake-packages.nix therefore shows up here without an edit - the point being
+# lib/flake-packages.nix therefore appears here without an edit - the point being
 # that a hand-written menu is a second list that goes stale.
 #
-# The extras below are the tasks that are not packages, because they act on the
-# checkout rather than being a program: the gate, the formatter, the two switch
-# paths, and the input update. Anything needing root says so before it runs
-# instead of failing halfway through.
-#
-# Every task runs with its own argv and passes extra arguments straight through,
-# so `-- update-overlays --check` reaches the updater's own flag.
-
-# Style constants in one place: `ansi` codes are easy to get subtly wrong, and a
-# colour that only appears in one branch looks like an oversight.
-const accent = "green_bold"
-const dim = "dark_gray"
-const warn = "yellow"
-const bad = "red_bold"
+# The wording in `plain` is the UI. A numbered list, whole sentences, no flag
+# names, no task names: someone who has never seen this repository picks a
+# number. The technical name and argv are still there for the command line
+# (`-- <name>`), and a task with no `plain` entry still appears - with its own
+# description, at the bottom - rather than silently vanishing.
 
 # Not flake packages. `run` is argv, not a shell string: no word splitting and no
 # quoting rules to get wrong.
@@ -66,6 +57,78 @@ const extras = [
     root: false
   }
 ]
+
+# How each task is described to a human: what it does in the words someone who
+# does not know Nix would use, and where it belongs in the order. Everyday things
+# first, consequences last; anything without an entry sorts after these.
+const plain = {
+  "switch": {
+    order: 1
+    label: "Apply my configuration"
+    note: "rebuilds this machine and switches to it"
+    danger: false
+  }
+  "hm-switch": {
+    order: 2
+    label: "Apply just my home folder"
+    note: "no password; for changes to programs, the shell and desktop settings"
+    danger: false
+  }
+  "test": {
+    order: 3
+    label: "Check nothing is broken"
+    note: "the full verification gate - a minute or three, and the answer is pass or fail"
+    danger: false
+  }
+  "update-overlays": {
+    order: 4
+    label: "Update the packaged apps"
+    note: "asks upstream for newer seerrng, soularr, houndarr and amethyst, then builds them"
+    danger: false
+  }
+  "flake-update": {
+    order: 5
+    label: "Update nixpkgs and friends"
+    note: "moves what everything is built from - run 'Check nothing is broken' afterwards"
+    danger: false
+  }
+  "fmt": {
+    order: 6
+    label: "Tidy the formatting"
+    note: "rewrites files to match the house style; changes no behaviour"
+    danger: false
+  }
+  "servarr-export": {
+    order: 7
+    label: "Copy the *arr settings into nix"
+    note: "a read-only dump you paste into the repo"
+    danger: false
+  }
+  "servarr-sweep": {
+    order: 8
+    label: "Search the library for better copies"
+    note: "slow and rate-limited: the media apps search their indexers"
+    danger: false
+  }
+  "media-recode": {
+    order: 9
+    label: "Re-encode oversized media"
+    note: "a dry run unless you add --apply"
+    danger: false
+  }
+  "rebuild": {
+    order: 11
+    label: "Rebuild with options"
+    note: "the same rebuild, for subcommands like boot or test; the first entry is the everyday one"
+    danger: false
+  }
+  "gc": {
+    order: 10
+    label: "Free up disk space"
+    note: "deletes old system generations and unused packages"
+    danger: true
+  }
+}
 
 # Packages whose own description says `sudo nix run`: the *arr export and sweep
 # read API keys out of 0700 config files.
@@ -116,47 +179,54 @@ def tasks [] {
   let self = (self-attribute)
   (discovered)
   | append ($extras | each {|task|
-      let task = (
-        $task
-        | insert source "checkout"
-        | upsert run (if $task.name == "hm-switch" { ["home-manager" "switch" "--flake" $self] } else { $task.run })
-      )
       $task
+      | insert source "checkout"
+      | upsert run (if $task.name == "hm-switch" { ["home-manager" "switch" "--flake" $self] } else { $task.run })
     })
-  | sort-by name
+  # Ordered for a reader, not alphabetically: the everyday actions first, the
+  # irreversible one last, and anything unrecognised after the ones with wording.
+  | each {|task|
+      let words = ($plain | get -o $task.name | default {})
+      $task
+      | insert label ($words.label? | default $task.name)
+      | insert note ($words.note? | default (if $task.description == "" { "no description yet" } else { $task.description }))
+      | insert danger ($words.danger? | default false)
+      | insert order ($words.order? | default 90)
+    }
+  | sort-by order name
 }
 
 def headline [count: int] {
-  $"(ansi $accent)nixos-config(ansi reset)(ansi $dim) · (host) · ($count) tasks(ansi reset)"
+  $"(ansi green_bold)nixos-config(ansi reset)(ansi dark_gray) - (host) - ($count) things you can do(ansi reset)"
 }
 
-# Aligned columns, a dim description, and the root marker in yellow: the three
-# things that make eleven rows scannable rather than a wall of text.
-def row [task: record, width: int] {
-  let name = ($task.name | fill --width $width --alignment left)
-  let description = (if $task.description == "" { $"(ansi $dim)no description(ansi reset)" } else { $task.description })
-  let marker = (if $task.root { $"(ansi $warn)  · sudo(ansi reset)" } else { "" })
-  $"  (ansi $accent)($name)(ansi reset)($description)($marker)"
-}
-
-def section [title: string, rows: list, width: int] {
-  if ($rows | is-empty) {
-    return ""
-  }
-  let body = ($rows | each {|task| row $task $width} | str join (char nl))
-  $"\n(ansi $dim)($title)(ansi reset)\n($body)"
-}
-
-def as-text [list: list] {
-  # Padded to the longest name: `fill` returns the value untouched when it is
-  # already longer than the width, which silently collapsed the column.
-  let width = (($list | get name | str length | math max) + 2)
+# The menu. Numbers, plain sentences, and one marker where it changes the
+# decision: a password prompt, or the fact that it cannot be undone.
+def as-text [all: list] {
+  let width = (($all | get label | str length | math max) + 2)
+  let rows = (
+    $all
+    | enumerate
+    | each {|row|
+        let task = $row.item
+        let number = (($row.index + 1) | into string | fill --width 3 --alignment right)
+        let label = ($task.label | fill --width $width --alignment left)
+        let warning = (
+          if $task.danger {
+            $"(ansi red_bold)  cannot be undone(ansi reset)"
+          } else if $task.root {
+            $"(ansi yellow)  asks for your password(ansi reset)"
+          } else {
+            ""
+          }
+        )
+        $"  (ansi green_bold)($number)(ansi reset)  ($label)(ansi dark_gray)($task.note)(ansi reset)($warning)"
+      }
+  )
   [
-    (headline ($list | length))
-    (section "commands" ($list | where source == "command") $width)
-    (section "checkout" ($list | where source == "checkout") $width)
+    (headline ($all | length))
     ""
-    $"(ansi $dim)nix run .#tasks -- <name> [args…]   ·   no argument: pick from a list(ansi reset)"
+    ($rows | str join (char nl))
   ]
   | str join (char nl)
 }
@@ -164,15 +234,18 @@ def as-text [list: list] {
 def run-task [task: record, rest: list<string>] {
   let argv = ($task.run | append $rest)
   if $task.root {
-    print $"(ansi $warn)needs root - sudo will ask for your password(ansi reset)"
+    print $"(ansi yellow)This needs your password - sudo is about to ask for it.(ansi reset)"
   }
-  print $"(ansi $dim)→ ($argv | str join ' ')(ansi reset)"
+  print ""
+  print $"(ansi dark_gray)running: ($argv | str join ' ')(ansi reset)"
   ^$argv.0 ...($argv | skip 1)
   let code = $env.LAST_EXIT_CODE
   if $code == 0 {
-    print $"(ansi $accent)✓(ansi reset) ($task.name)"
+    print ""
+    print $"(ansi green_bold)Done.(ansi reset) ($task.label)"
   } else {
-    print -e $"(ansi $bad)✗(ansi reset) ($task.name): exit ($code)"
+    print ""
+    print -e $"(ansi red_bold)That failed.(ansi reset) ($task.label), exit ($code) - the output above says why."
     exit $code
   }
 }
@@ -183,7 +256,7 @@ def run-task [task: record, rest: list<string>] {
 def --wrapped main [
   name?: string # a task name, or --list / --json
   ...rest: string # passed to the task unchanged
-  --list (-l) # print the tasks and exit
+  --list (-l) # print the menu and exit
   --json (-j) # the task list as JSON, for scripts
 ] {
   # `nix run .#tasks` from a subdirectory would evaluate `.#` there, and every
@@ -212,7 +285,7 @@ def --wrapped main [
   if $wants_json {
     # `print`: a bare `to json` is a value nothing consumes, so with only that
     # pipeline the flag printed nothing at all.
-    print ($all | select name source description root run | to json)
+    print ($all | select name label source description root danger run | to json)
     return
   }
 
@@ -229,9 +302,9 @@ def --wrapped main [
     let task = (if ($exact | is-empty) { if ($partial | length) == 1 { $partial | first } } else { $exact | first })
     if $task == null {
       if ($partial | is-empty) {
-        print -e $"(ansi $bad)✗(ansi reset) no task named '($name)'"
+        print -e $"(ansi red_bold)There is no task called '($name)'.(ansi reset)"
       } else {
-        print -e $"(ansi $bad)✗(ansi reset) '($name)' matches ($partial | get name | str join ', ')"
+        print -e $"(ansi red_bold)'($name)' could be: ($partial | get name | str join ', ')(ansi reset)"
       }
       print ""
       print (as-text $all)
@@ -241,27 +314,41 @@ def --wrapped main [
     return
   }
 
-  # Interactive: `input list` needs a terminal. Piped or under cron it would
-  # otherwise fail with a stack trace, so fall back to printing the list.
-  print (headline ($all | length))
-  print $"(ansi $dim)type to filter · ↑/↓ to move · enter runs · esc cancels(ansi reset)"
-  let chosen = (
-    try {
-      $all | input list --fuzzy -d {|task|
-        let marker = (if $task.root { "  · sudo" } else { "" })
-        $"($task.name): ($task.description)($marker)"
-      }
-    } catch {
-      null
+  # Interactive: one number, or 0 to leave. It loops instead of exiting on a typo
+  # and prints the menu again rather than making the reader scroll.
+  print (as-text $all)
+  print ""
+  loop {
+    let answer = (try { input $"(ansi green_bold)Pick a number(ansi reset)(ansi dark_gray), or 0 to quit:(ansi reset) " } catch { null })
+    if $answer == null {
+      print $"(ansi dark_gray)Nothing to read from here - run `nix run .#tasks -- <name>` instead.(ansi reset)"
+      return
     }
-  )
-  if $chosen == null {
-    print ""
-    print (as-text $all)
-    print ""
-    print $"(ansi $dim)no terminal to pick from - run `nix run .#tasks -- <name>`(ansi reset)"
+
+    let answer = ($answer | str trim)
+    if $answer in ["0" "q" "quit" ""] {
+      print "  Nothing done."
+      return
+    }
+
+    let number = (try { $answer | into int } catch { -1 })
+    let chosen = ($all | enumerate | where {|row| ($row.index + 1) == $number} | get item?)
+    if ($chosen | is-empty) {
+      print -e $"  There is no ($answer). Pick 1 to ($all | length), or 0 to quit."
+      continue
+    }
+    let task = ($chosen | first)
+
+    if $task.danger {
+      print $"(ansi red_bold)  This ($task.note).(ansi reset)"
+      let confirm = (try { input $"  Type yes to do it, anything else to cancel: " } catch { "" })
+      if ($confirm | str trim | str lowercase) != "yes" {
+        print "  Cancelled - nothing was done."
+        continue
+      }
+    }
+
+    run-task $task $rest
     return
   }
-  print ""
-  run-task $chosen $rest
 }
