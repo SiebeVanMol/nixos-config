@@ -6,6 +6,5 @@
   imports = [
     ./media
     ./minecraft
-    ./ai
   ];
 }

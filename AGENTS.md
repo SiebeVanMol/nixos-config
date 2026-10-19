@@ -19,16 +19,26 @@ One question per directory, so the path answers what is in here:
 | `hosts/<Host>/` | one machine: its `hardware-configuration.nix` and the `device.*` toggles it switches on |
 | `system/` | everything machine-wide and shared by all three: accounts, boot and locale in `default.nix`; features in `app/ hardware/ security/ wm/`; recurring jobs in `maintenance/`; long-running services in `server/` |
 | `home/` | the Home Manager settings every user gets — `core.nix` pulls in the shell, Hyprland, wallpapers, input method and desktop apps |
-| `users/<name>/` | one person: `home.nix` (imports `home/core.nix` plus their own files), programs, editor, browser, and anything personal — `hermes.nix` for Snowy |
+| `features/` | one thing that exists on both sides: `hermes/` holds `system.nix` (the model server) and `home.nix` (the agent that reads it) |
+| `users/<name>/` | one person: `home.nix` (imports `home/core.nix` plus their own files), programs, editor, browser, and anything personal |
 | `lib/` | plain functions, never modules: the `/Vault` layout, btrfs mounts, *arr facts, the webhook client, `import-dir` |
 | `overlays/` | packages nixpkgs lacks or carries too old, each pinned by hash in the file that uses it |
 
-A few features legitimately straddle two trees, and they are named here so
-nobody has to discover it: the local model server (`system/server/ai`) is read
-through `osConfig` by `users/snowyrenard/hermes.nix`, and the shell is
-`home/shell/*` against the default shell set in `system/default.nix`. Both are
-deliberate — a user module needs the machine's port and model ids, and the
-shell has to be the same program for the account and the session.
+A feature that exists on both sides gets a `features/<name>/` directory with a
+`system.nix` and a `home.nix`, because the machine half and the user half then
+sit beside each other instead of three directories apart. `features/default.nix`
+imports every machine half; a user imports the user half it runs, so a feature
+one person uses never lands in another person's home. Hermes is the example:
+the model server was `system/server/ai/` and the agent `users/snowyrenard/`,
+and the second read the first through `osConfig` across the gap.
+
+A directory here is earned by spanning both sides, not by being interesting.
+`system/app/steam.nix` and `home/hyprland.nix` stay where they are: a thing
+that is only machine-wide or only in someone's home is not a feature by this
+definition. One deliberate straddle remains and is named here so nobody has to
+discover it: the shell is `home/shell/*` against the default shell set in
+`system/default.nix`, because it has to be the same program for the account and
+the session.
 
 ## Verification
 

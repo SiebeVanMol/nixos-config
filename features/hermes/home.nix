@@ -22,7 +22,7 @@
 }: let
   # The agent's toolbox, defined once for this user: the servers, the
   # compilers, and what only the agent needs. See programming.nix.
-  programming = import ./programming.nix {inherit pkgs;};
+  programming = import ../../users/snowyrenard/programming.nix {inherit pkgs;};
 
   # The local server's endpoint, derived from the module that owns the port, so
   # raising device.app.ai.port moves every client with it. Reading the model ids

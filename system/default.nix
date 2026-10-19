@@ -16,6 +16,7 @@ in {
   imports =
     [
       ./server
+      ../features
     ]
     # Host-level maintenance: restic backups of the service state and secrets
     # (backup.nix), SMART/btrfs/capacity/service monitoring (monitoring.nix),

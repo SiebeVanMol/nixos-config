@@ -658,7 +658,7 @@ in {
     services.caddy.virtualHosts =
       lib.mkIf (cfg.expose && config.device.security.reverse-proxy.enable)
       (lib.listToAttrs [
-        ((import ../../../lib/vhosts.nix {inherit lib config;}).mkLanVhost {
+        ((import ../../lib/vhosts.nix {inherit lib config;}).mkLanVhost {
           name = "ai";
           inherit (cfg) port;
           host = null;
