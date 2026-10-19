@@ -246,6 +246,14 @@ def run-task [task: record, rest: list<string>] {
   } else {
     print ""
     print -e $"(ansi red_bold)That failed.(ansi reset) ($task.label), exit ($code) - the output above says why."
+    # Exit 4 from switch-to-configuration means "applied, but a unit failed" - a
+    # very different thing from "nothing happened", and the one case where the
+    # scary red line needs a footnote. It happened here for real once: a timer
+    # fired a convergence job while the switch was restarting the service it
+    # talks to.
+    if $task.name in ["switch" "rebuild"] and $code == 4 {
+      print $"(ansi yellow)The new configuration IS applied. A service failed to start, though - `systemctl --failed` names it.(ansi reset)"
+    }
     exit $code
   }
 }

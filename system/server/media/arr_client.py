@@ -22,6 +22,7 @@ scripts stay standalone files in the store and `import arr_client` still works.
 import glob
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -30,6 +31,16 @@ import xml.etree.ElementTree as ET
 #: (it asks for every episode of every series) and a probe wants much less.
 DEFAULT_TIMEOUT = 30
 PROBE_TIMEOUT = 5
+
+#: How long to keep retrying a *refused* connection. A rebuild restarts the
+#: applications these scripts converge, and a timer can fire inside that window:
+#: the switch stops seerr for a second, the call fails with ECONNREFUSED, and
+#: `nixos-rebuild` reports the whole switch as failed (exit 4) because a unit the
+#: timer started had failed. Fifteen seconds covers a restart - and nothing else,
+#: so a genuinely stopped application still fails the run and still gets noticed.
+#: An HTTP answer is never retried: that is a reply, not a pause.
+RETRY_SECONDS = 15.0
+RETRY_DELAY = 1.0
 
 #: How much of an error body to quote. The *arr APIs answer a validation failure
 #: with a JSON body far longer than anyone reads in a log line.
@@ -103,12 +114,27 @@ def describe_error(detail):
     return "; ".join(parts)[:300] if parts else " ".join(detail.split())[:200]
 
 
-def call(port, version, key, path, method=None, body=None, params=None, timeout=DEFAULT_TIMEOUT):
+def call(
+    port,
+    version,
+    key,
+    path,
+    method=None,
+    body=None,
+    params=None,
+    timeout=DEFAULT_TIMEOUT,
+    retry_seconds=RETRY_SECONDS,
+):
     """Call one of the *arr APIs on loopback and return the decoded body.
 
     `method` defaults to POST when there is a body and GET otherwise, which is
     what every media script wants and what two of them implemented by hand.
     Raises ApiError, with `status` set when the server answered.
+
+    A refused connection is retried for `retry_seconds` (see RETRY_SECONDS) and
+    then given up on; `probe_version` opts out with 0, because its poll loop is
+    the thing that decides how long to wait, and a probe that blocks for fifteen
+    seconds per application would turn one slow boot into a five-minute one.
     """
     url = f"http://127.0.0.1:{port}/api/{version}{path}"
     if params:
@@ -119,18 +145,37 @@ def call(port, version, key, path, method=None, body=None, params=None, timeout=
     request.add_header("Accept", "application/json")
     if data is not None:
         request.add_header("Content-Type", "application/json")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read()
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", "replace")[:DETAIL_CHARS]
-        raise ApiError(
-            f"{method or 'GET'} {path} -> HTTP {error.code}: {describe_error(detail)}",
-            status=error.code,
-        ) from error
-    except (urllib.error.URLError, OSError) as error:
-        raise ApiError(f"{method or 'GET'} {path} -> {error}") from error
+    deadline = time.monotonic() + retry_seconds
+    while True:
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                raw = response.read()
+            break
+        except urllib.error.HTTPError as error:
+            detail = error.read().decode("utf-8", "replace")[:DETAIL_CHARS]
+            raise ApiError(
+                f"{method or 'GET'} {path} -> HTTP {error.code}: {describe_error(detail)}",
+                status=error.code,
+            ) from error
+        except (urllib.error.URLError, OSError) as error:
+            if _restarting(error) and time.monotonic() < deadline:
+                time.sleep(RETRY_DELAY)
+                continue
+            raise ApiError(f"{method or 'GET'} {path} -> {error}") from error
     return decode(raw, path)
+
+
+def _restarting(error):
+    """True when the failure looks like "the service is restarting".
+
+    urllib wraps a refused connection in URLError whose `reason` is the original
+    OSError, so both shapes are checked. Anything else - a DNS failure, a 401, a
+    timeout mid-response - is not a restart and is not retried.
+    """
+    if isinstance(error, (ConnectionRefusedError, ConnectionResetError, TimeoutError)):
+        return True
+    reason = getattr(error, "reason", None)
+    return isinstance(reason, (ConnectionRefusedError, ConnectionResetError, TimeoutError))
 
 
 def decode(raw, path=""):
@@ -155,7 +200,7 @@ def probe_version(port, key, timeout=PROBE_TIMEOUT):
     saw_response = False
     for version in ("v3", "v1"):
         try:
-            call(port, version, key, "/system/status", timeout=timeout)
+            call(port, version, key, "/system/status", timeout=timeout, retry_seconds=0)
             return version, "ok"
         except ApiError as error:
             if error.status is not None:

@@ -1154,16 +1154,25 @@ def main():
             warn(f"prowlarr: {error}")
             failures += 1
 
+    # Only if it answered the readiness probe, like every block above. Seerr is
+    # restarted by a switch, and a timer that fires in that window used to reach
+    # this point with seerr half-way up: the fetch failed with ECONNREFUSED,
+    # that counted as a convergence failure, and `nixos-rebuild` reported the
+    # whole switch as failed (exit 4). The retry in arr_client.call covers a
+    # restart that starts mid-run; this covers one that had not finished.
     if "seerr" in config:
-        try:
-            sync_seerr(
-                config["seerr"],
-                {n: s for n, s in ready.items() if n != "prowlarr"},
-                config.get("root_folders", {}),
-            )
-        except ApiError as error:
-            warn(f"seerr: {error}")
-            failures += 1
+        if "seerr" in ready:
+            try:
+                sync_seerr(
+                    config["seerr"],
+                    {n: s for n, s in ready.items() if n != "prowlarr"},
+                    config.get("root_folders", {}),
+                )
+            except ApiError as error:
+                warn(f"seerr: {error}")
+                failures += 1
+        else:
+            warn("seerr: no response before the deadline, leaving it alone")
 
     if failures:
         log(f"finished with {failures} failure(s)")
