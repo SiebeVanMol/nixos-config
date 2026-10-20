@@ -230,6 +230,18 @@ in {
             base_url = aiEndpoint;
           };
 
+          # Everything a Nous Portal API key reaches: the portal's inference API
+          # is OpenAI-compatible and behind one bearer, so this is a custom
+          # endpoint, not the built-in `nous` provider - that one is the OAuth
+          # login and refuses a bare key. key_env keeps the secret in
+          # ~/.config/hermes/env, never in the store.
+          nous = {
+            model = "openai/gpt-6.1-sol";
+            provider = "custom";
+            base_url = "https://inference-api.nousresearch.com/v1";
+            key_env = "NOUS_API_KEY";
+          };
+
           # The alternative to `local`: the one that fits the card outright with
           # the best tool-calling measured in its size class.
           oss = {
