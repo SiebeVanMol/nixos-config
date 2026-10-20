@@ -334,6 +334,21 @@ in {
     # it is versioned with everything else and survives a rebuild; the cron job
     # itself is state and lives in $HERMES_HOME/cron, which activation does not
     # touch.
-    hermesHomeFiles."scripts/usage-digest.py" = ./hermes-usage-digest.py;
+    hermesHomeFiles."scripts/usage-digest.py" = ./scripts/usage-digest.py;
+
+    # Peak-price and credit watch, as one feature: the two scripts the cron jobs
+    # run, the chat widget, the status-bar pill and the backend route its hover
+    # card reads. Every piece used to live only in $HERMES_HOME, which meant a
+    # rebuild could not recreate it and no change was ever reviewed here.
+    # Filenames are part of the interface: the cron jobs name these scripts and
+    # the desktop plugin is found by its folder, so they are declared as-is.
+    hermesHomeFiles."scripts/peak_price.py" = ./scripts/peak_price.py;
+    hermesHomeFiles."scripts/deepseek_budget.py" = ./scripts/deepseek_budget.py;
+    hermesHomeFiles."widgets/peak-price.html" = ./widgets/peak-price.html;
+    hermesHomeFiles."desktop-plugins/peak-price/plugin.js" = ./desktop/peak-price/plugin.js;
+    hermesHomeFiles."plugins/peak-price/dashboard/manifest.json" =
+      ./plugins/peak-price/dashboard/manifest.json;
+    hermesHomeFiles."plugins/peak-price/dashboard/plugin_api.py" =
+      ./plugins/peak-price/dashboard/plugin_api.py;
   };
 }

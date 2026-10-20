@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: inherit; color: var(--foreground);
+    display: flex; flex-direction: column; gap: 14px; width: 430px;
+  }
+
+  .label { font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--muted-foreground); }
+
+  .status { display: flex; align-items: center; gap: 12px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 8px 16px; border-radius: 999px;
+    font-size: 22px; font-weight: 700; letter-spacing: .01em;
+    transition: color .3s, background .3s, border-color .3s, box-shadow .3s;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; transition: background .3s, box-shadow .3s; }
+
+  .pill.cheap {
+    color: #22c55e; border: 1px solid rgba(34,197,94,.55);
+    background: linear-gradient(180deg, rgba(34,197,94,.20), rgba(34,197,94,.08));
+    box-shadow: 0 0 22px rgba(34,197,94,.18) inset;
+  }
+  .cheap .dot { background: #22c55e; box-shadow: 0 0 12px #22c55e; }
+
+  .pill.pricey {
+    color: #fb7185; border: 1px solid rgba(244,63,94,.60);
+    background: linear-gradient(180deg, rgba(244,63,94,.24), rgba(244,63,94,.09));
+    box-shadow: 0 0 22px rgba(244,63,94,.22) inset;
+  }
+  .pricey .dot { background: #f43f5e; box-shadow: 0 0 12px #f43f5e; }
+
+  .clock { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted-foreground); }
+
+  /* day strip */
+  .strip-wrap { display: flex; flex-direction: column; gap: 5px; }
+  .strip {
+    position: relative; height: 14px; border-radius: 999px; overflow: hidden;
+    background: rgba(148,163,184,.14); border: 1px solid var(--border);
+  }
+  .seg { position: absolute; top: 0; bottom: 0; }
+  .seg.peak {
+    background: linear-gradient(180deg, #f43f5e, #be123c);
+    box-shadow: 0 0 12px rgba(244,63,94,.65);
+  }
+  .marker {
+    position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px;
+    background: #e2e8f0; box-shadow: 0 0 8px #e2e8f0; transform: translateX(-1px);
+  }
+  .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+
+  .next { font-size: 14px; line-height: 1.45; }
+  .next b { font-variant-numeric: tabular-nums; }
+  .next .hi { color: #f59e0b; font-weight: 650; }
+
+  .rates { display: flex; gap: 10px; }
+  .rate {
+    flex: 1; padding: 10px 12px; border-radius: 11px;
+    border: 1px solid var(--border); background: var(--card);
+    transition: opacity .3s, background .3s, border-color .3s, box-shadow .3s;
+  }
+  .rate .k { font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted-foreground); }
+  .rate .v { font-size: 16px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 3px; }
+  .rate .u { font-size: 10px; color: var(--muted-foreground); margin-top: 2px; }
+
+  #r-off.on {
+    border-color: rgba(34,197,94,.55); background: rgba(34,197,94,.13);
+    box-shadow: 0 0 16px rgba(34,197,94,.12);
+  }
+  #r-off.on .v { color: #22c55e; }
+  #r-peak.on {
+    border-color: rgba(244,63,94,.60); background: rgba(244,63,94,.15);
+    box-shadow: 0 0 16px rgba(244,63,94,.14);
+  }
+  #r-peak.on .v { color: #fb7185; }
+  .rate.off { opacity: .38; }
+
+  .sched { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted-foreground); }
+  .chip {
+    padding: 3px 9px; border-radius: 999px; font-weight: 600; font-variant-numeric: tabular-nums;
+    border: 1px solid rgba(244,63,94,.45); color: #fb7185; background: rgba(244,63,94,.12);
+  }
+  .chip.free { border-color: rgba(34,197,94,.45); color: #22c55e; background: rgba(34,197,94,.12); }
+</style>
+</head>
+<body>
+  <div class="label">DeepSeek pricing right now</div>
+
+  <div class="status">
+    <span id="pill" class="pill cheap"><span class="dot"></span><span id="word">…</span></span>
+    <span class="clock" id="clock"></span>
+  </div>
+
+  <div class="strip-wrap">
+    <div class="strip" id="strip"><div class="marker" id="marker"></div></div>
+    <div class="ticks"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+  </div>
+
+  <div class="next" id="next"></div>
+
+  <div class="rates">
+    <div class="rate on" id="r-off">
+      <div class="k">Off-peak</div>
+      <div class="v">$0.15 / $0.60</div>
+      <div class="u">in / out per 1M</div>
+    </div>
+    <div class="rate off" id="r-peak">
+      <div class="k">Peak</div>
+      <div class="v">$0.30 / $1.20</div>
+      <div class="u">in / out per 1M</div>
+    </div>
+  </div>
+
+  <div class="sched" id="sched"></div>
+
+<script>
+const WINDOWS = [[1, 4], [6, 10]]; // UTC hours, Mon–Fri
+
+function isPeak(d) {
+  const day = d.getUTCDay();
+  if (day === 0 || day === 6) return false;
+  const h = d.getUTCHours() + d.getUTCMinutes() / 60;
+  return WINDOWS.some(([a, b]) => h >= a && h < b);
+}
+
+function nextFlip(from) {
+  const cur = isPeak(from);
+  const t = new Date(from);
+  t.setSeconds(0, 0);
+  for (let i = 0; i < 60 * 24 * 8; i++) {
+    t.setMinutes(t.getMinutes() + 1);
+    if (isPeak(t) !== cur) return t;
+  }
+  return null;
+}
+
+const hm = d => d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hourCycle: 'h23'});
+const wd = d => d.toLocaleDateString([], {weekday: 'short'});
+
+function human(ms) {
+  const mins = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return (h ? h + 'h ' : '') + String(m).padStart(2, '0') + 'm';
+}
+
+function utcHourLocal(h) {
+  const d = new Date();
+  d.setUTCHours(h, 0, 0, 0);
+  return hm(d);
+}
+
+// --- day strip: peak windows laid out on the local day -----------------------
+let stripDay = null;
+
+function localMidnight(d) {
+  const m = new Date(d);
+  m.setHours(0, 0, 0, 0);
+  return m;
+}
+
+function buildStrip(now) {
+  const strip = document.getElementById('strip');
+  [...strip.querySelectorAll('.seg')].forEach(n => n.remove());
+  const start = localMidnight(now);
+  const step = 5; // minutes
+  const total = 1440 / step;
+  let runStart = null, runPeak = false;
+
+  const paint = (from, to, peak) => {
+    if (!peak) return;
+    const seg = document.createElement('div');
+    seg.className = 'seg peak';
+    seg.style.left = (from / total * 100) + '%';
+    seg.style.width = ((to - from) / total * 100) + '%';
+    strip.appendChild(seg);
+  };
+
+  for (let i = 0; i <= total; i++) {
+    const t = new Date(start.getTime() + i * step * 60000);
+    const p = i < total ? isPeak(t) : !runPeak;
+    if (i === 0) { runStart = 0; runPeak = p; continue; }
+    if (p !== runPeak) {
+      paint(runStart, i, runPeak);
+      runStart = i; runPeak = p;
+    }
+  }
+  stripDay = start.toDateString();
+}
+
+let flip = null, state = null;
+
+function tick() {
+  const now = new Date();
+  if (stripDay !== localMidnight(now).toDateString()) buildStrip(now);
+
+  const peak = isPeak(now);
+  if (peak !== state) {
+    state = peak;
+    document.getElementById('pill').className = 'pill ' + (peak ? 'pricey' : 'cheap');
+    document.getElementById('word').textContent = peak ? 'PEAK 2×' : 'OFF-PEAK ½';
+    document.getElementById('r-peak').className = 'rate ' + (peak ? 'on' : 'off');
+    document.getElementById('r-off').className = 'rate ' + (peak ? 'off' : 'on');
+    flip = nextFlip(now);
+  }
+
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'});
+
+  const sinceMidnight = now - localMidnight(now);
+  document.getElementById('marker').style.left = (sinceMidnight / 86400000 * 100) + '%';
+
+  if (flip) {
+    const what = state ? 'Half price returns' : 'Double price starts';
+    document.getElementById('next').innerHTML =
+      `${what} <span class="hi">${wd(flip)} ${hm(flip)}</span> &nbsp;·&nbsp; in <b>${human(flip - now)}</b>`;
+  }
+  requestAnimationFrame(() => setTimeout(tick, 1000));
+}
+
+document.getElementById('sched').innerHTML =
+  `Peak weekdays <span class="chip">${utcHourLocal(1)}–${utcHourLocal(4)}</span>` +
+  `<span class="chip">${utcHourLocal(6)}–${utcHourLocal(10)}</span>` +
+  `<span class="chip free">weekends half price</span>`;
+
+tick();
+</script>
+</body>
+</html>

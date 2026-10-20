@@ -1,0 +1,7 @@
+{
+  "name": "peak-price",
+  "label": "Peak price",
+  "description": "DeepSeek peak/off-peak pricing and remaining credit.",
+  "version": "0.2.0",
+  "api": "plugin_api.py"
+}
