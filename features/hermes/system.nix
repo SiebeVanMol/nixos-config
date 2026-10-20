@@ -218,6 +218,16 @@ in {
       '';
     };
 
+    titlePort = lib.mkOption {
+      type = lib.types.port;
+      default = 8099;
+      description = ''
+        Loopback port of the CPU-only server that answers the title model. Its
+        own port rather than a model in the router: the point of the split is
+        that a five-word title never touches the card.
+      '';
+    };
+
     expose = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -651,6 +661,43 @@ in {
 
       # The weights are mmapped out of the store, which is mounted before the
       # service is started, so there is no mount to wait for any more.
+    };
+
+    # Titles are a five-word task that used to cost the card a reload. With
+    # `models-max = 1` a title request unloads the chat model, and the next turn
+    # pays the ~75 s cold load - once per session, but on the user's time. On the
+    # CPU the same model answers in half a second (measured: 12 tokens at 23
+    # tok/s, 0.52 s wall) and holds no VRAM at all, so the card stays with the
+    # model the session is actually using. The cost is 3.1 GB of RAM for a
+    # process that is idle most of the time, which is the cheaper of the two.
+    systemd.services.llama-title = {
+      description = "llama.cpp CPU server for the session title model";
+      wantedBy = ["multi-user.target"];
+      after = ["network.target"];
+
+      serviceConfig = {
+        ExecStart = lib.escapeShellArgs [
+          "${package}/bin/llama-server"
+          "--model"
+          "${modelsDir}/${cfg.models.tiny.file}"
+          # No layers on the card, deliberately: this model exists so the GPU
+          # does not have to be touched at all for a title.
+          "--n-gpu-layers"
+          "0"
+          "--ctx-size"
+          "8192"
+          "--host"
+          "127.0.0.1"
+          "--port"
+          (toString cfg.titlePort)
+          "--jinja"
+          "--parallel"
+          "1"
+        ];
+        DynamicUser = true;
+        Restart = "always";
+        RestartSec = 5;
+      };
     };
 
     networking.hosts = lib.mkIf (cfg.expose && config.device.security.reverse-proxy.enable) {

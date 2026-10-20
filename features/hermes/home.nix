@@ -251,16 +251,18 @@ in {
             model = osConfig.device.app.ai.modelIds.agent;
           };
 
-          # Titles are a 3-7 word task, so they go to the smallest model the
-          # router serves - the one `tiny` exists for. The size is the point:
-          # this call fires at the start of every session, and against the 12B
-          # it meant a 6.72 GB weight load and ~10 GiB of the card held for the
-          # next fifteen minutes, to emit five tokens. Hermes' instant derived
+          # Titles are a 3-7 word task, so they go to the smallest model - the
+          # one `tiny` exists for - and to the CPU-only server that serves it
+          # (port `titlePort` in system.nix). That separation is the point: with
+          # one model resident, a title request on the router would unload the
+          # chat model, and the next turn would pay its ~75 s cold load. On the
+          # CPU a title costs half a second and no VRAM. Hermes' instant derived
           # title stays the fallback when the small model returns nothing
           # usable, so a bad title costs a worse title and not a failure.
           title_generation = {
             provider = "llamacpp";
             model = osConfig.device.app.ai.modelIds.tiny;
+            base_url = "http://127.0.0.1:${toString osConfig.device.app.ai.titlePort}/v1";
           };
         };
       };
