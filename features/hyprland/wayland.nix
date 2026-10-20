@@ -2,6 +2,8 @@
 {pkgs, ...}: {
   home.sessionVariables = {
     NIXOS_OZONE_WL = "1";
+    # Let Qt apps resolve icons through the GTK theme (Papirus) set below.
+    QT_QPA_PLATFORMTHEME = "gtk3";
   };
 
   home.pointerCursor = {
