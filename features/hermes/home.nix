@@ -345,7 +345,14 @@ in {
     hermesHomeFiles."scripts/peak_price.py" = ./scripts/peak_price.py;
     hermesHomeFiles."scripts/deepseek_budget.py" = ./scripts/deepseek_budget.py;
     hermesHomeFiles."widgets/peak-price.html" = ./widgets/peak-price.html;
-    hermesHomeFiles."desktop-plugins/peak-price/plugin.js" = ./desktop/peak-price/plugin.js;
+    hermesHomeFiles."desktop-plugins/peak-price/plugin.js" =
+      ./plugins/peak-price/desktop/plugin.js;
+    # The same file also ships as the package's desktop half. On startup the app
+    # materialises that half into desktop-plugins itself, so whichever path runs
+    # first the pill is present; keeping both costs one copy and removes the
+    # single point of failure that hid the plugin after the last switch.
+    hermesHomeFiles."plugins/peak-price/desktop/plugin.js" =
+      ./plugins/peak-price/desktop/plugin.js;
     hermesHomeFiles."plugins/peak-price/dashboard/manifest.json" =
       ./plugins/peak-price/dashboard/manifest.json;
     hermesHomeFiles."plugins/peak-price/dashboard/plugin_api.py" =

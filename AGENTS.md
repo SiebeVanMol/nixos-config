@@ -157,10 +157,10 @@ the fix is a line in that file, not a wrapper script.
 The feature folder holds the whole of it: `system.nix` serves the local models,
 `home.nix` installs the agent, and the code that runs beside the agent sits in
 the same directory — `scripts/` (what the cron jobs execute), `widgets/` (chat
-pages), `desktop/` (the status-bar plugin) and `plugins/` (the backend routes
-its card reads), each installed into HERMES_HOME through `hermesHomeFiles`.
-Nothing AI-facing is left to `$HERMES_HOME` alone, since a rebuild cannot
-recreate what the repository does not declare.
+pages) and `plugins/` (packages: each one's desktop half plus the backend
+routes its card reads), each installed into HERMES_HOME through
+`hermesHomeFiles`. Nothing AI-facing is left to `$HERMES_HOME` alone, since a
+rebuild cannot recreate what the repository does not declare.
 
 Language servers are trust-gated, and a server declared under `lsp.servers`
 always is. nixd, rust-analyzer and csharp-ls therefore start only in a
