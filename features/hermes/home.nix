@@ -221,6 +221,15 @@ in {
             base_url = aiEndpoint;
           };
 
+          # The decision model: 0.8B, answers a state plus labelled options with
+          # a probability per option. Not a chat model - an alias here is for
+          # calling it directly, not for a session's main model.
+          kev = {
+            model = osConfig.device.app.ai.modelIds.kev;
+            provider = "custom";
+            base_url = aiEndpoint;
+          };
+
           # The alternative to `local`: the one that fits the card outright with
           # the best tool-calling measured in its size class.
           oss = {

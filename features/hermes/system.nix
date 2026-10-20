@@ -356,6 +356,24 @@ in {
           '';
         };
 
+        # Kev 0.8B: a decision model, not a chat model. It takes a state plus a
+        # set of labelled options and returns calibrated probabilities, which is
+        # what Hermes' effort judge wants (low/medium/high) instead of asking a
+        # 35B to introspect. 812 MB, so it stays resident beside the agent model;
+        # Q8_0 because the whole point is a stable probability, and the BF16 is
+        # twice the size for no gain at this scale.
+        kev = {
+          repo = "ggml-org/Kev-0.8B-GGUF";
+          revision = "9231cb757e3320120077e42e52371971968f008d";
+          file = "Kev-0.8B-Q8_0.gguf";
+          sha256 = "sha256-JyePNOsyc7zupMBT3FDdYaUWHaIacYxKrN+P1YMHcdA=";
+          note = ''
+            The effort judge. Kev answers multiple-choice questions with a
+            probability per option, so a thinking level is a lookup rather than
+            a sampled judgement. Base is Qwen3.5-0.8B.
+          '';
+        };
+
         quick = {
           repo = "unsloth/gemma-4-12B-it-qat-GGUF";
           revision = "980b060c40a8539ac159e0501a3e0f66a6365af3";
