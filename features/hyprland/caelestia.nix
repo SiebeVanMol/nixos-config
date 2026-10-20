@@ -61,6 +61,36 @@ in {
     };
   };
 
+  # The shell leaks. Upstream issue #1927 reports the launcher's app scan taking
+  # RSS to ~900 MB within twenty minutes, and one user at 11 GiB after three days
+  # of uptime; this host's process has already peaked at 1.5 GiB (437 MB resident
+  # at the time of measuring). A daily restart bounds it without capping memory
+  # or killing the shell under the user's hands: at 04:00 nothing is on screen,
+  # the unit restarts in its own environment, and the shell reconnects to the
+  # compositor. Delete this once the pinned version is past the fix - the running
+  # shell was 1.0.0 while the flake already pins 2.5.0, so a rebuild may well
+  # make this redundant.
+  systemd.user.services.caelestia-reload = {
+    Unit = {
+      Description = "Restart caelestia to bound its memory leak";
+      After = ["graphical-session.target"];
+      PartOf = ["graphical-session.target"];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.systemd.user.systemctlPath} --user restart caelestia.service";
+    };
+  };
+
+  systemd.user.timers.caelestia-reload = {
+    Unit = {Description = "Daily caelestia restart";};
+    Timer = {
+      OnCalendar = "*-*-* 04:00:00";
+      Persistent = true;
+    };
+    Install = {WantedBy = ["timers.target"];};
+  };
+
   # Auto-rotate the wallpaper on a timer, like the old swww_randomize loop.
   systemd.user.services.caelestia-wallpaper = {
     Unit = {
