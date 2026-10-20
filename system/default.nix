@@ -35,7 +35,7 @@ in {
     home = "/home/${username}";
     createHome = true;
     extraGroups = ["networkmanager" "wheel" "input" "uinput" "video" "render"];
-    # Hermes Agent's gateway (features/hermes/home.nix) is a systemd user
+    # Hermes Agent's gateway (users/snowyrenard/hermes/home.nix) is a systemd user
     # unit. Without linger systemd stops the user manager at logout and the
     # unit stops with it. Only Snowy runs it, so only Snowy keeps a user
     # manager. `elem` guards the name: on a host that does not list the user,

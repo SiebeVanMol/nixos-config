@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Collect a Hermes usage/spend digest from the agent's own state DB.
 
-Run by the "Hermes usage & spend digest" cron job (see features/hermes/home.nix,
+Run by the "Hermes usage & spend digest" cron job (see users/snowyrenard/hermes/home.nix,
 which installs this file into $HERMES_HOME/scripts/).  stdout is injected into the
 job's prompt, and the agent writes the prose - so this script only has to be
 accurate, not readable.

@@ -9,8 +9,8 @@
 # The machine half is imported here, for every host: the feature's own toggle or
 # option decides whether it does anything. The user half is imported where it
 # belongs - by the user who runs it (`users/<name>/home.nix`) for something
-# personal like hermes, or by `home/core.nix` for something every user has, like
-# the shell - so a feature one person uses never lands in another person's home.
+# personal, or by `home/core.nix` for something every user has, like the shell -
+# so a feature one person uses never lands in another person's home.
 #
 # A feature earns a directory here only by spanning both sides, and the test is
 # "one fact, one place" rather than size: `device.shell.program` is one line of
@@ -24,7 +24,6 @@
 # both halves and its machine half must be imported below.
 {
   imports = [
-    ./hermes/system.nix
     ./shell/system.nix
     ./hyprland/system.nix
   ];

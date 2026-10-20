@@ -7,7 +7,7 @@
     ./browser.nix
     ./programs.nix
     ./wallpapers.nix
-    ../../features/hermes/home.nix
+    ./hermes/home.nix
   ];
 
   xdg.mimeApps = {

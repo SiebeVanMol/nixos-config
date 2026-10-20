@@ -38,8 +38,8 @@
     };
 
     # Nous Research's agent harness. Imported per-user (see
-    # features/hermes/home.nix) rather than for every user: it is an agent
-    # for one person, whose credentials and memory belong to that person.
+    # users/snowyrenard/hermes/home.nix) rather than for every user: it is an
+    # agent for one person, whose credentials and memory belong to that person.
     # nixpkgs follows the top-level input so uv2nix resolves against the same
     # package set instead of a second pinned copy.
     hermes-agent = {
@@ -223,9 +223,8 @@
     # rebuild, which continues to carry Home Manager with it.
     #
     # Taken from the NixOS side rather than assembled again for two reasons:
-    # `features/hermes/home.nix` reads `osConfig` (the local model ids and
-    # the loopback port), which only exists inside a NixOS evaluation, and a
-    # second module list would be free to drift from the first.
+    # one host's module list is the authoritative one, and a second module list
+    # would be free to drift from it.
     #
     # Both entry points write the same Home Manager generation directory, so
     # whichever ran last wins - harmless while the derivation is identical,

@@ -6,7 +6,7 @@
 # one option instead of two edits: `device.shell.program`.
 #
 # The option is data the Home Manager half reads through `osConfig`, the same way
-# features/hermes/home.nix reads the model server. That is deliberate: the value
+# the shell's own home module reads the program. That is deliberate: the value
 # has to be identical on both sides, and two options with the same meaning is how
 # they end up disagreeing.
 #

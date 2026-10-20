@@ -153,10 +153,25 @@ the same options are not re-argued from scratch.
   the 35B/12B/20B chat models, the router, the title server, the presets and
   the `ai.lan` vhost were removed from `features/hermes/system.nix`, and the
   aliases, cron default, delegation target and aux slots from `home.nix`.
-  `ai.enable` now means "run the effort judge" - Kev-0.8B on the CPU, 812 MB,
-  no VRAM. The old pins are in git history if a model is ever wanted back.
+  `ai.enable` meant "run the effort judge" for a while - Kev-0.8B on the CPU,
+  812 MB, no VRAM - and since 2026-10-20 (below) it means nothing: the judge is
+  gone and `device.app.ai` with it. The old pins are in git history if a model is
+  ever wanted back.
 
 ## Recently done (do not re-do)
+
+- **llama.cpp is off this machine entirely (2026-10-20).** Both servers went: the
+  Kev-0.8B effort judge on 8080 (its `features/hermes/system.nix` and the
+  `device.app.ai` option are deleted) and the bundled Vulkan runtime Hermes
+  spawned on 18434 for the old `llamacpp` provider. The `effortless-hermes` effort
+  plugin went with them - it had nobody left to ask - so per-turn effort is fixed
+  per model again, declared as `agent.reasoning_overrides.deepseek-flash = "low"`
+  in `users/snowyrenard/hermes/home.nix`. With no machine half left the feature
+  directory was retired: the agent's module, `scripts/`, `widgets/` and `plugins/`
+  now sit under `users/snowyrenard/hermes/`, imported by
+  `users/snowyrenard/home.nix`, and nothing reads `osConfig` for the agent.
+  The 22 GB Qwen3.6-35B gguf and its mmproj under `~/.hermes/models` were deleted
+  with it; all of this is in git history if a local model is ever wanted back.
 
 - Overlays are applied where their package is used, not by the host. `flake.nix` no
   longer has a per-host `overlays = [...]` list: `system/server/media/{seerr,soularr,
@@ -381,8 +396,8 @@ the same options are not re-argued from scratch.
   `home/desktop-apps.nix`; `btop` deliberately left per-user.
 - `reclaim.nix` takes its `/Vault` paths from `lib/media.nix`, and its weekly
   "unfinished fragments" figure now counts all three incomplete trees it sweeps.
-- The llama-server endpoint is derived from `device.app.ai.port` instead of being
-  written three times in `features/hermes/home.nix`.
+- The llama-server endpoint was derived from the option that owned its port
+  instead of being written three times; the option went with llama.cpp below.
 - SeerrNG service keys are asserted once per boot for every app, not once per
   link (`system/server/media/servarr-sync.py`).
 - Host feature toggles are declared by the module that owns them: a file in

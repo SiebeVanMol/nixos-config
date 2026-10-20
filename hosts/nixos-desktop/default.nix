@@ -39,11 +39,6 @@
       workout.enable = true;
       jellyfin.enable = true;
       music.enable = true;
-      # The local effort judge: Kev-0.8B on the CPU, 812 MB of RAM and no VRAM,
-      # so it can stay on while the card goes to games. The agent itself runs on
-      # DeepSeek; features/hermes/home.nix switches the effort plugin off on a
-      # host without this flag, since there would be nobody to ask.
-      ai.enable = true;
       minecraft.enable = false;
       virtualization.enable = true;
     };
