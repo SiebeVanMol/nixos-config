@@ -21,7 +21,9 @@ for.
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
+import statistics
 import sys
 import time
 from collections import defaultdict
@@ -219,6 +221,162 @@ def candidate_prices(mix, deadline: float, current_model: str) -> tuple[list[dic
     return priced, unpriced
 
 
+# ── cost per task ─────────────────────────────────────────────────────────────
+#
+# The price tables above answer "what does a million tokens cost". This section
+# answers the question that decides a model: what does one task cost, after the
+# tokens that model actually needed. A task is a top-level session; subagent
+# sessions roll into the session that spawned them, because the work was done
+# for that task. Tokens per task is input + output + cache reads - the same sum
+# the cost is built from - so a model with cheaper rates but more turns cannot
+# look artificially good.
+
+CORRECTION_RE = re.compile(
+    r"^(?:no\b|nope\b|wrong\b|incorrect\b|stop\b|undo\b|revert\b|again\b|"
+    r"that'?s not\b|not what\b|actually\b|still (?:broke|fails|failing|broken)\b|"
+    r"why did\b|you didn'?t\b|it (?:broke|fails|failed)\b)",
+    re.I,
+)
+TOOL_ERROR_RE = re.compile(
+    r'"success":\s*false|Traceback \(most recent call last\)|command not found|no such file|\berror:',
+    re.I,
+)
+MAX_CORRECTION_CHARS = 240  # a long user message is new instructions, not a correction
+
+
+def root_of(parent_of: dict[str, str | None], sid: str) -> str:
+    seen: set[str] = set()
+    while True:
+        parent = parent_of.get(sid)
+        if not parent or sid in seen:
+            return sid
+        seen.add(sid)
+        sid = parent
+
+
+def task_panel(con: sqlite3.Connection, rows: list[sqlite3.Row]) -> None:
+    sessions = {
+        r["id"]: r
+        for r in con.execute("select id, parent_session_id, title from sessions")
+    }
+    parent_of = {sid: (r["parent_session_id"] or None) for sid, r in sessions.items()}
+
+    # Spend per session from the window's usage rows, then rolled up the tree:
+    # a subagent's tokens are part of the task it was dispatched for.
+    tasks: dict[str, dict] = defaultdict(lambda: defaultdict(float))
+    model_calls: dict[tuple[str, str], float] = defaultdict(float)
+    for r in rows:
+        root = root_of(parent_of, r["session_id"])
+        agg = tasks[root]
+        agg["cost"] += r["estimated_cost_usd"] or 0.0
+        agg["calls"] += r["api_call_count"] or 0
+        agg["input"] += r["input_tokens"] or 0
+        agg["output"] += r["output_tokens"] or 0
+        agg["cache"] += r["cache_read_tokens"] or 0
+        model_calls[(root, r["model"] or "?")] += r["api_call_count"] or 0
+
+    # Turns, corrections and tool failures, mapped onto the same tree. User
+    # turns count only in the root session: a subagent's prompt is not a turn
+    # the operator took.
+    sid_root = {sid: root_of(parent_of, sid) for sid in sessions}
+    msg: dict[str, dict] = defaultdict(lambda: defaultdict(float))
+    last_role: dict[str, str] = {}
+    for r in con.execute("select session_id, role, content from messages order by timestamp"):
+        root = sid_root.get(r["session_id"])
+        if root is None:
+            continue
+        content = r["content"] or ""
+        if r["session_id"] == root and r["role"] == "user":
+            msg[root]["user"] += 1
+            if msg[root]["user"] > 1 and len(content) <= MAX_CORRECTION_CHARS and CORRECTION_RE.match(content.strip()):
+                msg[root]["corr"] += 1
+        elif r["role"] == "tool":
+            msg[root]["tools"] += 1
+            if TOOL_ERROR_RE.search(content):
+                msg[root]["errs"] += 1
+        if r["session_id"] == root:
+            last_role[root] = r["role"]
+
+    def title(root: str) -> str:
+        row = sessions.get(root)
+        name = (row["title"] if row else "") or root
+        return name[:40]
+
+    print("\n## cost per task (a task is a session; subagent sessions roll into it)")
+    print("  task                                      cost   calls  tok/task  cache%  corr  err%  deliv")
+    for root, t in sorted(tasks.items(), key=lambda kv: -kv[1]["cost"])[:8]:
+        tok = t["input"] + t["output"] + t["cache"]
+        cache_pct = 100 * t["cache"] / tok if tok else 0.0
+        m = msg[root]
+        err = 100 * m["errs"] / m["tools"] if m["tools"] else 0.0
+        delivered = "yes" if last_role.get(root) == "assistant" else "no"
+        print(
+            f"  {title(root):<40} {money(t['cost']):>8} {int(t['calls']):>6} {human(tok):>8} "
+            f"{cache_pct:5.0f}% {int(m['corr']):>5} {err:4.0f}%  {delivered}"
+        )
+
+    paid = sorted(v["cost"] for v in tasks.values() if v["cost"] > 0)
+    if paid:
+        def pct(q: float) -> float:
+            return paid[min(len(paid) - 1, int(len(paid) * q))]
+
+        top5_share = 100 * sum(sorted(paid, reverse=True)[:5]) / sum(paid)
+        calls = [v["calls"] for v in tasks.values() if v["calls"]]
+        toks = [(v["input"] + v["output"] + v["cache"]) for v in tasks.values() if v["calls"]]
+        print(
+            f"\n  {len(paid)} tasks spent tokens; median {money(pct(0.5))}, p75 {money(pct(0.75))}, "
+            f"p90 {money(pct(0.9))}, max {money(paid[-1])}"
+        )
+        print(
+            f"  top 5 tasks = {top5_share:.0f}% of spend; median calls/task {int(statistics.median(calls))}, "
+            f"tokens/task {human(statistics.median(toks))}"
+        )
+
+    # One row per model: the A/B instrument. A task lands on the model that
+    # served most of its calls, so a task that escalated mid-way is not counted
+    # twice and does not distort either arm.
+    dominant: dict[str, tuple[float, str]] = {}
+    for (root, model), calls in model_calls.items():
+        if calls > dominant.get(root, (0.0, ""))[0]:
+            dominant[root] = (calls, model)
+    per_model: dict[str, dict] = defaultdict(lambda: defaultdict(float))
+    for root, t in tasks.items():
+        model = dominant.get(root, (0.0, "?"))[1]
+        agg = per_model[model]
+        m = msg[root]
+        delivered = last_role.get(root) == "assistant"
+        accepted = delivered and m["corr"] == 0
+        agg["tasks"] += 1
+        agg["calls"] += t["calls"]
+        agg["tok"] += t["input"] + t["output"] + t["cache"]
+        agg["cache"] += t["cache"]
+        agg["cost"] += t["cost"]
+        agg["corr"] += m["corr"]
+        agg["tools"] += m["tools"]
+        agg["errs"] += m["errs"]
+        agg["accepted"] += 1 if accepted else 0
+        agg["accepted_cost"] += t["cost"] if accepted else 0.0
+
+    print("\n## cost per accepted task, by model (a task counts once, on its busiest model)")
+    print("  model                        tasks  calls/task  tok/task  cache%   $/task  corr/task  err%  accepted  $/accepted")
+    for model, a in sorted(per_model.items(), key=lambda kv: -kv[1]["cost"]):
+        n = max(int(a["tasks"]), 1)
+        cache_pct = 100 * a["cache"] / a["tok"] if a["tok"] else 0.0
+        err = 100 * a["errs"] / a["tools"] if a["tools"] else 0.0
+        per_accepted = money(a["accepted_cost"] / a["accepted"]) if a["accepted"] else "n/a"
+        print(
+            f"  {model[:28]:<28} {n:>5} {a['calls'] / n:>11.1f} {human(a['tok'] / n):>9} "
+            f"{cache_pct:5.0f}% {money(a['cost'] / n):>8} {a['corr'] / n:>10.2f} {err:4.0f}% "
+            f"{int(a['accepted']):>9}  {per_accepted:>10}"
+        )
+    print(
+        "\n  accepted = the session ended on the agent's own message and no short user turn read as a\n"
+        "  correction. It is a heuristic, not a verdict: it cannot tell a session that finished from\n"
+        "  one that was abandoned quietly. corrections match short turns only - a long user message is\n"
+        "  new instructions. tokens/task is input + output + cache reads, the same sum the cost uses."
+    )
+
+
 def main() -> int:
     if not os.path.exists(DB_PATH):
         print(f"no state DB at {DB_PATH} - nothing to report")
@@ -293,22 +451,8 @@ def main() -> int:
     for task, agg in sorted(by_task.items(), key=lambda kv: -kv[1]["cost"]):
         print(f"  {task}: calls={int(agg['calls'])} cost={money(agg['cost'])}")
 
-    # ── per-session detail ─────────────────────────────────────────────────────
-    session_cost = defaultdict(float)
-    session_calls = defaultdict(int)
-    for r in rows:
-        session_cost[r["session_id"]] += r["estimated_cost_usd"] or 0.0
-        session_calls[r["session_id"]] += r["api_call_count"] or 0
-    print("\n## most expensive sessions")
-    for sid, cost in sorted(session_cost.items(), key=lambda kv: -kv[1])[:5]:
-        meta = con.execute(
-            "select title, model, message_count, tool_call_count, started_at from sessions where id=?",
-            (sid,),
-        ).fetchone()
-        title = (meta["title"] if meta and meta["title"] else sid[:14] + "...")
-        when = stamp(meta["started_at"]).strftime("%m-%d %H:%M") if meta and meta["started_at"] else "?"
-        extra = f"msgs={meta['message_count']} tools={meta['tool_call_count']}" if meta else "session row gone"
-        print(f"  {money(cost):>10}  calls={session_calls[sid]:<4} {when}  {title[:60]}  ({extra})")
+    # ── per-task detail ────────────────────────────────────────────────────────
+    task_panel(con, rows)
 
     # ── component split, priced with the rate card of the real model ───────────
     cloud = [(k, v) for k, v in by_model.items() if k[1] != "local"]
