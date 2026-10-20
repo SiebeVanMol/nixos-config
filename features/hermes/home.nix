@@ -84,20 +84,27 @@ in {
           threshold_tokens = 100000;
         };
 
-        # Per-turn reasoning effort. A plugin judges each prompt with the CPU
-        # title model and rewrites only the effort field of the request, so a
-        # mechanical turn stays at `low` and a debugging turn gets `high` without
-        # changing the session's model or touching the prompt-cache prefix. The
-        # ceiling is `high` on purpose: `max` costs roughly 13x a task for
-        # diminishing returns, and the judge itself runs off the card.
+        # Per-turn reasoning effort. A plugin judges each prompt with Kev-0.8B -
+        # a decision model, so it scores the effort options in one forward pass
+        # (~50 ms on the CPU) instead of writing an answer - and rewrites only
+        # the effort field of the request, so a mechanical turn stays at `low`
+        # and a debugging turn gets `high` without changing the session's model
+        # or touching the prompt-cache prefix. The ceiling is `high` on purpose:
+        # `max` costs roughly 13x a task for diminishing returns.
+        #
+        # Kev speaks TypeSafe's /v1/systemone contract, which is exactly what the
+        # plugin's `jev` backend posts to, so the hosted default is just pointed
+        # at the local router - no shim in between. The backend insists on a
+        # non-empty key before it will call; llama.cpp ignores the bearer, so
+        # EFFORTLESS_HERMES_TYPESAFE_KEY in ~/.config/hermes/env is a placeholder.
         plugins = {
           enabled = ["effortless-hermes"];
           entries.effortless-hermes.settings = {
             enabled = true;
-            judge_backend = "local";
+            judge_backend = "jev";
             fallback_backend = "none";
-            local_base_url = "http://127.0.0.1:8099/v1";
-            local_model = "gemma-4-E2B-it-Q4_K_M";
+            jev_url = "http://127.0.0.1:8080/v1/systemone";
+            jev_model = "Kev-0.8B-Q8_0";
             judge_timeout_seconds = 5;
             effort_floor = "low";
             effort_ceiling = "high";
