@@ -98,7 +98,7 @@ in {
         # non-empty key before it will call; llama.cpp ignores the bearer, so
         # EFFORTLESS_HERMES_TYPESAFE_KEY in ~/.config/hermes/env is a placeholder.
         plugins = {
-          enabled = ["effortless-hermes"];
+          enabled = ["effortless-hermes" "peak-price"];
           entries.effortless-hermes.settings = {
             enabled = true;
             judge_backend = "jev";
