@@ -686,6 +686,11 @@ in {
           "0"
           "--ctx-size"
           "8192"
+          # Thinking off by default: this server answers titles and the effort
+          # judge, both of which want a short answer, and gemma-4-E2B otherwise
+          # spends its budget in reasoning_content and returns empty content.
+          "--reasoning"
+          "off"
           "--host"
           "127.0.0.1"
           "--port"

@@ -84,6 +84,28 @@ in {
           threshold_tokens = 100000;
         };
 
+        # Per-turn reasoning effort. A plugin judges each prompt with the CPU
+        # title model and rewrites only the effort field of the request, so a
+        # mechanical turn stays at `low` and a debugging turn gets `high` without
+        # changing the session's model or touching the prompt-cache prefix. The
+        # ceiling is `high` on purpose: `max` costs roughly 13x a task for
+        # diminishing returns, and the judge itself runs off the card.
+        plugins = {
+          enabled = ["effortless-hermes"];
+          entries.effortless-hermes.settings = {
+            enabled = true;
+            judge_backend = "local";
+            fallback_backend = "none";
+            local_base_url = "http://127.0.0.1:8099/v1";
+            local_model = "gemma-4-E2B-it-Q4_K_M";
+            judge_timeout_seconds = 5;
+            effort_floor = "low";
+            effort_ceiling = "high";
+            effort_bias = 0;
+            feedback_enabled = false;
+          };
+        };
+
         # Reasoning is where this setup's tokens actually go: across every
         # recorded session 517K of the 704K output tokens were reasoning tokens
         # (73%), and output is the priciest class - the input side is already 98%
