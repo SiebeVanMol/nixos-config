@@ -36,6 +36,7 @@
     app = {
       steam.enable = true;
       gamemode.enable = true;
+      workout.enable = true;
       jellyfin.enable = true;
       music.enable = true;
       # The local effort judge: Kev-0.8B on the CPU, 812 MB of RAM and no VRAM,
