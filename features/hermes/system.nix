@@ -198,23 +198,23 @@ in {
 
     maxResidentModels = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 2;
+      default = 1;
       description = ''
         How many models may be loaded at once. 1 keeps the card for whichever
-        model is in use, so switching is a load and an unload. 2 is measured to
-        fit only barely here: the 12B holds 8.2 GiB above the desktop's own
-        ~1.9 GiB and the agent model another 3.5 GiB, i.e. ~13.6 GiB of the
-        14.27 GiB free, leaving nothing for a browser. 1 stayed the default
-        while there were two models.
+        model is in use, so switching is a load and an unload.
 
-        With four it is still 2, and `tiny` is the reason: Hermes asks that model for
-        a session title at the start of every session, and at models-max 1 the
-        request would unload whichever chat model was resident - a title costing
-        a 75 s reload of the agent model on the next turn. The pairs that happen
-        in practice fit: tiny with the agent model is ~6.5 GiB, tiny with the
-        12B ~11.2 GiB. The pair that does not fit is the 12B and the agent model
-        together, which now takes loading both within the fifteen-minute idle
-        window - set this back to 1 to forbid that and accept the reload.
+        2 only looks affordable on paper: the 12B holds 8.2 GiB above the
+        desktop's own ~1.9 GiB and the agent model another 3.5 GiB, i.e.
+        ~13.6 GiB of the 14.27 GiB free - a sum that leaves out the KV cache.
+        Measured against the card, the pair does not fit. With both resident the
+        12B decoded at 15.1 t/s; the same server with the same flags, alone on
+        the card, decoded at 129-147 t/s with its MTP draft head. The 35B at
+        128k alone is 13.2 GiB, so whichever model loads second is the one that
+        lands on the CPU, and it stays there.
+
+        1 is the default for that reason. The cost is one reload per switch: a
+        title request at session start unloads the chat model, and the next turn
+        pays ~75 s to bring the agent model back - once, not per turn.
       '';
     };
 
@@ -534,9 +534,10 @@ in {
         # budget. `cpu-moe` also matched nothing in a dense model, so the 12B
         # is unaffected either way.
         #
-        # The cost is that the split is load-order dependent: with
-        # `models-max = 2`, whichever model loads second fits around the first.
-        # The reproducible form is to read the split the first launch chose
+        # With `models-max = 1` the split no longer depends on load order, which
+        # is the other half of why that is the default: one model owns the card,
+        # so the placement it chooses is the placement it keeps. The
+        # reproducible form is still to read what the first launch chose
         # (`-v` prints `offloaded N/M layers to GPU`) and pin `n-cpu-moe` to it.
         "fit" = "on";
 

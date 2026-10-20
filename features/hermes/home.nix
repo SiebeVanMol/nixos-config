@@ -149,6 +149,10 @@ in {
       # /Vault is ~23 s for the small one and ~75 s for the big one - the second
       # use in a session is seconds, because the page cache kept it.
       #
+      # Those speeds assume the card is the model's alone, which is why
+      # `models-max` is 1: with two resident the small model measured 15 tok/s,
+      # not 62, because the pair does not fit in 16 GiB.
+      #
       # Gated on the service, so a host without it gets neither the aliases nor
       # an endpoint pointing at a port nothing serves.
       // lib.optionalAttrs osConfig.device.app.ai.enable {
