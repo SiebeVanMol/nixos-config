@@ -13,7 +13,7 @@ not depend on the model reporting on itself.
 
   replay-task.py --task add-flag --prompt-file task.md \
       --source ~/nixos-config \
-      --arm deepseek:deepseek-flash --arm llamacpp:Qwen3.6-35B-A3B-UD-Q4_K_M \
+      --arm deepseek:deepseek-flash --arm deepseek:deepseek-v4-pro \
       --verify "./test.sh" --max-turns 60 --run-budget 900
 
 Results are appended to $HERMES_HOME/replay/runs.jsonl and the previous runs of

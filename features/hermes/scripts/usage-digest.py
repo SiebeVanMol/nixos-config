@@ -14,9 +14,8 @@ Every figure comes from one of two places, and the report says which:
     token mix - the same engine behind /usage and /insights.
 
 Nothing here invents a price.  A model whose rates cannot be resolved is printed
-as unpriced rather than guessed at, and that includes the local llama-server
-models, which are reported as $0 because they are - the hardware is already paid
-for.
+as unpriced rather than guessed at.  (Local models used to be priced at $0 by
+that rule; there are none left, since the agent runs on DeepSeek alone.)
 """
 from __future__ import annotations
 

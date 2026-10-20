@@ -24,10 +24,9 @@
   # compilers, and what only the agent needs. See programming.nix.
   programming = import ../../users/snowyrenard/programming.nix {inherit pkgs;};
 
-  # The local server's endpoint, derived from the module that owns the port, so
-  # raising device.app.ai.port moves every client with it. Reading the model ids
-  # from that same option tree is the same rule applied to the names below.
-  aiEndpoint = "http://127.0.0.1:${toString osConfig.device.app.ai.port}/v1";
+  # The judge server's endpoint, derived from the module that owns the port, so
+  # raising device.app.ai.port moves the plugin with it.
+  judgeEndpoint = "http://127.0.0.1:${toString osConfig.device.app.ai.port}/v1/systemone";
 in {
   imports = [
     inputs.hermes-agent.homeManagerModules.default
@@ -71,6 +70,13 @@ in {
           default = "deepseek-flash";
         };
 
+        # One short name for the cloud model, so a session can return to it
+        # without landing on whichever DeepSeek model the built-in alias picks.
+        model_aliases.cloud = {
+          model = "deepseek-flash";
+          provider = "deepseek";
+        };
+
         # The context cap is absolute rather than relative, on purpose. The
         # relative `threshold` fires at half the model's window, so it floats
         # with whatever window the provider advertises - this week's calls
@@ -94,7 +100,7 @@ in {
         #
         # Kev speaks TypeSafe's /v1/systemone contract, which is exactly what the
         # plugin's `jev` backend posts to, so the hosted default is just pointed
-        # at the local router - no shim in between. The backend insists on a
+        # at the local judge server - no shim in between. The backend insists on a
         # non-empty key before it will call; llama.cpp ignores the bearer, so
         # EFFORTLESS_HERMES_TYPESAFE_KEY in ~/.config/hermes/env is a placeholder.
         plugins = {
@@ -103,7 +109,7 @@ in {
             enabled = true;
             judge_backend = "jev";
             fallback_backend = "none";
-            jev_url = "http://127.0.0.1:8080/v1/systemone";
+            jev_url = judgeEndpoint;
             jev_model = "Kev-0.8B-Q8_0";
             judge_timeout_seconds = 5;
             effort_floor = "low";
@@ -130,10 +136,9 @@ in {
         # outright, which is a reasonable choice for a one-shot question and a
         # poor one for a tool loop.
         #
-        # Per-model, not `agent.reasoning_effort`, so the local models are not
-        # sent an effort field: they are reached through a custom base_url, which
-        # receives whatever effort resolves, and llama-server has no use for it.
-        agent.reasoning_overrides."deepseek-flash" = "low";
+        # Per-model, not `agent.reasoning_effort`, so the larger DeepSeek tier
+        # keeps its own default: this line is about the cheap model's mostly
+        # mechanical turns, not about reasoning everywhere.
 
         # C# is the one language he works in that Hermes ships no server for.
         # A config-declared server is gated like nixd and rust-analyzer: it
@@ -150,172 +155,18 @@ in {
           language_id = "csharp";
         };
       }
-      # The host runs its own llama-server in router mode (the system.nix
-      # beside this file) on loopback:8080, serving four models. Naming the endpoint makes them
-      # selectable and not merely detectable: `llamacpp` resolves to this server
-      # instead of depending on the port probe alone, and the aliases give /model
-      # names to switch with. The ids are the router's - one per GGUF file name -
-      # and they are read from the module rather than repeated here, so renaming
-      # a model file cannot leave behind an alias that silently stops resolving.
+      # One host runs the judge server (the system.nix beside this file): Kev on
+      # loopback, 812 MB of RAM, no VRAM. The agent itself runs on DeepSeek alone,
+      # so everything that used to be routed here - the 35B/12B/20B chat models,
+      # cron, delegation, background review, the curator, titles - now goes over
+      # the API. At the recorded $0.0015 a call (556 calls, $0.82 in total) those
+      # models were never the cheaper option; they were the offline one, and they
+      # cost 59 GB of store and ~1,100 lines of wiring to keep.
       #
-      # Aliases rather than a different default, because managed mode refuses
-      # `hermes config set`: a runtime config write is exactly what the next
-      # switch would undo, while an alias resolves per session and writes
-      # nothing. `/model local` is the thinking model, `/model small` the quick
-      # one; the port is device.app.ai.port, so change both together.
-      #
-      # DeepSeek stays the default because the local models are the wrong tool
-      # for anything multi-step: a 12B's wrong tool call costs more than the
-      # round-trip it saves, the failure is silent (a plausible action on the
-      # wrong file), and the local window is 64K against the cloud model's much
-      # larger one, so a long session compresses sooner.
-      #
-      # It is also not the expensive choice at this volume. Recorded usage across
-      # every session so far: 556 calls, 1.20M input tokens, 0.70M output, 74.4M
-      # cache reads - 98% of the prompt volume bills as cache hits, because the
-      # prefix only grows at the end. The estimate for all of it is $0.82, about
-      # $0.0015 a call; the heaviest single session, 193 calls, was $0.33.
-      #
-      # The habit that matters more than the model: switch at a session boundary,
-      # not mid-conversation. A provider's cache is keyed to the model serving the
-      # request, so a mid-session /model change makes the next turn re-read the
-      # whole conversation at cache-miss price - often more than the cloud turn it
-      # was meant to save. `/new` first, then `/model small` for a question, a page
-      # to summarise, a draft; `/model local` for local or offline work where a 35B
-      # is worth 29 tok/s instead of 62.
-      #
-      # Measured on this host after the two models were fetched: `/model local`
-      # decodes at ~29 tok/s holding 5.4 GiB of VRAM (experts in RAM), `/model
-      # small` at ~62 tok/s holding 10 GiB, and `/model small` emits real tool
-      # calls. Both drop the model after 15 minutes idle, and a cold load off
-      # /Vault is ~23 s for the small one and ~75 s for the big one - the second
-      # use in a session is seconds, because the page cache kept it.
-      #
-      # Those speeds assume the card is the model's alone, which is why
-      # `models-max` is 1: with two resident the small model measured 15 tok/s,
-      # not 62, because the pair does not fit in 16 GiB.
-      #
-      # Gated on the service, so a host without it gets neither the aliases nor
-      # an endpoint pointing at a port nothing serves.
-      // lib.optionalAttrs osConfig.device.app.ai.enable {
-        providers.llamacpp.base_url = aiEndpoint;
-
-        # Self-contained (provider + base_url, no credential): an alias is
-        # resolved before any provider is contacted, so selecting one must not
-        # depend on the server being up.
-        model_aliases = {
-          # The cloud model under its own short name, so a session can go back to
-          # it in one command without landing on whichever DeepSeek model the
-          # built-in `deepseek` alias happens to resolve to.
-          cloud = {
-            model = "deepseek-flash";
-            provider = "deepseek";
-          };
-
-          # The 35B MoE with its experts in RAM: a session that has to think.
-          local = {
-            model = osConfig.device.app.ai.modelIds.agent;
-            provider = "custom";
-            base_url = aiEndpoint;
-          };
-
-          # The 12B dense one: a question, a page to summarise, long-form
-          # writing. Multimodal weights, but no projector is served - images are
-          # not wanted, so the vision path stays unwired deliberately.
-          small = {
-            model = osConfig.device.app.ai.modelIds.quick;
-            provider = "custom";
-            base_url = aiEndpoint;
-          };
-
-          # The decision model: 0.8B, answers a state plus labelled options with
-          # a probability per option. Not a chat model - an alias here is for
-          # calling it directly, not for a session's main model.
-          kev = {
-            model = osConfig.device.app.ai.modelIds.kev;
-            provider = "custom";
-            base_url = aiEndpoint;
-          };
-
-          # The alternative to `local`: the one that fits the card outright with
-          # the best tool-calling measured in its size class.
-          oss = {
-            model = osConfig.device.app.ai.modelIds.oss;
-            provider = "custom";
-            base_url = aiEndpoint;
-          };
-        };
-
-        # Scheduled work runs on the local server: it is the traffic that can
-        # wait out a cold load, and per-token price is the whole bill for a job
-        # nobody is waiting on. Resolution at fire time is per-job pin >
-        # cron.model > the main model, so a job that wants the cloud model
-        # keeps its own pin and this default never forces one onto it.
-        #
-        # The 35B rather than the 12B: unattended work has no latency to
-        # protect, and the big one is the lighter of the two in VRAM (5.4 GiB
-        # with its experts in RAM against 10 GiB dense) while being the one
-        # whose tool calls were measured as real.
-        #
-        # `llamacpp` is the provider id, not a second endpoint: it resolves to
-        # custom and takes the base_url from providers.llamacpp above. A cron
-        # job resolves its provider this way - the scheduler has no base_url
-        # field of its own - and `hermes chat --provider llamacpp --model
-        # <quick id>` was run against the live server to prove the pair
-        # resolves and answers with no credential at all.
-        cron = {
-          model = osConfig.device.app.ai.modelIds.agent;
-          model_provider = "llamacpp";
-        };
-
-        # The same reasoning for background work. The fork that files a turn -
-        # memory writes, skill edits - is a routine replay of work the main
-        # model already did, so it does not pay for a frontier model; a session
-        # title needs no model at all. What stays on the cloud is deliberate:
-        # compression blocks the session it is summarising, the approval
-        # classifier decides whether a dangerous command runs, and vision needs
-        # a model that is not served here.
-        # Delegation is the escalation half of the routing design. The driving
-        # model stays the cloud one; the children it spawns run here, free, on the
-        # model that fits the card outright. Measured head-to-head on four
-        # sandboxed tasks with identical prompts and budgets (~/bench): the cloud
-        # model finished 4/4 in 47 s, this one 2/4 in 478 s, and its two failures
-        # were its own claims of success - so it is a worker, not a planner, and
-        # the check decides whether a step escalates, never the model's confidence.
-        #
-        # Concurrency stays at the runtime default: the router serves one model at
-        # a time (`models-max` in the system.nix beside this file), so parallel
-        # children queue behind a single slot rather than finishing faster.
-        delegation = {
-          provider = "llamacpp";
-          model = osConfig.device.app.ai.modelIds.oss;
-        };
-
-        auxiliary = {
-          background_review = {
-            provider = "llamacpp";
-            model = osConfig.device.app.ai.modelIds.agent;
-          };
-
-          curator = {
-            provider = "llamacpp";
-            model = osConfig.device.app.ai.modelIds.agent;
-          };
-
-          # Titles are a 3-7 word task, so they go to the smallest model - the
-          # one `tiny` exists for - and to the CPU-only server that serves it
-          # (port `titlePort` in system.nix). That separation is the point: with
-          # one model resident, a title request on the router would unload the
-          # chat model, and the next turn would pay its ~75 s cold load. On the
-          # CPU a title costs half a second and no VRAM. Hermes' instant derived
-          # title stays the fallback when the small model returns nothing
-          # usable, so a bad title costs a worse title and not a failure.
-          title_generation = {
-            provider = "llamacpp";
-            model = osConfig.device.app.ai.modelIds.tiny;
-            base_url = "http://127.0.0.1:${toString osConfig.device.app.ai.titlePort}/v1";
-          };
-        };
+      # Without the service the plugin has nobody to ask, so it is switched off
+      # rather than timing out on the URL above on every turn.
+      // lib.optionalAttrs (!osConfig.device.app.ai.enable) {
+        plugins.entries.effortless-hermes.settings.enabled = false;
       };
 
     # Secrets travel by runtime path, never as a Nix path literal, which would

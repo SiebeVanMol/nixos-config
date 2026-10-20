@@ -149,14 +149,12 @@ the same options are not re-argued from scratch.
 - `nix flake check` prints a firefox XDG-path deprecation warning. It comes from
   the third-party zen-browser module's use of home-manager's legacy
   `configPath`, not from anything in this repo.
-- The llama-server on `nixos-desktop` is **deliberately off**
-  (`hosts/nixos-desktop/default.nix`, `ai.enable = false`): a model holds its
-  weights on the card for the fifteen-minute idle window after any request, and
-  the owner wanted that VRAM back. It is a switch away from coming back, and
-  nothing in `features/hermes/home.nix` needed editing because the whole
-  local block (endpoint, aliases, cron default, aux slots) is gated on that flag.
-  If it is re-enabled, the open question to measure is what still wakes it with
-  no one asking - title generation at session start is the known one.
+- The local model stack is **gone as of the DeepSeek switch** (2026-10-20):
+  the 35B/12B/20B chat models, the router, the title server, the presets and
+  the `ai.lan` vhost were removed from `features/hermes/system.nix`, and the
+  aliases, cron default, delegation target and aux slots from `home.nix`.
+  `ai.enable` now means "run the effort judge" - Kev-0.8B on the CPU, 812 MB,
+  no VRAM. The old pins are in git history if a model is ever wanted back.
 
 ## Recently done (do not re-do)
 

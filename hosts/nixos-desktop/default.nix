@@ -38,17 +38,10 @@
       gamemode.enable = true;
       jellyfin.enable = true;
       music.enable = true;
-      # The local agent models: this host has the GPU for it, the others do not.
-      #
-      # Off for a day at the owner's request, because any request woke a model
-      # and held its weights on the card for the whole fifteen-minute idle
-      # window (`sleep-idle-seconds` in features/hermes/system.nix) - VRAM this machine
-      # wants back while it is being used for something else. Back on with that
-      # window cut to five minutes, which is the compromise the same complaint
-      # asks for: a model still sleeps, it just stops costing the card ten
-      # minutes earlier. Everything else stayed declared while it was off, and
-      # features/hermes/home.nix gates its llamacpp endpoint, model aliases,
-      # local cron default and the local aux slots on this one flag.
+      # The local effort judge: Kev-0.8B on the CPU, 812 MB of RAM and no VRAM,
+      # so it can stay on while the card goes to games. The agent itself runs on
+      # DeepSeek; features/hermes/home.nix switches the effort plugin off on a
+      # host without this flag, since there would be nobody to ask.
       ai.enable = true;
       minecraft.enable = false;
       virtualization.enable = true;
