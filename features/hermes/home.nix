@@ -71,6 +71,19 @@ in {
           default = "deepseek-flash";
         };
 
+        # The context cap is absolute rather than relative, on purpose. The
+        # relative `threshold` fires at half the model's window, so it floats
+        # with whatever window the provider advertises - this week's calls
+        # averaged 191k of context, which is what a large window plus a relative
+        # trigger produces. Cache reads are ~39% of the bill and they grow with
+        # the prefix, so this is the one setting that lowers spend without
+        # touching quality: sessions now compress near 100k instead of near
+        # 200k, and the extra summarisation call costs a fraction of the cache
+        # it saves. It also keeps a future model's cheap cache tier in reach.
+        compression = {
+          threshold_tokens = 100000;
+        };
+
         # Reasoning is where this setup's tokens actually go: across every
         # recorded session 517K of the 704K output tokens were reasoning tokens
         # (73%), and output is the priciest class - the input side is already 98%
