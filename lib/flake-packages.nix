@@ -7,6 +7,8 @@
 # commands drive stays Python - the nushell part is the wrapper that gives it its
 # PYTHONPATH and defaults.
 {pkgs}: let
+  lib = pkgs.lib;
+
   # The shared *arr client every media script imports; on PYTHONPATH via the
   # wrapper each writer builds (lib/arr-client.nix explains the mechanism).
   arrClient = import ./arr-client.nix {inherit pkgs;};
@@ -15,38 +17,36 @@
   # the one consumer that cannot take them from a host's configuration: these
   # commands run outside any host. Passed with --set-default, so pointing a run
   # at a different file still wins.
-  arrAppsJSON = pkgs.writeText "arr-apps.json" (import ./arr-apps.nix {lib = pkgs.lib;}).scriptsJSON;
+  arrAppsJSON = pkgs.writeText "arr-apps.json" (import ./arr-apps.nix {inherit lib;}).scriptsJSON;
 
-  # The Python each command wraps. Built here rather than in the wrapper text so a
-  # `.nu` file holds no store path and stays ordinary nushell.
-  exportPython = pkgs.writers.writePython3Bin "servarr-sync-export" {
-    flakeIgnore = ["E501"];
-    makeWrapperArgs = ["--set" "PYTHONPATH" "${arrClient}"];
-  } (builtins.readFile ../system/server/media/servarr-sync.py);
+  # The environment the two commands that converse with the applications need.
+  # `servarr-sync-export` takes the PYTHONPATH alone: it reads the databases, not
+  # the application list.
+  arrEnv = [
+    "--set"
+    "PYTHONPATH"
+    "${arrClient}"
+    "--set-default"
+    "ARR_APPS"
+    "${arrAppsJSON}"
+  ];
 
-  sweepPython = pkgs.writers.writePython3Bin "servarr-sweep" {
-    flakeIgnore = ["E501"];
-    makeWrapperArgs = [
-      "--set"
-      "PYTHONPATH"
-      "${arrClient}"
-      "--set-default"
-      "ARR_APPS"
-      "${arrAppsJSON}"
-    ];
-  } (builtins.readFile ../system/server/media/servarr-sweep.py);
+  # The Python each command wraps, built here rather than in the wrapper text so a
+  # `.nu` file holds no store path and stays ordinary nushell. Only the
+  # environment differs between them, so that is the argument and the writer
+  # boilerplate lives once.
+  pythonBin = name: script: makeWrapperArgs:
+    pkgs.writers.writePython3Bin name {
+      flakeIgnore = ["E501"];
+      inherit makeWrapperArgs;
+    } (builtins.readFile script);
 
-  recodePython = pkgs.writers.writePython3Bin "media-recode" {
-    flakeIgnore = ["E501"];
-    makeWrapperArgs = [
-      "--set"
-      "PYTHONPATH"
-      "${arrClient}"
-      "--set-default"
-      "ARR_APPS"
-      "${arrAppsJSON}"
-    ];
-  } (builtins.readFile ../system/server/media/media-recode.py);
+  # A nushell command that reaches one built program on PATH: the PATH prefix is
+  # the whole of the Nix it needs.
+  nuWrap = name: script: program:
+    pkgs.writers.writeNuBin name {
+      makeWrapperArgs = ["--prefix" "PATH" ":" (lib.makeBinPath [program])];
+    } (builtins.readFile script);
 
   # `writeNuBin` takes no `meta`, and `nix run .#tasks` reads `meta.description`
   # for every task it lists, so the description is attached here.
@@ -58,16 +58,20 @@
           inherit description;
         };
     });
+
+  # The three wrapped commands. They stay in this `let` rather than becoming
+  # flake outputs: `nix run .#tasks` lists everything in `packages.<system>`, and
+  # these are the Python behind a nushell command, not a command to run by hand.
+  exportPython =
+    pythonBin "servarr-sync-export" ../system/server/media/servarr-sync.py ["--set" "PYTHONPATH" "${arrClient}"];
+  sweepPython = pythonBin "servarr-sweep" ../system/server/media/servarr-sweep.py arrEnv;
+  recodePython = pythonBin "media-recode" ../system/server/media/media-recode.py arrEnv;
 in {
   # Format the tree, then nixos-rebuild, filling in --flake and adding sudo only
   # for the subcommands that need it. `nix` comes from the wrapper's PATH;
   # `nixos-rebuild` and `sudo` deliberately come from the caller's, so the command
   # rebuilds the running system rather than a pinned copy of it.
-  rebuild = describe "format the tree, then nixos-rebuild with --flake filled in (sudo for switch/test/boot)" (
-    pkgs.writers.writeNuBin "rebuild" {
-      makeWrapperArgs = ["--prefix" "PATH" ":" (pkgs.lib.makeBinPath [pkgs.nix])];
-    } (builtins.readFile ./rebuild.nu)
-  );
+  rebuild = describe "format the tree, then nixos-rebuild with --flake filled in (sudo for switch/test/boot)" (nuWrap "rebuild" ./rebuild.nu pkgs.nix);
 
   # Read-only dump of the two services whose configuration lives only in their own
   # databases (Prowlarr's indexers and SeerrNG's service links). Both APIs are
@@ -82,7 +86,7 @@ in {
       "--prefix"
       "PATH"
       ":"
-      (pkgs.lib.makeBinPath [pkgs.nix pkgs.git pkgs.coreutils])
+      (lib.makeBinPath [pkgs.nix pkgs.git pkgs.coreutils])
     ];
   } (builtins.readFile ./tasks.nu);
 
@@ -95,11 +99,7 @@ in {
     import ./overlay-updater.nix {inherit pkgs;}
   );
 
-  servarr-export = describe "dump Prowlarr indexers and Seerr service links as a Nix snippet (sudo, read-only)" (
-    pkgs.writers.writeNuBin "servarr-export" {
-      makeWrapperArgs = ["--prefix" "PATH" ":" (pkgs.lib.makeBinPath [exportPython])];
-    } (builtins.readFile ./servarr-export.nu)
-  );
+  servarr-export = describe "dump Prowlarr indexers and Seerr service links as a Nix snippet (sudo, read-only)" (nuWrap "servarr-export" ./servarr-export.nu exportPython);
 
   # One-off "go and find better rips" sweep: ask each *arr application to search
   # its indexers for better releases of the whole library. Houndarr does the same
@@ -108,11 +108,7 @@ in {
   #   sudo nix run .#servarr-sweep -- --apply           # one search every 10s
   # Root because the API keys live in 0700 config files. The pacing matters: each
   # search reaches every indexer and the public trackers rate-limit bursts.
-  servarr-sweep = describe "ask every *arr app to search for better releases of the whole library (sudo; --apply to act)" (
-    pkgs.writers.writeNuBin "servarr-sweep" {
-      makeWrapperArgs = ["--prefix" "PATH" ":" (pkgs.lib.makeBinPath [sweepPython])];
-    } (builtins.readFile ./servarr-sweep.nu)
-  );
+  servarr-sweep = describe "ask every *arr app to search for better releases of the whole library (sudo; --apply to act)" (nuWrap "servarr-sweep" ./servarr-sweep.nu sweepPython);
 
   # Temporary space measure: re-encode the library's over-encoded tail (remuxes),
   # measured by bits-per-pixel rather than a hand-written list, and refresh each
@@ -121,20 +117,23 @@ in {
   #   sudo nix run .#media-recode -- --apply   # needs ffmpeg with the encoder
   # Dry run by default; refuses an output that is not meaningfully smaller or
   # whose duration moved - see the module docstring.
+  #
+  # ffmpeg rides on the PATH and gets a second entry: it dlopen()s AMD's AMF
+  # runtime rather than linking it, so --encoder av1_amf (and hevc_amf) fail with
+  # "cannot load AMF runtime" without it on the loader path, leaving only the
+  # weaker VAAPI option. That extra pair is why this one keeps its own wrapper
+  # instead of `nuWrap`.
   media-recode = describe "re-encode the library's over-encoded tail, measured by bits-per-pixel (sudo; --apply to act)" (
     pkgs.writers.writeNuBin "media-recode" {
-      # ffmpeg dlopen()s AMD's AMF runtime rather than linking it, so --encoder
-      # av1_amf (and hevc_amf) fail with "cannot load AMF runtime" without it on
-      # the loader path, leaving only the weaker VAAPI option.
       makeWrapperArgs = [
         "--prefix"
         "PATH"
         ":"
-        (pkgs.lib.makeBinPath [recodePython pkgs.ffmpeg])
+        (lib.makeBinPath [recodePython pkgs.ffmpeg])
         "--prefix"
         "LD_LIBRARY_PATH"
         ":"
-        (pkgs.lib.makeLibraryPath [pkgs.amf])
+        (lib.makeLibraryPath [pkgs.amf])
       ];
     } (builtins.readFile ./media-recode.nu)
   );
