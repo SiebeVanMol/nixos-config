@@ -1,8 +1,94 @@
 # Helix editor with LSP servers (nixd, rust-analyzer, clangd, zls, markdown-oxide, harper, typos).
-{pkgs, ...}: let
+{
+  pkgs,
+  lib,
+  ...
+}: let
   # The servers he programs with have one home: programming.nix. What is left
   # here is editor-only - spell and typo checkers, and the tree-sitter grammars.
   programming = import ./programming.nix {inherit pkgs;};
+
+  # Harper (the grammar and spell checker) attached to every language it can
+  # parse: prose, and the comments of most programming languages. The keys are
+  # Helix language names, the values are the servers Helix itself would start for
+  # that language, copied from Helix 25.07.1's languages.toml.
+  #
+  # The copying is the price of the feature, not laziness: a `[[language]]` entry
+  # *replaces* a language's `language-servers` and Helix has no way to append one,
+  # so every default server has to be restated beside harper. Harper's own Helix
+  # page says as much. A default that upstream adds or renames must be changed
+  # here too, or that language silently loses it; `hx --health <language>` prints
+  # what the editor actually ends up running.
+  #
+  # Only languages Harper can parse are listed - attaching it to any other would
+  # start a process that never reports anything.
+  harperLanguages = {
+    c = ["clangd"];
+    clojure = ["clojure-lsp"];
+    cmake = ["neocmakelsp" "cmake-language-server"];
+    cpp = ["clangd"];
+    dart = ["dart"];
+    elixir = ["elixir-ls"];
+    git-commit = [];
+    gleam = ["gleam"];
+    go = ["gopls" "golangci-lint-lsp"];
+    groovy = [];
+    haskell = ["haskell-language-server"];
+    html = ["vscode-html-language-server" "superhtml"];
+    ink = [];
+    java = ["jdtls"];
+    javascript = ["typescript-language-server"];
+    jjdescription = [];
+    jsx = ["typescript-language-server"];
+    kotlin = ["kotlin-language-server"];
+    latex = ["texlab"];
+    lua = ["lua-language-server"];
+    mail = [];
+    markdown = ["marksman" "markdown-oxide"];
+    nix = ["nil" "nixd"];
+    org = [];
+    php = ["intelephense"];
+    powershell = [];
+    python = ["ty" "ruff" "jedi" "pylsp"];
+    ruby = ["ruby-lsp" "solargraph"];
+    rust = ["rust-analyzer"];
+    scala = ["metals"];
+    solidity = ["solc"];
+    swift = ["sourcekit-lsp"];
+    toml = ["taplo" "tombi"];
+    tsx = ["typescript-language-server"];
+    typescript = ["typescript-language-server"];
+    typst = ["tinymist"];
+    zig = ["zls"];
+
+    # The shell is the one language Harper knows under another id: Helix sends
+    # "bash", Harper expects "shellscript". The override is in `languageEntry`.
+    bash = ["bash-language-server"];
+  };
+
+  # One `[[language]]` entry per name above. harper comes first because
+  # diagnostics are merged across servers while every other feature falls through
+  # to the next server that supports it, so its position costs the neighbours
+  # nothing.
+  languageEntry = name: let
+    tabbed = name == "c" || name == "cpp";
+  in
+    {
+      inherit name;
+      language-servers =
+        ["harper"]
+        ++ harperLanguages.${name}
+        ++ lib.optional (name == "nix" || name == "rust") "typos";
+    }
+    // lib.optionalAttrs tabbed {
+      indent = {
+        unit = "\t";
+        tab-width = 4;
+      };
+    }
+    // lib.optionalAttrs (name == "bash") {
+      language-id = "shellscript";
+    };
 in {
   home.sessionVariables.EDITOR = "hx";
 
@@ -80,34 +166,7 @@ in {
         command = "${typos-lsp}/bin/typos-lsp";
       };
 
-      language = [
-        {
-          name = "c";
-          indent = {
-            unit = "\t";
-            tab-width = 4;
-          };
-        }
-        {
-          name = "cpp";
-          indent = {
-            unit = "\t";
-            tab-width = 4;
-          };
-        }
-        {
-          name = "rust";
-          language-servers = ["harper" "typos" "rust-analyzer"];
-        }
-        {
-          name = "markdown";
-          language-servers = ["harper" "markdown-oxide"];
-        }
-        {
-          name = "nix";
-          language-servers = ["harper" "typos" "nixd"];
-        }
-      ];
+      language = map languageEntry (builtins.attrNames harperLanguages);
     };
   };
 }
