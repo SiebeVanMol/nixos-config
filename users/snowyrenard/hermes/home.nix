@@ -213,13 +213,15 @@ in {
     hermesHomeFiles."scripts/peak_price.py" = ./scripts/peak_price.py;
     hermesHomeFiles."scripts/deepseek_budget.py" = ./scripts/deepseek_budget.py;
     hermesHomeFiles."widgets/peak-price.html" = ./widgets/peak-price.html;
+    # One door, not two. The app materialises a package's `desktop/` half into
+    # `desktop-plugins/` and, while doing it, writes `.hermes-package.json`
+    # beside the copy - and a directory carrying that file is treated as an
+    # opt-in package and starts DISABLED. Shipping the file both ways therefore
+    # failed at exactly the thing the second copy was meant to fix: the copy and
+    # the package half each got a marker, no enabled copy was left, and the pill
+    # vanished. The plain door below carries no marker and stays enabled, so
+    # `plugins/peak-price/desktop/` must never be declared again.
     hermesHomeFiles."desktop-plugins/peak-price/plugin.js" =
-      ./plugins/peak-price/desktop/plugin.js;
-    # The same file also ships as the package's desktop half. On startup the app
-    # materialises that half into desktop-plugins itself, so whichever path runs
-    # first the pill is present; keeping both costs one copy and removes the
-    # single point of failure that hid the plugin after the last switch.
-    hermesHomeFiles."plugins/peak-price/desktop/plugin.js" =
       ./plugins/peak-price/desktop/plugin.js;
     hermesHomeFiles."plugins/peak-price/dashboard/manifest.json" =
       ./plugins/peak-price/dashboard/manifest.json;
