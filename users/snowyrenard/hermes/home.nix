@@ -117,6 +117,52 @@ in {
       # mechanical turns, not about reasoning everywhere.
       agent.reasoning_overrides.deepseek-flash = "low";
 
+      # Retiring a model takes a second step that deleting its setting does not
+      # take: activation deep-merges these values into the config.yaml already on
+      # disk, and a merge overrides a key but never removes one. The llama.cpp era
+      # left `delegation`, `auxiliary`, `cron` and five model aliases pointing at
+      # 127.0.0.1:8080, so removing the server from this file left delegated work,
+      # curator passes, cron turns and title generation still calling a port that
+      # no longer answers - which is how `delegate_task` came to fail on a model
+      # that had been deleted from the flake. Each is therefore declared again,
+      # aimed at DeepSeek instead of deleted.
+      #
+      # `base_url` is spelled out for title generation because the merge keeps the
+      # sub-keys it is not given: that entry still carries :8099 from the old
+      # stack, and leaving it out would leave a working provider pointed at a dead
+      # port. The aliases themselves and `providers.llamacpp` are still in the
+      # file - nothing selects them, and only a hand edit or `hermes config unset`
+      # (refused under managed mode) can delete a key.
+      delegation = {
+        provider = "deepseek";
+        model = "deepseek-flash";
+      };
+
+      # The cheap-model half of the agent: a session title, a curator pass, a
+      # background review. These ran locally because local was free.
+      auxiliary = {
+        title_generation = {
+          provider = "deepseek";
+          model = "deepseek-flash";
+          base_url = "https://api.deepseek.com/v1";
+        };
+        curator = {
+          provider = "deepseek";
+          model = "deepseek-flash";
+        };
+        background_review = {
+          provider = "deepseek";
+          model = "deepseek-flash";
+        };
+      };
+
+      # cron keeps its own model pair rather than reading the session default, so
+      # it needs the same treatment or every scheduled turn dials the dead port.
+      cron = {
+        model = "deepseek-flash";
+        model_provider = "deepseek";
+      };
+
       # C# is the one language he works in that Hermes ships no server for.
       # A config-declared server is gated like nixd and rust-analyzer: it
       # starts only in a workspace the operator pointed Hermes at - a session
