@@ -151,6 +151,13 @@ in {
     # touch.
     hermesHomeFiles."scripts/usage-digest.py" = ./scripts/usage-digest.py;
 
+    # The state path, the tool-error markers and the two formatters the digest
+    # and the replay harness share. It has to land beside them: python puts the
+    # running script's directory on sys.path, so `import hermes_state` resolves
+    # with no PYTHONPATH - and with this line removed the next rebuild leaves
+    # both scripts failing on that import at runtime.
+    hermesHomeFiles."scripts/hermes_state.py" = ./scripts/hermes_state.py;
+
     # Peak-price and credit watch, as one feature: the two scripts the cron jobs
     # run, the chat widget, the status-bar pill and the backend route its hover
     # card reads. Every piece used to live only in $HERMES_HOME, which meant a

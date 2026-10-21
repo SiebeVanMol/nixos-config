@@ -21,8 +21,11 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-STATE = Path.home() / ".hermes/state/deepseek-budget.json"
-ENV_FILES = [Path.home() / ".hermes/.env", Path.home() / ".config/hermes/env"]
+# HERMES_HOME as the agent resolves it; the other env file is Hermes' own fixed
+# location for the API key (managed by the NixOS config, not by HERMES_HOME).
+HERMES_HOME = Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes")
+STATE = HERMES_HOME / "state/deepseek-budget.json"
+ENV_FILES = [HERMES_HOME / ".env", Path.home() / ".config/hermes/env"]
 
 LOW_BALANCE = 1.00      # dollars — warn when the credit drops below this
 FAST_BURN = 1.00        # dollars in 24h — warn when a day costs more than this

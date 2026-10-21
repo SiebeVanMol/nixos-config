@@ -28,8 +28,10 @@ import time
 from collections import defaultdict
 from datetime import datetime
 
-HERMES_HOME = os.environ.get("HERMES_HOME") or os.path.expanduser("~/.hermes")
-DB_PATH = os.path.join(HERMES_HOME, "state.db")
+# Where state.db lives, what a failed tool result looks like, and the two
+# formatters: all four had a copy in each script and the copies had drifted.
+from hermes_state import DB_PATH, connect, human, is_tool_error, money
+
 DAYS = 7
 BUDGET_S = 25.0  # the scheduler hard-interrupts a run at 3 minutes; stay well inside
 
@@ -72,28 +74,6 @@ except Exception as exc:  # pragma: no cover - depends on the interpreter
             pass
 else:
     IMPORT_ERROR = None
-
-
-def human(n: int | float) -> str:
-    for unit, div in (("B", 1e9), ("M", 1e6), ("K", 1e3)):
-        if abs(n) >= div:
-            return f"{n / div:.2f}{unit}"
-    return f"{int(n)}"
-
-
-def money(amount) -> str:
-    value = float(amount)
-    if value == 0:
-        return "$0"
-    if value < 0.01:
-        return f"${value:.6f}"
-    return f"${value:.4f}"
-
-
-def connect() -> sqlite3.Connection:
-    con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
-    con.row_factory = sqlite3.Row
-    return con
 
 
 def window_rows(con: sqlite3.Connection, start: float, end: float) -> list[sqlite3.Row]:
@@ -236,10 +216,6 @@ CORRECTION_RE = re.compile(
     r"why did\b|you didn'?t\b|it (?:broke|fails|failed)\b)",
     re.I,
 )
-TOOL_ERROR_RE = re.compile(
-    r'"success":\s*false|Traceback \(most recent call last\)|command not found|no such file|\berror:',
-    re.I,
-)
 MAX_CORRECTION_CHARS = 240  # a long user message is new instructions, not a correction
 
 
@@ -291,7 +267,7 @@ def task_panel(con: sqlite3.Connection, rows: list[sqlite3.Row]) -> None:
                 msg[root]["corr"] += 1
         elif r["role"] == "tool":
             msg[root]["tools"] += 1
-            if TOOL_ERROR_RE.search(content):
+            if is_tool_error(content):
                 msg[root]["errs"] += 1
         if r["session_id"] == root:
             last_role[root] = r["role"]

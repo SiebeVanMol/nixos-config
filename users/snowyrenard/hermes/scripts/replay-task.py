@@ -28,7 +28,6 @@ import json
 import os
 import re
 import shutil
-import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -38,8 +37,12 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from pathlib import Path
 
-HERMES_HOME = Path(os.environ.get("HERMES_HOME") or os.path.expanduser("~/.hermes"))
-DB_PATH = HERMES_HOME / "state.db"
+# Home, state.db, the failure markers and the token formatter are shared with
+# usage-digest.py (hermes_state.py, installed beside both): the two scripts score
+# the same sessions, and their own copies of "what counts as a tool error" had
+# already drifted - this one never counted an `error:` result at all.
+from hermes_state import DB_PATH, HERMES_HOME, connect, error_match_sql, human
+
 RESULTS_DIR = HERMES_HOME / "replay"
 SCRATCH = Path(os.environ.get("BH_AGENT_WORKSPACE") or tempfile.gettempdir())
 
@@ -140,8 +143,7 @@ def session_metrics(session_id: str | None, cwd: Path, since: float) -> tuple[di
     """Calls, tokens and cost from state.db: the model's own account is not used."""
     if not DB_PATH.exists():
         return {}, session_id or ""
-    con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
-    con.row_factory = sqlite3.Row
+    con = connect()
     sid = session_id
     if sid:
         row = con.execute("select id from sessions where id=?", (sid,)).fetchone()
@@ -174,11 +176,10 @@ def session_metrics(session_id: str | None, cwd: Path, since: float) -> tuple[di
             out["last_msg_at"] = max(c["last"] for c in by_role.values() if c["last"])
         out["user_turns"] = by_role["user"]["n"] if "user" in by_role else 0
         out["tool_calls"] = sum(c["n"] for role, c in by_role.items() if role == "tool")
+        clause, params = error_match_sql()
         errs = con.execute(
-            """select count(*) from messages where session_id=? and role='tool'
-                 and (content like '%"success": false%' or content like '%Traceback%'
-                      or content like '%command not found%' or content like '%No such file%')""",
-            (sid,),
+            f"select count(*) from messages where session_id=? and role='tool' and {clause}",
+            (sid, *params),
         ).fetchone()
         out["tool_errors"] = errs[0] if errs else 0
     con.close()
@@ -294,13 +295,6 @@ def run_arm(arm: Arm, task: str, prompt_text: str, source: Path, verify: str | N
     return res
 
 
-def human_tokens(n: int) -> str:
-    for unit, div in (("M", 1_000_000), ("K", 1_000)):
-        if n >= div:
-            return f"{n / div:.1f}{unit}"
-    return str(n)
-
-
 def clock(seconds: float) -> str:
     m, s = divmod(int(seconds), 60)
     return f"{m}:{s:02d}"
@@ -335,7 +329,7 @@ def report(runs: list[Run], previous: list[dict]) -> None:
         verify = "n/a" if r.verify_ok is None else ("pass" if r.verify_ok else "FAIL")
         print(
             f"  {r.arm:<10} {r.model[:25]:<25} {r.status[:10]:<10} {clock(r.wall_s):>5} {clock(r.llm_s):>4} "
-            f"{r.calls:>6} {rate:>10.1f} {human_tokens(tok):>9} {cache_pct:5.0f}% {r.cost_usd:>7.3f} "
+            f"{r.calls:>6} {rate:>10.1f} {human(tok):>9} {cache_pct:5.0f}% {r.cost_usd:>7.3f} "
             f"+{r.diff_added}/-{r.diff_removed:<4} {verify}"
         )
     print("\n  wall = process lifetime; llm = first to last recorded message; the difference is start-up and tools.")

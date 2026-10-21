@@ -8,6 +8,7 @@ Routes mount under /api/plugins/peak-price/.
 """
 
 import importlib.util
+import os
 import threading
 import time
 from pathlib import Path
@@ -16,7 +17,10 @@ from fastapi import APIRouter
 
 router = APIRouter()
 
-SCRIPT = Path.home() / ".hermes/scripts/deepseek_budget.py"
+# The same home the agent and its scripts resolve, so a second profile's
+# dashboard reads that profile's script rather than this one's.
+HERMES_HOME = Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes")
+SCRIPT = HERMES_HOME / "scripts/deepseek_budget.py"
 CACHE_SECONDS = 120
 
 _lock = threading.Lock()

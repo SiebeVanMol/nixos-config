@@ -6,11 +6,15 @@ Everything else is off-peak (half price), including all weekend.
 Run from cron every few minutes: silent unless the state flipped.
 """
 import json
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-STATE = Path.home() / ".hermes" / "state" / "peak-price.json"
+# HERMES_HOME, the way the agent and the scripts beside this one resolve it: an
+# agent pointed at another home must not have its peak state left in ~/.hermes.
+HERMES_HOME = Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes")
+STATE = HERMES_HOME / "state" / "peak-price.json"
 WINDOWS = [(1, 4), (6, 10)]  # UTC hours, half-open
 
 
