@@ -19,11 +19,16 @@
 # password set on the repository (`fossil user password`).
 #
 # The A record for the domain must be **DNS-only** in Cloudflare (grey cloud, not
-# orange). Caddy gets its certificate with the ACME HTTP-01 challenge, which
-# Caddy answers itself on port 80; with the record proxied, Cloudflare answers
-# that challenge (or refuses it) and the certificate never issues - the site then
-# serves a Cloudflare error, not this machine. `snowyrenard.com` is set up the
-# same way, unproxied, and its certificate lives in `/var/lib/caddy`.
+# orange). With the proxy on, Cloudflare terminates TLS at its edge, so the
+# certificate Caddy obtains here is never the one a browser sees, and the ACME
+# HTTP-01 challenge has to survive the edge as well: it arrives at Cloudflare, and
+# whether it reaches Caddy depends on settings that have nothing to do with this
+# machine (Always Use HTTPS answering 80 with a 301, caching, Access policies).
+# DNS-only removes the middle layer - Caddy answers the challenge itself and is
+# the TLS endpoint. Proxying is possible but wants DNS-01 instead of HTTP-01, plus
+# SSL mode Full (strict) and a cache bypass for the timeline. `snowyrenard.com` is
+# unproxied for the same reason, so the home IP is already public and the proxy
+# buys no privacy here either.
 {
   pkgs,
   lib,
