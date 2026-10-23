@@ -302,10 +302,12 @@ in {
         batch-size = 2048;
         ubatch-size = 512;
 
-        # The desktop shares this card with games. Idle for a quarter of an hour
-        # and the model is dropped; the reload costs a load from page cache, not
-        # a download, and it is what keeps a compositor from fighting 13 GiB.
-        sleep-idle-seconds = 900;
+        # Never sleep. Sleeping is what "disconnecting" looks like from a client:
+        # after a quarter hour idle the model is unloaded and the next request
+        # either waits out a full reload or errors outright, so an agent that
+        # idles between turns drops its endpoint. The cost of staying up is the
+        # VRAM below, and it is 1.6 GiB under the card's limit.
+        sleep-idle-seconds = -1;
       };
     };
   };
