@@ -32,6 +32,29 @@
 # That is the trade the two knobs below make: the expert cache and the context
 # window are the only two things competing for what the weights leave free.
 #
+# Two checkpoints, one service: `variant` picks which. Both are qwen3_5_moe - 40
+# blocks, only every fourth one full-attention, 256 routed experts top-8 plus a
+# shared one, 2 KV heads x 256 dims, 262144 native window - so the same binary,
+# the same flags and the same expert cache serve either, and switching is one
+# option plus a rebuild:
+#
+#   qwen     Qwen3.6-35B-A3B     UD-Q4_K_XL          21.3 GiB  cache 6656  n-max 3
+#   ornith   Ornith-1.5-35B-A3B  APEX-MTP-Compact    16.2 GiB  cache 8192  n-max 1
+#
+# Measured here back to back, same 256-token prompt, 128K window, f16 KV, second
+# of two runs:
+#
+#                    decode        prefill 2340 tok   4 agents agg      VRAM
+#   qwen        91.9 / 99.5 t/s       1101 t/s         124.1 t/s     15.26 GiB
+#   ornith      83.6 / 87.2 t/s       1288 t/s         142.1 t/s     14.93 GiB
+#
+# Ornith gives up ~10% of single-stream decode and returns it as prefill and as
+# four-way aggregate, and it is a full step up on the agentic benchmarks that
+# matter to an agent loop - SWE-bench Verified 79.0 vs 73.4, NL2Repo 46.2 vs
+# 29.4, Terminal-Bench 2.1 67.8 vs 52.5, DeepSWE 22.0 vs 0 (vendor-published,
+# no third-party run yet). That is why ornith is the default and qwen is kept:
+# the difference between them is one option and a rebuild, not a rewrite.
+#
 # `enable` and the knobs below are this service's own: they are declared in this
 # file, because the module's path is not its option name and the tree cannot
 # derive one from the other.
@@ -42,6 +65,33 @@
   ...
 }: let
   cfg = config.device.app.ai;
+
+  # One checkpoint per entry, and every model-shaped default below reads from the
+  # selected one. Adding a third is a third attribute here, no option surgery:
+  # the pair differs only in weights, alias, and the two numbers that follow
+  # from them (how much expert cache fits beside the weights, and how many MTP
+  # drafts are worth offering).
+  presets = {
+    qwen = {
+      alias = "qwen3.6-35b-a3b";
+      repo = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF";
+      revision = "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d";
+      file = "Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf";
+      sha256 = "sha256-VZg8WnWhq5aYJAd7O7PeQUboKpI0BytIrU6Pkq0/6fE=";
+      expertCacheMiB = 6656;
+      specDraftNMax = 3;
+    };
+    ornith = {
+      alias = "ornith-1.5-35b-a3b";
+      repo = "mudler/Ornith-1.5-35B-A3B-APEX-MTP-GGUF";
+      revision = "4c326713c52d13fdb40983a2a09a46cca8e88739";
+      file = "Ornith-1.5-35B-A3B-APEX-MTP-Compact.gguf";
+      sha256 = "sha256-pzc/ckzzaT6Kal+CCa6aBv+Aca4q9gZZvb34/29sEN8=";
+      expertCacheMiB = 8192;
+      specDraftNMax = 1;
+    };
+  };
+  preset = presets.${cfg.variant};
 
   # gfx1201 is the RX 9070/XT (RDNA4). nixpkgs' rocmPackages carries a
   # per-architecture scope (`rocmPackages.gfx1201`) that pins clr and everything
@@ -111,6 +161,18 @@ in {
   options.device.app.ai = {
     enable = lib.mkEnableOption "the llama.cpp inference server for the agent's local model";
 
+    variant = lib.mkOption {
+      type = lib.types.enum (builtins.attrNames presets);
+      default = "ornith";
+      description = ''
+        Which checkpoint to serve. Both are qwen3_5_moe with the same shape, so
+        this swaps weights, alias and the two numbers derived from them - not
+        flags, not the binary, not the service. "ornith" is the default on the
+        strength of the agentic benchmarks quoted at the top of this file;
+        "qwen" is one rebuild away and is faster on a single stream.
+      '';
+    };
+
     backend = lib.mkOption {
       type = lib.types.enum ["rocm" "vulkan"];
       default = "rocm";
@@ -151,7 +213,7 @@ in {
 
     expertCacheMiB = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 6656;
+      default = preset.expertCacheMiB;
       description = ''
         VRAM, in MiB, for the CPU-resident experts (llama.cpp's
         --moe-cache-mib). This and `contextSize` are the only two numbers that
@@ -175,6 +237,18 @@ in {
         three times the VRAM headroom. 7680 is the fastest thing that runs and
         0.5 GiB is not enough to share with a compositor that can spike.
 
+        The ornith weights are 16.2 GiB instead of 21.3, so its cache has more
+        room and its default is higher. Same procedure, n-max 1 (see
+        `specDraftNMax`):
+
+          cache     decode         peak VRAM
+           6656    80.6 / 83.3      13.8 GiB
+           8192    83.6 / 87.2      14.9 GiB  (default for ornith)
+           9216    87.1 / 94.6      15.7 GiB
+
+        9216 is the fastest and leaves 0.2 GiB, which is a coin flip against the
+        compositor; 8192 keeps ~1 GiB and gives up 3%.
+
         A game running first changes the arithmetic outright - VRAM already in
         use is not available at load, and an allocation error there is a failed
         start, not a degraded one (#30697).
@@ -183,31 +257,52 @@ in {
 
     modelAlias = lib.mkOption {
       type = lib.types.str;
-      default = "qwen3.6-35b-a3b";
+      default = preset.alias;
       description = ''
         The model id clients send, which llama-server makes up from the file
         name unless --alias overrides it. Kept lowercase and undecorated so the
-        Hermes-side alias can name it verbatim.
+        Hermes-side alias can name it verbatim - which it does, in
+        users/snowyrenard/hermes/home.nix, so changing `variant` means changing
+        that file's `local` alias too.
+      '';
+    };
+
+    specDraftNMax = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = preset.specDraftNMax;
+      description = ''
+        How many tokens the MTP head may draft per step (--spec-draft-n-max).
+        This is not a taste knob: it is set by how often the head is right, and
+        the two checkpoints differ by 3x there.
+
+        Qwen's head accepts ~0.9 of its drafts, so a third draft still pays for
+        itself and 3 is worth ~1.7x over no MTP (60.7 -> 101.9 t/s at 6656).
+        Ornith's accepts ~0.3, and the reason it is slower single-stream is
+        almost entirely this: 3 drafts cost the verifies and return mean length
+        2.0, which measured 65.8 t/s, where 1 draft measures 80.6 at the same
+        cache and 87.2 at 8192. Higher n on this model is a pessimisation, not a
+        setting to tune up.
       '';
     };
 
     model = {
       repo = lib.mkOption {
         type = lib.types.str;
-        default = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF";
+        default = preset.repo;
         description = ''
-          Hugging Face repository the weights come from. The -MTP- one, not the
-          plain -GGUF-: the checkpoint carries 19 `mtp.*` tensors (one NextN
-          block, an fc projection and its MoE experts) and only this conversion
-          keeps them. Without them llama.cpp refuses MTP outright -
-          `model doesn't contain MTP layers` - which is what the plain quant
-          answers.
+          Hugging Face repository the weights come from. Both entries are the
+          -MTP- ones, not the plain -GGUF-: the checkpoint has to carry the NextN
+          block (one extra layer plus its MoE experts) or llama.cpp refuses MTP
+          outright - `model doesn't contain MTP layers`, which is what the plain
+          quants answer. For qwen that is unsloth's conversion, which keeps the
+          19 `mtp.*` tensors; for ornith it is mudler's APEX-MTP, whose head is
+          appended as blk.40 of the same file.
         '';
       };
 
       revision = lib.mkOption {
         type = lib.types.str;
-        default = "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d";
+        default = preset.revision;
         description = ''
           Commit the download is pinned to, so the store path is reproducible and
           a re-upload upstream cannot swap the weights under a running config.
@@ -216,22 +311,28 @@ in {
 
       file = lib.mkOption {
         type = lib.types.str;
-        default = "Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf";
+        default = preset.file;
         description = ''
-          The GGUF in that repository - 21.3 GiB, architecture qwen35moe. The
-          MTP heads cost 0.5 GiB over the trunk-only file. Q4_K_XL rather than
-          Q4_K_M for the extra spent on the attention and output tensors, which
-          are the ones that stay on the card and the ones a 3B-active model
-          reads on every token.
+          The GGUF in that repository, architecture qwen3_5_moe either way. qwen
+          is UD-Q4_K_XL at 21.3 GiB - Q4_K_XL rather than Q4_K_M for the extra
+          spent on attention and output tensors, which stay on the card and are
+          read on every token. ornith is APEX-MTP-Compact at 16.2 GiB, the
+          balanced tier of three: I-Mini is 13.4 GiB but its head accepts 0.25
+          where Compact accepts 0.31, and Quality is 22.1 GiB for no cache room.
+          Note the smaller file is the *slower* one to download and the faster
+          one to serve - expert size in VRAM is what the cache buys back.
         '';
       };
 
       sha256 = lib.mkOption {
         type = lib.types.str;
-        default = "sha256-VZg8WnWhq5aYJAd7O7PeQUboKpI0BytIrU6Pkq0/6fE=";
+        default = preset.sha256;
         description = ''
-          Hash of that file in SRI form. Hugging Face publishes it as the LFS
+          Hash of that file in SRI form. For qwen this is Hugging Face's LFS
           object id of the revision, so it can be filled without downloading.
+          For ornith the API's blob listing and the bytes behind `resolve` had
+          drifted apart at the pinned revision, so this one is the sha256 of the
+          file actually served and measured here, taken locally.
         '';
       };
     };
@@ -270,15 +371,14 @@ in {
         # `model` exists for: the trunk-only GGUF answers this flag with
         # "model doesn't contain MTP layers" and refuses to start.
         #
-        # Measured, same prompt, cache 6656: 60.7 -> 101.9 t/s, i.e. decode
-        # nearly doubles. The log line to watch is `slot print_timing ... draft
-        # acceptance = 0.785, mean len = 3.36` - 3.36 tokens accepted per step
-        # for 3 drafts offered. `--spec-draft-n-max` above 3 does not help here:
-        # 6 measured 83.0 t/s and 2 measured 102.3, so the default of 3 is the
-        # peak and this is spelled out rather than left to the default so it
-        # cannot drift.
+        # How much it buys depends entirely on the head, which is why n-max is
+        # an option and not a literal here. Measured, same prompt, cache 6656:
+        # qwen 60.7 -> 101.9 t/s, its log line reading `draft acceptance =
+        # 0.785, mean len = 3.36`; ornith 40 -> 83.6 at n-max 1 off an
+        # acceptance of ~0.3. Offering ornith the three drafts its head does not
+        # earn costs 65.8 vs 83.6 t/s. See `specDraftNMax` for the rest.
         spec-type = "draft-mtp";
-        spec-draft-n-max = 3;
+        spec-draft-n-max = cfg.specDraftNMax;
 
         ctx-size = cfg.contextSize;
 
@@ -307,6 +407,9 @@ in {
         #
         # So four is the knee: twice the aggregate of one at half the per-agent
         # rate, and the fifth concurrent request waits rather than degrades.
+        # ornith measures 142.1 t/s aggregate at four (38.1 each, 8.4s wall) -
+        # 14% better than qwen's 124.1, which is where its lost single-stream
+        # decode comes back.
         # cache-ram gives idle slots somewhere to park their KV (4 GiB of the
         # 62 GiB of RAM, which is also where the experts live) so a returning
         # agent resumes instead of re-prefilling. jinja renders the chat template

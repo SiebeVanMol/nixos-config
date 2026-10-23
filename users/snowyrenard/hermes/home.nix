@@ -90,7 +90,7 @@ in {
       providers.llamacpp.base_url = "http://127.0.0.1:8080/v1";
 
       model_aliases.local = {
-        model = "qwen3.6-35b-a3b";
+        model = "ornith-1.5-35b-a3b";
         provider = "llamacpp";
       };
 
