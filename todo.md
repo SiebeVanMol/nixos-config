@@ -195,6 +195,18 @@ the same options are not re-argued from scratch.
   - The k/v cache really is f16 and really is 2.62 GiB: `/props` reports
   `n_ctx 131072`, and the before/after VRAM delta at cache 0 is 5.3 GiB, which
   is non-expert weights plus KV plus buffers and nothing else.
+  - **MTP is the single biggest win on this model: 60.7 -> 101.9 t/s.** The HF
+  checkpoint ships 19 `mtp.*` tensors (one NextN block, `mtp.fc`, its MoE
+  experts) and llama.cpp v0.7.0 has `--spec-type draft-mtp` for exactly this -
+  speculative decoding off the model's own heads, so no second file and no draft
+  model. Two catches: the plain `unsloth/Qwen3.6-35B-A3B-GGUF` conversion drops
+  those tensors and the server refuses to start (`model doesn't contain MTP
+  layers`), so the pin is `unsloth/Qwen3.6-35B-A3B-MTP-GGUF` (21.3 GiB, +0.5 for
+  the heads); and `--spec-draft-n-max` peaks at 3 - measured 3 = 101.9 t/s,
+  2 = 102.3, 6 = 83.0, with acceptance 0.785 and mean 3.36 tokens per step.
+  Cost is ~0.85 GiB more VRAM for the draft context, which is why the expert
+  cache came down from 7680 to **6656** MiB: 101.9 t/s at 14.3 GiB peak with
+  1.5 GiB free beats 107.4 at 15.4 GiB peak with 0.5 GiB free.
 - **llama.cpp is off this machine entirely (2026-10-20).** Both servers went: the
   Kev-0.8B effort judge on 8080 (its `features/hermes/system.nix` and the
   `device.app.ai` option are deleted) and the bundled Vulkan runtime Hermes

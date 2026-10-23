@@ -151,27 +151,33 @@ in {
 
     expertCacheMiB = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 7680;
+      default = 6656;
       description = ''
         VRAM, in MiB, for the CPU-resident experts (llama.cpp's
         --moe-cache-mib). This and `contextSize` are the only two numbers that
         compete for the card, and this is the cheaper of them to raise.
 
         Measured on this machine (gfx1201, 128K window, f16 KV, desktop holding
-        ~1.5 GiB, 256-token generations, two runs each):
+        ~1.5 GiB, 256-token generations, two runs each, second run quoted):
 
-          cache    decode      peak VRAM    headroom
-              0    36.0 t/s      7.12 GiB   8.8 GiB   (experts read over PCIe)
-           7168    52.9 t/s     14.14 GiB   1.76 GiB
-           7680    57.6 t/s     14.50 GiB   1.4 GiB   (default)
-           8192    58.5 t/s     15.00 GiB   0.9 GiB
-           9216    60.7 t/s     15.84 GiB   0.06 GiB  (loads, but nothing left)
+          cache    no MTP      with MTP     peak VRAM    headroom
+              0    36.0 t/s         -        7.12 GiB   8.8 GiB
+           6656               101.9 t/s     14.3 GiB   1.5 GiB  (default)
+           7168    52.9 t/s   103.3 t/s     15.0 GiB   0.9 GiB
+           7680    57.6 t/s   107.4 t/s     15.4 GiB   0.5 GiB
+           8192    58.5 t/s       -         15.0 GiB   0.9 GiB  (no MTP draft ctx)
+           9216    60.7 t/s       -         15.8 GiB   0.06 GiB
 
-        So the cache is worth +60% over no cache at 7168 and the last GiB buys
-        3%: 7680 is where the curve flattens and the card still has room for a
-        compositor spike. A game running first changes the arithmetic - VRAM
-        already in use is not available at load, and an allocation error there
-        is a failed start, not a degraded one (#30697).
+        MTP (below) adds ~0.85 GiB of draft context and roughly doubles decode,
+        which is why the cache is *smaller* here than it was without it: 18 GiB
+        of experts do not fit either way, the cache only decides how many of
+        them are already on the card, and 6.5 vs 7.5 GiB is 6% of throughput for
+        three times the VRAM headroom. 7680 is the fastest thing that runs and
+        0.5 GiB is not enough to share with a compositor that can spike.
+
+        A game running first changes the arithmetic outright - VRAM already in
+        use is not available at load, and an allocation error there is a failed
+        start, not a degraded one (#30697).
       '';
     };
 
@@ -188,13 +194,20 @@ in {
     model = {
       repo = lib.mkOption {
         type = lib.types.str;
-        default = "unsloth/Qwen3.6-35B-A3B-GGUF";
-        description = "Hugging Face repository the weights come from.";
+        default = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF";
+        description = ''
+          Hugging Face repository the weights come from. The -MTP- one, not the
+          plain -GGUF-: the checkpoint carries 19 `mtp.*` tensors (one NextN
+          block, an fc projection and its MoE experts) and only this conversion
+          keeps them. Without them llama.cpp refuses MTP outright -
+          `model doesn't contain MTP layers` - which is what the plain quant
+          answers.
+        '';
       };
 
       revision = lib.mkOption {
         type = lib.types.str;
-        default = "a483e9e6cbd595906af30beda3187c2663a1118c";
+        default = "5bc3e238d916f48a861bac2f8a1990a0e9b7e98d";
         description = ''
           Commit the download is pinned to, so the store path is reproducible and
           a re-upload upstream cannot swap the weights under a running config.
@@ -205,16 +218,17 @@ in {
         type = lib.types.str;
         default = "Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf";
         description = ''
-          The GGUF in that repository - 20.8 GiB, 733 tensors, architecture
-          qwen35moe. Q4_K_XL rather than Q4_K_M for the extra spent on the
-          attention and output tensors, which are the ones that stay on the card
-          and the ones a 3B-active model reads on every token.
+          The GGUF in that repository - 21.3 GiB, architecture qwen35moe. The
+          MTP heads cost 0.5 GiB over the trunk-only file. Q4_K_XL rather than
+          Q4_K_M for the extra spent on the attention and output tensors, which
+          are the ones that stay on the card and the ones a 3B-active model
+          reads on every token.
         '';
       };
 
       sha256 = lib.mkOption {
         type = lib.types.str;
-        default = "sha256-cHpVqKQ5fs3kTeDEmdPmjBrR0kDR2mWCa0lJ0QQ/RFA=";
+        default = "sha256-VZg8WnWhq5aYJAd7O7PeQUboKpI0BytIrU6Pkq0/6fE=";
         description = ''
           Hash of that file in SRI form. Hugging Face publishes it as the LFS
           object id of the revision, so it can be filled without downloading.
@@ -248,8 +262,23 @@ in {
         # experts are copied to the card from that buffer, and llama.cpp warns
         # at load that the combination of mmap and per-tensor CPU overrides is
         # the slow path: measured 57.6 -> 61.1 t/s at 7680 MiB, at the cost of
-        # holding the whole 20.8 GiB resident (46 GiB of 62 stayed available).
+        # holding the whole 21.3 GiB resident (46 GiB of 62 stayed available).
         load-mode = "none";
+
+        # Speculative decoding from the model's own MTP heads - no second model
+        # file, no extra VRAM for a draft, and it is what the -MTP- repo pin in
+        # `model` exists for: the trunk-only GGUF answers this flag with
+        # "model doesn't contain MTP layers" and refuses to start.
+        #
+        # Measured, same prompt, cache 6656: 60.7 -> 101.9 t/s, i.e. decode
+        # nearly doubles. The log line to watch is `slot print_timing ... draft
+        # acceptance = 0.785, mean len = 3.36` - 3.36 tokens accepted per step
+        # for 3 drafts offered. `--spec-draft-n-max` above 3 does not help here:
+        # 6 measured 83.0 t/s and 2 measured 102.3, so the default of 3 is the
+        # peak and this is spelled out rather than left to the default so it
+        # cannot drift.
+        spec-type = "draft-mtp";
+        spec-draft-n-max = 3;
 
         ctx-size = cfg.contextSize;
 
