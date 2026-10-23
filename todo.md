@@ -195,6 +195,17 @@ the same options are not re-argued from scratch.
   - The k/v cache really is f16 and really is 2.62 GiB: `/props` reports
   `n_ctx 131072`, and the before/after VRAM delta at cache 0 is 5.3 GiB, which
   is non-expert weights plus KV plus buffers and nothing else.
+  - **The server now takes four agents at once, not one.** `--parallel 1` was the
+  thing preventing it: llama.cpp 0.7.0 defaults `-np` to auto, which on this
+  machine comes up as 4 slots over a *unified* KV pool, so the 131072 window is
+  one shared resource - an agent with 90K and three with 5K coexist, which four
+  fixed 32K slices would not allow. Measured aggregate (400-token replies):
+  1 agent 77.3 t/s, 2 agents 112.7, 4 agents 148.6 (37.7 each, 10.8s wall),
+  8 agents 158.5 with 4 queued. VRAM at 4-way load peaks 15.2 GiB, so the card
+  is 0.7 GiB from full while four agents work - the single-agent peak is 14.3.
+  `--cache-ram 4096` parks idle slots' KV in RAM so a returning agent resumes
+  instead of re-prefilling, and `--timeout 300` replaces the hour-long default
+  so a wedged stream cannot hold a slot forever.
   - **MTP is the single biggest win on this model: 60.7 -> 101.9 t/s.** The HF
   checkpoint ships 19 `mtp.*` tensors (one NextN block, `mtp.fc`, its MoE
   experts) and llama.cpp v0.7.0 has `--spec-type draft-mtp` for exactly this -

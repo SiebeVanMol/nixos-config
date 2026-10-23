@@ -293,11 +293,34 @@ in {
         # buffer win and no precision question, and it is what the old build ran.
         flash-attn = "on";
 
-        # One slot, because the card holds one request's KV and an agent loop is
-        # sequential. jinja renders the chat template and the tool-call schema
-        # from the GGUF, which is what made this model's tool calls work.
-        parallel = 1;
+        # Slots stay on auto (llama.cpp's -np -1), which on this machine comes up
+        # as 4, and the KV is one unified pool the slots draw from rather than
+        # four fixed slices - so an agent with a 90K prompt and three agents with
+        # 5K prompts coexist, which a hard --parallel 1 or a 4-way split of
+        # 131072 cannot do. Measured with 400-token replies:
+        #
+        #   agents   aggregate   per agent      wall
+        #        1    77.3 t/s     77.4 t/s      5.2s
+        #        2   112.7 t/s     57.3 t/s      7.1s
+        #        4   148.6 t/s     37.7 t/s     10.8s
+        #        8   158.5 t/s     37.9 t/s     20.2s (4 queued)
+        #
+        # So four is the knee: twice the aggregate of one at half the per-agent
+        # rate, and the fifth concurrent request waits rather than degrades.
+        # cache-ram gives idle slots somewhere to park their KV (4 GiB of the
+        # 62 GiB of RAM, which is also where the experts live) so a returning
+        # agent resumes instead of re-prefilling. jinja renders the chat template
+        # and the tool-call schema from the GGUF, which is what makes this
+        # model's tool calls work at all.
+        kv-unified = true;
+        cache-ram = 4096;
         jinja = true;
+
+        # Five minutes of read/write tolerance before a stuck stream is dropped.
+        # The default is an hour, which is long enough that a wedged client holds
+        # a slot forever; 300s still covers a 100K-token prefill at the measured
+        # 480 t/s and the reply after it.
+        timeout = 300;
 
         batch-size = 2048;
         ubatch-size = 512;
