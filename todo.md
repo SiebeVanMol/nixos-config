@@ -165,25 +165,36 @@ the same options are not re-argued from scratch.
   `qwen3.6-35b-a3b`, built with `rocmSupport` against `rocmPackages.gfx1201`
   (three build knobs, no port: HIP *is* the CUDA backend in llama.cpp, so
   `--moe-cache-mib` and the MoE kernels are already there). Flags that matter:
-  `--cpu-moe` keeps the 18 GiB of experts in RAM, `--moe-cache-mib 7168` holds
+  `--cpu-moe` keeps the 18 GiB of experts in RAM, `--moe-cache-mib 7680` holds
   the hot ones in VRAM, `--ctx-size 131072` is Qwen's own floor for preserving
   thinking (their evals ran at 256K; native max is 262144), and the KV cache is
   left **uncompressed** at f16 both ways - 20 KiB/token on this hybrid layout,
   2.62 GiB at 128K - so no `-ctk/-ctv` quantization is wanted here even if VRAM
-  is tight. Hermes side: `providers.llamacpp.base_url` and a `local` alias in
+  is tight. `--load-mode none` because llama.cpp warns that mmap plus per-tensor
+  CPU overrides is the slow path, and it measured 57.6 -> 61.1 t/s. Hermes side:
+  `providers.llamacpp.base_url` and a `local` alias in
   `users/snowyrenard/hermes/home.nix`, opt-in only - DeepSeek stays the default.
   The router, title server, presets, draft heads, `ai.lan` vhost and Kev judge
   did **not** come back.
-  - Not verified yet, by request (the card was busy): nothing was built,
-  started or benchmarked. `alejandra --check` passes, the new file parses, and
-  `nix eval` renders the full ExecStart (including `--cpu-moe` bare and
-  `--moe-cache-mib 7168`) against a drvPath that differs from plain
-  `llama-cpp`, i.e. the ROCm override applied. The first switch downloads
-  20.8 GiB into `/nix` and builds HIP llama.cpp, which is hours, not minutes.
-  - Two numbers to check on that first load: `journalctl -u llama-cpp` for the
-  buffer log (a cache that reports 0 MiB never engaged) and `--moe-cache-mib`
-  against free VRAM (the desktop holds ~1 GiB; #30697 is the open bug for
-  overshooting - crash at load, or a cache that silently stays empty).
+  - **nixpkgs pins a llama.cpp that has no MoE cache at all.** `pkgs.llama-cpp`
+  is v0.6.0 (build 11429), and that binary answers `--moe-cache-mib` with
+  `error: invalid argument` - confirmed against the 0.6.0 the machine was still
+  running. The module therefore swaps `src` to upstream **v0.7.0** (2026-10-15,
+  the newest release that ships `src/llama-moe-cache.cpp`), with `patches = []`
+  (the recipe's #30034 backport is upstream by then and no longer applies),
+  a regenerated `npmDepsHash`, and `doCheck = false`. v0.7.0 carries the
+  original LRU cache (#29887); the 1-5% SLRU follow-up (#30637) is post-tag.
+  The recipe's hard-coded build number stays 11429 in `--version`, cosmetic.
+  - **Measured, not assumed** (gfx1201, 128K, f16 KV, desktop holding ~1.5 GiB,
+  256-token generations, two runs each): 0 MiB **36.0 t/s**, 7168 **52.9**,
+  7680 **57.6**, 8192 58.5, 9216 60.7. Peak VRAM 7.12 / 14.14 / 14.50 / 15.00 /
+  15.84 GiB against a 15.9 GiB card - 9216 fills the card and leaves 60 MiB,
+  which is not a setting to ship. 7680 + `--load-mode none` = **61.1 t/s** at
+  14.5 GiB, 46 GiB RAM still available. Prefill ~210-520 t/s on a 144-token
+  prompt. Load 10.9 s from page cache (first load reads 20.8 GiB from disk).
+  - The k/v cache really is f16 and really is 2.62 GiB: `/props` reports
+  `n_ctx 131072`, and the before/after VRAM delta at cache 0 is 5.3 GiB, which
+  is non-expert weights plus KV plus buffers and nothing else.
 - **llama.cpp is off this machine entirely (2026-10-20).** Both servers went: the
   Kev-0.8B effort judge on 8080 (its `features/hermes/system.nix` and the
   `device.app.ai` option are deleted) and the bundled Vulkan runtime Hermes

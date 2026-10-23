@@ -56,7 +56,7 @@
   # driver migrate pages behind llama.cpp's back and silently corrupts output
   # (#26148). HSA_OVERRIDE_GFX_VERSION is not needed either - ROCm 7 knows
   # gfx1201 natively, and the override is what breaks every other card family.
-  package =
+  base =
     if cfg.backend == "vulkan"
     then
       pkgs.llama-cpp.override {
@@ -69,6 +69,33 @@
         rocmPackages = pkgs.rocmPackages.gfx1201;
         rocmGpuTargets = ["gfx1201"];
       };
+
+  # nixpkgs pins llama.cpp v0.6.0, which predates the MoE cache *entirely*: the
+  # 0.6.0 binary this machine still runs answers "--moe-cache-mib" with
+  # `error: invalid argument`. v0.7.0 (2026-10-15) is the newest upstream release
+  # that ships src/llama-moe-cache.cpp, so the source is swapped to it here
+  # rather than waiting for nixpkgs to bump - the release is already older than
+  # the cache code it carries, so the wait has no useful length.
+  #
+  # The three hashes and the dropped patch are all consequences of that swap:
+  # `patches` is emptied because the recipe's #30034 backport is upstream by
+  # 0.7.0 and no longer applies, and npmDepsHash is regenerated because the web
+  # UI's lockfile moved. `doCheck = false` because ctest downloads models over
+  # the network and the backport being gone makes the recipe's test fix moot.
+  # 0.7.0's cache is the original LRU one (#29887); the SLRU replacement that
+  # measures 1-5% better (#30637) landed after this tag.
+  package = base.overrideAttrs (old: {
+    version = "0.7.0";
+    src = pkgs.fetchFromGitHub {
+      owner = "ggml-org";
+      repo = "llama.cpp";
+      tag = "v0.7.0";
+      hash = "sha256-pEDYgI3AMTU+cekvRX7NNt5wddznydQSNuerswvEpsA=";
+    };
+    patches = [];
+    npmDepsHash = "sha256-hqYzdp1FwPhYkBP278fQXgY9NCKB6Q3P6Gko7BfP0m0=";
+    doCheck = false;
+  });
 
   # Weights are a store path, for the reason the old router stated and this file
   # keeps: a file fetched at runtime is only as reproducible as the command
@@ -124,25 +151,27 @@ in {
 
     expertCacheMiB = lib.mkOption {
       type = lib.types.ints.positive;
-      default = 7168;
+      default = 7680;
       description = ''
         VRAM, in MiB, for the CPU-resident experts (llama.cpp's
         --moe-cache-mib). This and `contextSize` are the only two numbers that
-        compete for the card, and this is the cheaper of them to raise: the
-        budgets it must fit inside is roughly
+        compete for the card, and this is the cheaper of them to raise.
 
-          15.9 GiB card - ~1.0 GiB desktop
-            - non-expert weights (~2.5 GiB: attention, the 30 Gated-DeltaNet
-              blocks, embeddings and the output layer stay on the GPU)
-            - f16 KV (2.62 GiB at 128K)
-            - compute buffers (~1 GiB at ubatch 512)
+        Measured on this machine (gfx1201, 128K window, f16 KV, desktop holding
+        ~1.5 GiB, 256-token generations, two runs each):
 
-        which leaves ~8.8 GiB, and 7 GiB of that is what a load that succeeds
-        looks like. Raise it only after reading the "model loaded" line in
-        `journalctl -u llama-cpp`: 0 means the cache never engaged, and a load
-        that dies with an allocation error means the other three terms took the
-        room. #30697 is the known failure mode of overshooting on this class of
-        card - either a crash at load or a cache that silently stays empty.
+          cache    decode      peak VRAM    headroom
+              0    36.0 t/s      7.12 GiB   8.8 GiB   (experts read over PCIe)
+           7168    52.9 t/s     14.14 GiB   1.76 GiB
+           7680    57.6 t/s     14.50 GiB   1.4 GiB   (default)
+           8192    58.5 t/s     15.00 GiB   0.9 GiB
+           9216    60.7 t/s     15.84 GiB   0.06 GiB  (loads, but nothing left)
+
+        So the cache is worth +60% over no cache at 7168 and the last GiB buys
+        3%: 7680 is where the curve flattens and the card still has room for a
+        compositor spike. A game running first changes the arithmetic - VRAM
+        already in use is not available at load, and an allocation error there
+        is a failed start, not a degraded one (#30697).
       '';
     };
 
@@ -214,6 +243,13 @@ in {
         n-gpu-layers = 999;
         cpu-moe = true;
         moe-cache-mib = cfg.expertCacheMiB;
+
+        # Read the weights into RAM instead of mmapping them. The CPU-resident
+        # experts are copied to the card from that buffer, and llama.cpp warns
+        # at load that the combination of mmap and per-tensor CPU overrides is
+        # the slow path: measured 57.6 -> 61.1 t/s at 7680 MiB, at the cost of
+        # holding the whole 20.8 GiB resident (46 GiB of 62 stayed available).
+        load-mode = "none";
 
         ctx-size = cfg.contextSize;
 
