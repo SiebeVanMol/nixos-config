@@ -149,17 +149,41 @@ the same options are not re-argued from scratch.
 - `nix flake check` prints a firefox XDG-path deprecation warning. It comes from
   the third-party zen-browser module's use of home-manager's legacy
   `configPath`, not from anything in this repo.
-- The local model stack is **gone as of the DeepSeek switch** (2026-10-20):
-  the 35B/12B/20B chat models, the router, the title server, the presets and
-  the `ai.lan` vhost were removed from `features/hermes/system.nix`, and the
-  aliases, cron default, delegation target and aux slots from `home.nix`.
-  `ai.enable` meant "run the effort judge" for a while - Kev-0.8B on the CPU,
-  812 MB, no VRAM - and since 2026-10-20 (below) it means nothing: the judge is
-  gone and `device.app.ai` with it. The old pins are in git history if a model is
-  ever wanted back.
+- The local model stack that ran until 2026-10-20 is **not** the stack that runs
+  now. The 35B/12B/20B router, the title server, the presets, the draft heads and
+  the `ai.lan` vhost are gone for good; what came back on 2026-10-23 is one
+  model, one port, no router - see "Recently done". `device.app.ai` exists again
+  but means "run the 35B llama.cpp server", not "run the effort judge": Kev-0.8B
+  and the `effortless-hermes` plugin are still deleted, and per-turn effort is
+  still fixed per model.
 
 ## Recently done (do not re-do)
 
+- **One local model came back on ROCm, with the October MoE expert cache
+  (2026-10-23).** `system/server/ai/default.nix` serves Qwen3.6-35B-A3B
+  (UD-Q4_K_XL, 20.8 GiB, pinned by LFS hash) on `127.0.0.1:8080` as model id
+  `qwen3.6-35b-a3b`, built with `rocmSupport` against `rocmPackages.gfx1201`
+  (three build knobs, no port: HIP *is* the CUDA backend in llama.cpp, so
+  `--moe-cache-mib` and the MoE kernels are already there). Flags that matter:
+  `--cpu-moe` keeps the 18 GiB of experts in RAM, `--moe-cache-mib 7168` holds
+  the hot ones in VRAM, `--ctx-size 131072` is Qwen's own floor for preserving
+  thinking (their evals ran at 256K; native max is 262144), and the KV cache is
+  left **uncompressed** at f16 both ways - 20 KiB/token on this hybrid layout,
+  2.62 GiB at 128K - so no `-ctk/-ctv` quantization is wanted here even if VRAM
+  is tight. Hermes side: `providers.llamacpp.base_url` and a `local` alias in
+  `users/snowyrenard/hermes/home.nix`, opt-in only - DeepSeek stays the default.
+  The router, title server, presets, draft heads, `ai.lan` vhost and Kev judge
+  did **not** come back.
+  - Not verified yet, by request (the card was busy): nothing was built,
+  started or benchmarked. `alejandra --check` passes, the new file parses, and
+  `nix eval` renders the full ExecStart (including `--cpu-moe` bare and
+  `--moe-cache-mib 7168`) against a drvPath that differs from plain
+  `llama-cpp`, i.e. the ROCm override applied. The first switch downloads
+  20.8 GiB into `/nix` and builds HIP llama.cpp, which is hours, not minutes.
+  - Two numbers to check on that first load: `journalctl -u llama-cpp` for the
+  buffer log (a cache that reports 0 MiB never engaged) and `--moe-cache-mib`
+  against free VRAM (the desktop holds ~1 GiB; #30697 is the open bug for
+  overshooting - crash at load, or a cache that silently stays empty).
 - **llama.cpp is off this machine entirely (2026-10-20).** Both servers went: the
   Kev-0.8B effort judge on 8080 (its `features/hermes/system.nix` and the
   `device.app.ai` option are deleted) and the bundled Vulkan runtime Hermes

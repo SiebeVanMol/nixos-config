@@ -34,6 +34,7 @@
       ssh.enable = true;
     };
     app = {
+      ai.enable = true;
       amoeba.enable = true;
       steam.enable = true;
       gamemode.enable = true;

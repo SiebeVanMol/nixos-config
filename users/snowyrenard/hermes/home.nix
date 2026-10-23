@@ -11,9 +11,11 @@
 #
 # This was the user half of a `features/hermes/` pair until llama.cpp left: the
 # machine half ran a local judge server that the effort plugin posted to, and
-# this half read its port through `osConfig`. With the server and the plugin
-# gone the agent is single-sided - the user's own configuration, in the user's
-# own directory - and no `osConfig` is read here.
+# this half read its port through `osConfig`. The server is back, but as a plain
+# NixOS service (system/server/ai/default.nix) rather than a pair: the judge and
+# the plugin are still gone, the agent's default model is still DeepSeek, and
+# nothing here reads `osConfig` - the endpoint below is one literal that matches
+# that module's default port.
 #
 # The module runs in managed mode: `hermes setup` and `hermes config set` refuse
 # to run and name `home-manager switch` instead. The model is therefore declared
@@ -60,8 +62,8 @@ in {
     # endpoint (https://api.deepseek.com) and DEEPSEEK_API_KEY is the
     # credential, so no base_url is needed. deepseek-flash is the cheap agent
     # model; deepseek-v4-pro is the larger sibling. It stays the default model:
-    # this desktop shares its card with games, and nothing local is started to
-    # serve a turn.
+    # this desktop shares its card with games, and the local server that boots
+    # beside it is opt-in through the `local` alias below, not the default.
     settings = {
       model = {
         provider = "deepseek";
@@ -73,6 +75,23 @@ in {
       model_aliases.cloud = {
         model = "deepseek-flash";
         provider = "deepseek";
+      };
+
+      # The local 35B, one command away and never in the default path. Both keys
+      # are self-contained (provider + base_url, no credential), so selecting the
+      # alias does not depend on anything being read at startup - and a session
+      # that never selects it never dials the port.
+      #
+      # `llamacpp` is the provider id, not a second endpoint: it resolves to
+      # custom and takes base_url from here. Declaring it again matters because
+      # the merge keeps the sub-keys it is not given, and this entry already
+      # carries an endpoint from the old stack; this is the line that makes it
+      # point at the port system/server/ai/default.nix listens on.
+      providers.llamacpp.base_url = "http://127.0.0.1:8080/v1";
+
+      model_aliases.local = {
+        model = "qwen3.6-35b-a3b";
+        provider = "llamacpp";
       };
 
       # The context cap is absolute rather than relative, on purpose. The

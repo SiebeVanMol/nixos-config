@@ -4,6 +4,7 @@
 # not something driven by a desktop session.
 {
   imports = [
+    ./ai
     ./amoeba
     ./media
     ./minecraft
