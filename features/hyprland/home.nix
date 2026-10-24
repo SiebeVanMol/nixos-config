@@ -337,17 +337,34 @@
                       },
                       groupbar = {
                         enabled = true,
-                        height = 26,
-                        font_size = 11,
+                        height = 30,
+                        font_size = 12,
                         text_padding = 4,
                         -- Equal-width tabs. With the default `scrolling` the bar is
                         -- one sliding strip: the name ran to the right edge and the
                         -- split between windows was invisible, so a group looked like
                         -- a single window with a stray caption in the gap above it.
                         scrolling = false,
-                        -- Caelestia rounds its controls to the window corners, so the
-                        -- bar takes the same radius rather than Hyprland's 1px.
+                        -- The tab shape. `rounding` looks like the option for this and
+                        -- is not: on 0.56.2 setting it anywhere from 0 to 40 changes
+                        -- not one pixel of the bar (checked by diffing captures with
+                        -- the group rebuilt between them). The rounding that is actually
+                        -- drawn comes from `gradient_rounding`, which is why it has to
+                        -- be set even though the tabs carry a flat colour, and from
+                        -- `gradient_round_only_edges = false`, without which only the
+                        -- two ends of the whole bar round and the tabs stay square.
+                        -- Half the height is a capsule, which is the shape the shell's
+                        -- own pills have.
                         rounding = corner_radius,
+                        rounding_power = 1,
+                        gradients = true,
+                        gradient_rounding = 15,
+                        gradient_round_only_edges = false,
+                        -- Space between the tabs and around them, so each one reads as
+                        -- its own pill-in-a-gap against the window rather than as one
+                        -- continuous strip of colour.
+                        gaps_in = 6,
+                        gaps_out = 6,
                         -- Caelestia marks the selected tab by filling it; Hyprland's
                         -- own 3px underline would be a second, redundant marker.
                         indicator_height = 0,
