@@ -260,10 +260,39 @@
                   hl.bind(mod .. " + up",    hl.dsp.focus({ direction = "up" }))
                   hl.bind(mod .. " + down",  hl.dsp.focus({ direction = "down" }))
 
-                  hl.bind(mod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left" }))
-                  hl.bind(mod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right" }))
-                  hl.bind(mod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up" }))
-                  hl.bind(mod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down" }))
+                  -- `group_aware` keeps these four keys doing the plain move, but a window
+                  -- that lands beside a group joins it instead of sitting next to it -
+                  -- that is how a second tab is added (SUPER+SHIFT+arrow towards the
+                  -- group). Without it the only way into a group would be dragging onto
+                  -- the groupbar, which needs the groupbar to be hit precisely.
+                  hl.bind(mod .. " + SHIFT + left",  hl.dsp.window.move({ direction = "left",  group_aware = true }))
+                  hl.bind(mod .. " + SHIFT + right", hl.dsp.window.move({ direction = "right", group_aware = true }))
+                  hl.bind(mod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "up",    group_aware = true }))
+                  hl.bind(mod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "down",  group_aware = true }))
+
+                  -- Groups: several windows sharing one pane, one visible at a time
+                  -- (i3 calls it tabbed). The groupbar draws the tabs - without it a
+                  -- group is indistinguishable from a window that refuses to close,
+                  -- since only the frame and the border colour change.
+                  hl.config({
+                    group = {
+                      groupbar = {
+                        enabled = true,
+                      },
+                    },
+                  })
+
+                  -- Add and remove: SUPER+G gives the focused window a tabbed frame,
+                  -- SUPER+SHIFT+G takes it back out (`out_of_group` is directionless,
+                  -- so a group sitting in no particular direction still works).
+                  hl.bind(mod .. " + G",         hl.dsp.group.toggle())
+                  hl.bind(mod .. " + SHIFT + G", hl.dsp.window.move({ out_of_group = true }))
+
+                  -- Movement between the windows of a group on `<` and `>`, bound
+                  -- on the keys those glyphs sit on (comma and period) so no SHIFT
+                  -- is held: one hand stays on the modifier.
+                  hl.bind(mod .. " + comma",  hl.dsp.group.prev())
+                  hl.bind(mod .. " + period", hl.dsp.group.next())
 
                   for i = 1, 9 do
                     hl.bind(mod .. " + " .. i, hl.dsp.focus({ workspace = i }))
