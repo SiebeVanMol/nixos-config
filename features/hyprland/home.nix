@@ -136,6 +136,16 @@
                   local c1 = color1 or (ok and scheme.primary) or "ff3333"
                   local c2 = color5 or (ok and scheme.tertiary) or (ok and scheme.primary) or "ff00ff"
 
+                  -- The window border, used by `general.col` below and again by the
+                  -- group frame: one definition so a grouped window cannot drift from
+                  -- an ungrouped one.
+                  local border_active = { colors = {"rgb(" .. c1 .. ")", "rgb(" .. c2 .. ")"} }
+                  local border_inactive = "rgba(ffffffbb)"
+
+                  -- The window corner radius, reused by the groupbar tabs below so the
+                  -- bar cannot end up squarer than the window it sits on.
+                  local corner_radius = 10
+
                   hl.on("hyprland.start", function()
                     hl.exec_cmd("hyprctl setcursor Bibata-Modern-Classic 16")
                   end)
@@ -160,13 +170,21 @@
                       layout = "dwindle",
 
                       col = {
-                        active_border = { colors = {"rgb(" .. c1 .. ")", "rgb(" .. c2 .. ")"} },
-                        inactive_border = "rgba(ffffffbb)",
+                        active_border = border_active,
+                        inactive_border = border_inactive,
+                        -- A window barred from grouping (`hl.dsp.window.deny_from_group`)
+                        -- has a border colour of its own, and `general.col` does not
+                        -- reach it: Hyprland kept its default there, magenta, which
+                        -- was the last thing in the session painting outside the
+                        -- scheme. The second accent at two strengths keeps it
+                        -- recognisable without it reading as an error state.
+                        nogroup_border = "rgba(" .. c2 .. "99)",
+                        nogroup_border_active = "rgb(" .. c2 .. ")",
                       },
                     },
 
                     decoration = {
-                      rounding = 10,
+                      rounding = corner_radius,
 
                       shadow = {
                         enabled = true,
@@ -279,29 +297,44 @@
                   -- that size: 14px tall with an 8px face, in single quotes over a
                   -- 40% yellow wash that vanishes against a pale wallpaper. The tab
                   -- names were there and unreadable, which is a bar that may as well
-                  -- not be drawn. So: one line tall enough for 11px text, and opaque
-                  -- tabs whose colour comes from the wallpaper's scheme.
+                  -- not be drawn. So: one line tall enough for 11px text, and tabs
+                  -- painted the way Caelestia paints its own controls.
                   --
-                  -- Text colour is picked from each tab's luminance rather than fixed
-                  -- to white, because a scheme can be light (dark primary, white text)
-                  -- or dark (light primary, black text) and Hyprland does no contrast
-                  -- correction of its own.
-                  local function groupbar_tab(hex, factor)
-                    local n = tonumber(string.sub(hex, -6), 16) or 0x426371
-                    local r = math.floor(((n >> 16) & 0xff) * factor + 0.5)
-                    local g = math.floor(((n >> 8) & 0xff) * factor + 0.5)
-                    local b = math.floor((n & 0xff) * factor + 0.5)
-                    local argb = 0xff000000 + r * 0x10000 + g * 0x100 + b
-                    return argb, (0.2126 * r + 0.7152 * g + 0.0722 * b) > 140
+                  -- That recipe is two Material roles, not two invented colours: a
+                  -- selected control is filled with `primary` and writes on it with
+                  -- `onPrimary`, everything unselected sits on
+                  -- `surfaceContainerHighest` in `onSurfaceVariant` (StyledSwitch and
+                  -- the dashboard TabBar do exactly this). Reading the same roles
+                  -- keeps the bar inside the theme whatever wallpaper produces the
+                  -- scheme, light or dark, and guarantees the text contrast instead of
+                  -- guessing at a luminance threshold.
+                  local function role(name, fallback)
+                    local value = ok and scheme[name]
+                    return (type(value) == "string" and value or fallback)
                   end
-
-                  -- The active tab is the scheme's primary; the rest are the same hue
-                  -- at 55% brightness, so the group reads as one bar with one lit tab.
-                  local tab_active, tab_active_light = groupbar_tab(c1, 1.0)
-                  local tab_inactive, tab_inactive_light = groupbar_tab(c1, 0.55)
+                  -- Caelestia's surfaces are translucent by default and blurred
+                  -- behind; `ee` over Hyprland's groupbar blur is the same look on a
+                  -- 26px strip.
+                  local tab_active = "rgba(" .. role("primary", "abcbde") .. "ee)"
+                  local tab_active_text = "rgb(" .. role("onPrimary", "000000") .. ")"
+                  local tab_inactive = "rgba(" .. role("surfaceContainerHigh", "1a1a1a") .. "ee)"
+                  local tab_inactive_text = "rgb(" .. role("onSurfaceVariant", "ffffff") .. ")"
 
                   hl.config({
                     group = {
+                      -- The frame around a group is coloured by `group.col`, which
+                      -- `general.col` does not fill in: left alone, a grouped window
+                      -- carried Hyprland's translucent yellow border instead of the
+                      -- scheme's, so grouping one window made its own frame change
+                      -- colour. The locked variants are the same colours on purpose -
+                      -- a lock is what the group refuses to accept, not a state worth
+                      -- a different hue.
+                      col = {
+                        border_active = border_active,
+                        border_inactive = border_inactive,
+                        border_locked_active = border_active,
+                        border_locked_inactive = border_inactive,
+                      },
                       groupbar = {
                         enabled = true,
                         height = 26,
@@ -312,12 +345,22 @@
                         -- split between windows was invisible, so a group looked like
                         -- a single window with a stray caption in the gap above it.
                         scrolling = false,
+                        -- Caelestia rounds its controls to the window corners, so the
+                        -- bar takes the same radius rather than Hyprland's 1px.
+                        rounding = corner_radius,
+                        -- Caelestia marks the selected tab by filling it; Hyprland's
+                        -- own 3px underline would be a second, redundant marker.
+                        indicator_height = 0,
+                        -- The blur Caelestia puts behind a translucent surface.
+                        blur = true,
                         col = {
                           active = tab_active,
                           inactive = tab_inactive,
+                          locked_active = tab_active,
+                          locked_inactive = tab_inactive,
                         },
-                        text_color = tab_active_light and 0xff000000 or 0xffffffff,
-                        text_color_inactive = tab_inactive_light and 0xff000000 or 0xffffffff,
+                        text_color = tab_active_text,
+                        text_color_inactive = tab_inactive_text,
                       },
                     },
                   })
