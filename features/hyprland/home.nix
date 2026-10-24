@@ -394,6 +394,22 @@
                   hl.bind(mod .. " + comma",  hl.dsp.group.prev())
                   hl.bind(mod .. " + period", hl.dsp.group.next())
 
+                  -- Reordering the tabs themselves on SUPER+SHIFT+`<` / `>`.
+                  -- `group.move_window` swaps the focused tab with the one after it
+                  -- and ignores whatever argument it is given (checked with every
+                  -- shape of true/false/1/-1/"prev": all of them advance, verified
+                  -- by diffing the bar), so there is no "backwards" call to bind.
+                  -- Moving a tab earlier is therefore the same swap made from the
+                  -- neighbour: activate the tab before it, swap that one forward —
+                  -- which exchanges the two — then hand the focus back, since the
+                  -- swap leaves it on the tab that was moved.
+                  hl.bind(mod .. " + SHIFT + greater", hl.dsp.group.move_window(true))
+                  hl.bind(mod .. " + SHIFT + less", function()
+                    hl.dispatch(hl.dsp.group.prev())
+                    hl.dispatch(hl.dsp.group.move_window(true))
+                    hl.dispatch(hl.dsp.group.prev())
+                  end)
+
                   for i = 1, 9 do
                     hl.bind(mod .. " + " .. i, hl.dsp.focus({ workspace = i }))
                     hl.bind(mod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
