@@ -274,10 +274,50 @@
                   -- (i3 calls it tabbed). The groupbar draws the tabs - without it a
                   -- group is indistinguishable from a window that refuses to close,
                   -- since only the frame and the border colour change.
+                  --
+                  -- The bar is one text line wide, and its defaults are unusable at
+                  -- that size: 14px tall with an 8px face, in single quotes over a
+                  -- 40% yellow wash that vanishes against a pale wallpaper. The tab
+                  -- names were there and unreadable, which is a bar that may as well
+                  -- not be drawn. So: one line tall enough for 11px text, and opaque
+                  -- tabs whose colour comes from the wallpaper's scheme.
+                  --
+                  -- Text colour is picked from each tab's luminance rather than fixed
+                  -- to white, because a scheme can be light (dark primary, white text)
+                  -- or dark (light primary, black text) and Hyprland does no contrast
+                  -- correction of its own.
+                  local function groupbar_tab(hex, factor)
+                    local n = tonumber(string.sub(hex, -6), 16) or 0x426371
+                    local r = math.floor(((n >> 16) & 0xff) * factor + 0.5)
+                    local g = math.floor(((n >> 8) & 0xff) * factor + 0.5)
+                    local b = math.floor((n & 0xff) * factor + 0.5)
+                    local argb = 0xff000000 + r * 0x10000 + g * 0x100 + b
+                    return argb, (0.2126 * r + 0.7152 * g + 0.0722 * b) > 140
+                  end
+
+                  -- The active tab is the scheme's primary; the rest are the same hue
+                  -- at 55% brightness, so the group reads as one bar with one lit tab.
+                  local tab_active, tab_active_light = groupbar_tab(c1, 1.0)
+                  local tab_inactive, tab_inactive_light = groupbar_tab(c1, 0.55)
+
                   hl.config({
                     group = {
                       groupbar = {
                         enabled = true,
+                        height = 26,
+                        font_size = 11,
+                        text_padding = 4,
+                        -- Equal-width tabs. With the default `scrolling` the bar is
+                        -- one sliding strip: the name ran to the right edge and the
+                        -- split between windows was invisible, so a group looked like
+                        -- a single window with a stray caption in the gap above it.
+                        scrolling = false,
+                        col = {
+                          active = tab_active,
+                          inactive = tab_inactive,
+                        },
+                        text_color = tab_active_light and 0xff000000 or 0xffffffff,
+                        text_color_inactive = tab_inactive_light and 0xff000000 or 0xffffffff,
                       },
                     },
                   })
